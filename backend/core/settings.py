@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta # Importamos timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     # Dependencias de terceros
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt', # Añadido para autenticación JWT
 
     # Mis aplicaciones locales
     'api',
@@ -58,11 +60,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Orígenes permitidos (tu app de React en desarrollo)
+# Orígenes permitidos para el frontend (asegúrate de que el puerto sea el correcto)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "http://localhost:5173", # Puerto por defecto de Vite
+    "http://127.0.0.1:5173",
 ]
+
 
 ROOT_URLCONF = 'core.urls'
 
@@ -135,3 +138,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- Custom Settings ---
+
+# 1. Modelo de Usuario Personalizado
+# Le decimos a Django que use nuestro modelo personalizado en lugar del por defecto.
+AUTH_USER_MODEL = 'api.CustomUser'
+
+# 2. Configuración de Django REST Framework
+# Definimos la autenticación por defecto para que sea a través de JWT.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+# 3. Configuración de Simple JWT
+# Personalizamos la duración de los tokens.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
