@@ -58,8 +58,9 @@ const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    // ✅ PASO 1: Creamos un nuevo estado para almacenar el filtro de estatus seleccionado.
+    // ✅ ESTADOS PARA AMBOS FILTROS
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [selectedStage, setSelectedStage] = useState<string | null>(null);
 
 
     useEffect(() => {
@@ -99,21 +100,21 @@ const Dashboard: React.FC = () => {
         navigate('/login');
     };
 
-    // ✅ PASO 2: Creamos la función que manejará el clic en la leyenda.
     const handleStatusFilterClick = (statusName: string) => {
-        // Si hacemos clic en el filtro que ya está activo, lo quitamos.
-        if (selectedStatus === statusName) {
-            setSelectedStatus(null);
-        } else {
-            // Si no, establecemos el nuevo filtro.
-            setSelectedStatus(statusName);
-        }
+        setSelectedStatus(prev => prev === statusName ? null : statusName);
     };
 
-    // ✅ PASO 3: Filtramos la lista de procesos ANTES de renderizarla.
-    const filteredProcesses = selectedStatus
-        ? processes.filter(process => process.status?.name === selectedStatus)
-        : processes; // Si no hay filtro, mostramos todos los procesos.
+    // ✅ NUEVA FUNCIÓN PARA MANEJAR EL FILTRO DE ETAPA (Área de Conocimiento)
+    const handleStageFilterClick = (stageName: string) => {
+        setSelectedStage(prev => prev === stageName ? null : stageName);
+    };
+
+    // ✅ LÓGICA DE FILTRADO ACTUALIZADA PARA COMBINAR AMBOS FILTROS
+    const filteredProcesses = processes.filter(process => {
+        const statusMatch = selectedStatus ? process.status?.name === selectedStatus : true;
+        const stageMatch = selectedStage ? process.stage?.name?.startsWith(selectedStage) : true;
+        return statusMatch && stageMatch;
+    });
 
 
     if (loading) {
@@ -146,14 +147,17 @@ const Dashboard: React.FC = () => {
                     
                     <div className="bg-white p-6 rounded-lg shadow-md mb-12">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg text-gray-700">Leyenda de Colores</h3>
-                            {/* Botón para limpiar el filtro si hay uno activo */}
-                            {selectedStatus && (
+                            <h3 className="font-bold text-lg text-gray-700">Leyenda y Filtros</h3>
+                            {/* ✅ BOTÓN UNIFICADO PARA LIMPIAR TODOS LOS FILTROS */}
+                            {(selectedStatus || selectedStage) && (
                                 <button
-                                    onClick={() => setSelectedStatus(null)}
+                                    onClick={() => {
+                                        setSelectedStatus(null);
+                                        setSelectedStage(null);
+                                    }}
                                     className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-full transition duration-200"
                                 >
-                                    Limpiar Filtro
+                                    Limpiar Filtros
                                 </button>
                             )}
                         </div>
@@ -162,13 +166,12 @@ const Dashboard: React.FC = () => {
                                 <h4 className="font-semibold text-gray-600 mb-3">Estatus de Aplicabilidad</h4>
                                 <div className="space-y-2">
                                     {statusLegendData.map(item => (
-                                        // ✅ PASO 4: Hacemos que cada item de la leyenda sea clicable.
                                         <div 
                                             key={item.name} 
                                             className="flex items-center cursor-pointer group"
                                             onClick={() => handleStatusFilterClick(item.name)}
                                         >
-                                            <span className={`w-5 h-5 rounded-full mr-3 transition-transform duration-200 ${selectedStatus === item.name ? 'ring-2 ring-offset-2 ring-blue-500' : ''} ${item.color}`}></span>
+                                            <span className={`w-5 h-5 rounded-full mr-3 transition-all duration-200 ${selectedStatus === item.name ? 'ring-2 ring-offset-2 ring-blue-500' : ''} ${item.color}`}></span>
                                             <span className="text-sm group-hover:text-blue-600"><strong>{item.name}:</strong> {item.description}</span>
                                         </div>
                                     ))}
@@ -177,17 +180,22 @@ const Dashboard: React.FC = () => {
                             <div>
                                 <h4 className="font-semibold text-gray-600 mb-3">Área de Conocimiento</h4>
                                 <div className="flex flex-wrap gap-2">
-                                        {stageLegendData.map(item => (
-                                            <div key={item.name} className={`flex items-center px-2 py-1 rounded-full text-xs ${item.color}`}>
-                                                {item.name}
-                                            </div>
-                                        ))}
+                                    {/* ✅ LEYENDA DE ETAPAS AHORA ES CLICABLE Y CON EFECTO VISUAL */}
+                                    {stageLegendData.map(item => (
+                                        <div 
+                                            key={item.name} 
+                                            className={`flex items-center px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-200 ${item.color} ${selectedStage === item.name ? 'ring-2 ring-blue-500' : 'hover:opacity-80'}`}
+                                            onClick={() => handleStageFilterClick(item.name)}
+                                        >
+                                            {item.name}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    {/* ✅ PASO 5: Usamos la nueva lista 'filteredProcesses' para el renderizado. */}
+                    {/* El grid de procesos ahora usa la lista doblemente filtrada */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
                         {filteredProcesses.map((process) => (
                             <div key={process.id} className="bg-white rounded-lg shadow-lg flex flex-col transform hover:-translate-y-1 transition-transform duration-300">
@@ -235,3 +243,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
