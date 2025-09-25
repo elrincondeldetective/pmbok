@@ -1,6 +1,7 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-from .models import Task, CustomUser, PMBOKProcess, ProcessState # Importar nuevos modelos
+# CAMBIO 1: Importar modelos actualizados
+from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage
 from django.contrib.auth.password_validation import validate_password
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -36,22 +37,31 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-# --- NUEVO: Serializers para los nuevos modelos ---
-class ProcessStateSerializer(serializers.ModelSerializer):
+# CAMBIO 2: Renombrar a ProcessStatusSerializer
+class ProcessStatusSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProcessState
+        model = ProcessStatus
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
+# CAMBIO 3: Crear el nuevo ProcessStageSerializer
+class ProcessStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessStage
+        fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
+# CAMBIO 4: Actualizar PMBOKProcessSerializer
 class PMBOKProcessSerializer(serializers.ModelSerializer):
-    state = ProcessStateSerializer(read_only=True) # Serializador anidado
+    status = ProcessStatusSerializer(read_only=True) # Renombrar 'state' a 'status'
+    stage = ProcessStageSerializer(read_only=True)  # Añadir el serializador para 'stage'
 
     class Meta:
         model = PMBOKProcess
-        # --- CAMPOS ACTUALIZADOS ---
-        fields = ('id', 'process_number', 'name', 'state', 'inputs', 'tools_and_techniques', 'outputs')
-        # -----------------------------
+        # Añadir 'stage' y renombrar 'state'
+        fields = ('id', 'process_number', 'name', 'status', 'stage', 'inputs', 'tools_and_techniques', 'outputs')
 
 
+
+# TaskSerializer (Sin cambios)
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task

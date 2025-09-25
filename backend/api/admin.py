@@ -1,7 +1,8 @@
 # backend/api/admin.py
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Task, ProcessState, PMBOKProcess # Importar nuevos modelos
+# CAMBIO 1: Importar los modelos con sus nuevos nombres y el nuevo modelo
+from .models import CustomUser, Task, ProcessStatus, ProcessStage, PMBOKProcess
 
 # Configuramos cómo se verá nuestro modelo CustomUser en el panel de admin.
 class CustomUserAdmin(UserAdmin):
@@ -19,20 +20,24 @@ class CustomUserAdmin(UserAdmin):
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
 
-# --- NUEVO: Configuración para el Admin de los nuevos modelos ---
-@admin.register(ProcessState)
-class ProcessStateAdmin(admin.ModelAdmin):
+# CAMBIO 2: Renombrar ProcessStateAdmin a ProcessStatusAdmin
+@admin.register(ProcessStatus)
+class ProcessStatusAdmin(admin.ModelAdmin):
     list_display = ('name', 'tailwind_bg_color', 'tailwind_text_color', 'description')
 
+# CAMBIO 3: Registrar el nuevo modelo ProcessStage
+@admin.register(ProcessStage)
+class ProcessStageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
+# CAMBIO 4: Actualizar PMBOKProcessAdmin para incluir la etapa
 @admin.register(PMBOKProcess)
 class PMBOKProcessAdmin(admin.ModelAdmin):
-    list_display = ('process_number', 'name', 'state')
-    list_filter = ('state',)
+    list_display = ('process_number', 'name', 'status', 'stage') # Añadir 'stage'
+    list_filter = ('status', 'stage',) # Añadir 'stage'
     search_fields = ('name', 'process_number')
-    list_editable = ('state',) # Permite editar el estado directamente desde la lista
+    list_editable = ('status', 'stage',) # Añadir 'stage' para editar en la lista
 
-
-# Registramos los modelos.
+# Registros finales
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Task)
-

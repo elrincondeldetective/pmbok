@@ -2,6 +2,7 @@
 from rest_framework import viewsets, generics, permissions
 # Actualizar imports
 from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer 
+# CAMBIO 1: Importar modelos actualizados
 from .models import Task, CustomUser, PMBOKProcess
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
@@ -14,14 +15,15 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,) # Cualquiera puede registrarse
     serializer_class = UserRegistrationSerializer
 
-# --- NUEVO: ViewSet para los Procesos PMBOK ---
+# PMBOKProcessViewSet (ACTUALIZADO)
 class PMBOKProcessViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint que permite ver los procesos del PMBOK.
     """
-    queryset = PMBOKProcess.objects.select_related('state').all()
+    # CAMBIO 2: Actualizar la consulta para incluir 'status' y 'stage'
+    queryset = PMBOKProcess.objects.select_related('status', 'stage').all()
     serializer_class = PMBOKProcessSerializer
-    permission_classes = [permissions.IsAuthenticated] # Solo para usuarios autenticados
+    permission_classes = [permissions.IsAuthenticated]
 
 # --- Vista para las Tareas (existente) ---
 class TaskViewSet(viewsets.ModelViewSet):

@@ -1,21 +1,30 @@
 // frontend/src/components/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient'; // Usamos el apiClient configurado
+import apiClient from '../api/apiClient.ts'; // Usamos el apiClient configurado
 
-// --- INTERFAZ ACTUALIZADA ---
-// Añadimos los nuevos campos que vendrán desde la API
-interface IProcessState {
+// --- INTERFACES ACTUALIZADAS ---
+// 1. Renombramos la interfaz para mayor claridad
+interface IProcessStatus {
     name: string;
     tailwind_bg_color: string;
     tailwind_text_color: string;
 }
 
+// 2. Nueva interfaz para las etapas
+interface IProcessStage {
+    name: string;
+    tailwind_bg_color: string;
+    tailwind_text_color: string;
+}
+
+// 3. Interfaz principal del proceso actualizada
 interface IProcess {
     id: number;
     process_number: number;
     name: string;
-    state: IProcessState | null;
+    status: IProcessStatus | null; // Renombrado de 'state' a 'status'
+    stage: IProcessStage | null;   // Nuevo campo para la etapa
     inputs: string;
     tools_and_techniques: string;
     outputs: string;
@@ -33,7 +42,6 @@ const Dashboard: React.FC = () => {
 
         const fetchProcesses = async () => {
             try {
-                // Usamos apiClient que ya gestiona el token y su refresco
                 const response = await apiClient.get('/pmbok-processes/', {
                     signal: controller.signal
                 });
@@ -44,8 +52,6 @@ const Dashboard: React.FC = () => {
                 } else {
                     console.error("Error fetching processes:", err);
                     setError("Tu sesión puede haber expirado o hay un problema de red. Por favor, intenta iniciar sesión de nuevo.");
-                    // El interceptor en apiClient ya debería redirigir si el token falla,
-                    // pero podemos forzarlo como respaldo.
                     navigate('/login');
                 }
             } finally {
@@ -99,13 +105,13 @@ const Dashboard: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
                         {processes.map((process) => (
                             <div key={process.id} className="bg-white rounded-lg shadow-lg flex flex-col transform hover:-translate-y-1 transition-transform duration-300">
+                                {/* El color del header viene del 'status' (antes state) */}
                                 <div 
-                                    className={`p-4 rounded-t-lg ${process.state ? `${process.state.tailwind_bg_color} ${process.state.tailwind_text_color}` : 'bg-gray-500 text-white'}`}
+                                    className={`p-4 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}
                                 >
                                     <h2 className="font-bold text-lg">{process.process_number}. {process.name}</h2>
                                 </div>
                                 
-                                {/* --- SECCIÓN DE DETALLES AÑADIDA --- */}
                                 <div className="p-6 flex-grow space-y-4">
                                     {/* Entradas */}
                                     <div>
@@ -131,11 +137,11 @@ const Dashboard: React.FC = () => {
                                         </ul>
                                     </div>
                                 </div>
-                                {/* ------------------------------------ */}
                                 
-                                <div className="bg-gray-50 border-t border-gray-200 p-4 rounded-b-lg mt-auto">
-                                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                        Estado: <span className="font-semibold">{process.state ? process.state.name : 'No definido'}</span>
+                                {/* El footer ahora muestra la 'stage' y usa sus colores */}
+                                <div className={`border-t p-4 rounded-b-lg mt-auto text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
+                                    <p className="text-xs font-bold uppercase tracking-wider">
+                                        {process.stage ? process.stage.name : 'Etapa no definida'}
                                     </p>
                                 </div>
                             </div>
@@ -148,3 +154,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+

@@ -58,8 +58,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-# --- NUEVO: Modelo para los Estados de los Procesos ---
-class ProcessState(models.Model):
+# --- Modelo para los ESTADOS -> Ahora ESTATUS ---
+# CAMBIO 1: Renombramos el modelo para mayor claridad
+class ProcessStatus(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
     description = models.TextField(blank=True)
     tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-500', help_text="Clase de Tailwind para el color de fondo. Ej: bg-indigo-800")
@@ -67,23 +68,36 @@ class ProcessState(models.Model):
 
     def __str__(self):
         return self.name
+    
+# --- NUEVO: Modelo para las ETAPAS de los Procesos ---
+class ProcessStage(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Integración (Inicio), Alcance (Planeación)")
+    tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-gray-200")
+    tailwind_text_color = models.CharField(max_length=50, default='text-gray-600', help_text="Clase de Tailwind para el texto del footer. Ej: text-gray-800")
+    
+    def __str__(self):
+        return self.name
 
-# --- NUEVO: Modelo para los Procesos del PMBOK ---
+# --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
 class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
-    state = models.ForeignKey(ProcessState, on_delete=models.SET_NULL, null=True, related_name='processes')
     
-    # --- CAMPOS AÑADIDOS ---
-    # Usamos TextField para permitir múltiples líneas (una por ítem)
+    # CAMBIO 2: Renombramos el campo 'state' a 'status'
+    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    
+    # CAMBIO 3: Añadimos la relación con la nueva Etapa
+    stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    
     inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
     tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
     outputs = models.TextField(blank=True, help_text="Lista de salidas, separadas por saltos de línea.")
-    # -------------------------
 
     class Meta:
         ordering = ['process_number']
 
+    def __str__(self):
+        return f"{self.process_number}. {self.name}"
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
