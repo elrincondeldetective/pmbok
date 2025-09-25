@@ -1,7 +1,7 @@
 // frontend/src/components/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from 'axios'; // Importante: axios debe estar importado para el manejo de errores
 
 // Definimos los tipos de datos que esperamos de la API
 interface IProcessState {
@@ -24,29 +24,63 @@ const Dashboard: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        // 1. AbortController para cancelar la petición si el componente se desmonta
+        const controller = new AbortController();
+
         const fetchProcesses = async () => {
             try {
                 const token = localStorage.getItem('access_token');
                 if (!token) {
                     navigate('/login');
-                    return;
+                    return; // Termina la ejecución si no hay token
                 }
 
                 const response = await axios.get('http://127.0.0.1:8000/api/pmbok-processes/', {
                     headers: {
                         'Authorization': `Bearer ${token}`
-                    }
+                    },
+                    signal: controller.signal // 2. Asociamos el AbortController a la petición
                 });
+                
                 setProcesses(response.data);
+
             } catch (err) {
-                console.error("Error fetching processes:", err);
-                setError("No se pudieron cargar los procesos. Intenta recargar la página.");
+                if (axios.isCancel(err)) {
+                    // Si el error es por cancelación, no hacemos nada.
+                    console.log('Request canceled:', err.message);
+                } else if (axios.isAxiosError(err)) {
+                    // 3. Manejo de errores más específico
+                    console.error("Error fetching processes:", err);
+                    if (err.response && err.response.status === 401) {
+                        // Si el token es inválido o expiró, limpiamos los tokens y redirigimos al login
+                        setError("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.");
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('refresh_token');
+                        navigate('/login');
+                    } else {
+                        setError("No se pudieron cargar los procesos. Intenta recargar la página.");
+                    }
+                } else {
+                    // Para errores no relacionados con Axios
+                    console.error("An unexpected error occurred:", err);
+                    setError("Ocurrió un error inesperado.");
+                }
             } finally {
-                setLoading(false);
+                // 4. Solo cambiar loading si no fue cancelado
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchProcesses();
+
+        // 5. Función de limpieza
+        // Se ejecuta cuando el componente se desmonta para cancelar la petición en curso.
+        return () => {
+            controller.abort();
+        };
+
     }, [navigate]);
 
     const handleLogout = () => {
@@ -79,7 +113,7 @@ const Dashboard: React.FC = () => {
             <main>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                      <header className="mb-8 text-center">
-                        <h1 className="text-2xl font-bold text-gray-800">Guía PMBOK 6ª Edición - 49 Procesos en un Entorno Ágil</h1>
+                         <h1 className="text-2xl font-bold text-gray-800">Guía PMBOK 6ª Edición - 49 Procesos en un Entorno Ágil</h1>
                      </header>
                     
                     {/* Grid dinámico para las tarjetas */}
@@ -92,13 +126,11 @@ const Dashboard: React.FC = () => {
                                     <h2 className="font-bold text-lg">{process.process_number}. {process.name}</h2>
                                 </div>
                                 <div className="p-6 flex-grow">
-                                    {/* Aquí podrías agregar más detalles si los tuvieras en el modelo, como Entradas, Herramientas, etc. */}
                                     <p className="text-sm text-gray-600">
-                                       Estado: <span className="font-semibold">{process.state ? process.state.name : 'No definido'}</span>
+                                        Estado: <span className="font-semibold">{process.state ? process.state.name : 'No definido'}</span>
                                     </p>
                                 </div>
                                 <div className="bg-gray-50 border-t border-gray-200 p-4 rounded-b-lg">
-                                    {/* Aquí podrías mostrar el área de conocimiento si la añades al modelo */}
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Detalles del Proceso</p>
                                 </div>
                             </div>

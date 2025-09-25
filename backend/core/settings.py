@@ -66,6 +66,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+# --- AÑADE ESTO ---
+# Permitimos explícitamente las cabeceras que el frontend enviará
+CORS_ALLOW_HEADERS = [
+    'content-type',
+    'authorization',
+]
+# -------------------
+
+
 
 ROOT_URLCONF = 'core.urls'
 

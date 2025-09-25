@@ -1,7 +1,7 @@
 // frontend/src/components/LoginPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/apiClient'; // 👈 CAMBIO 1: Importamos apiClient en lugar de axios
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -14,7 +14,8 @@ const LoginPage: React.FC = () => {
         setError('');
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/token/', {
+            // 👇 CAMBIO 2: Usamos apiClient y quitamos la URL base.
+            const response = await apiClient.post('/token/', {
                 email,
                 password,
             });
@@ -79,4 +80,3 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-

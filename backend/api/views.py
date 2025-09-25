@@ -3,6 +3,7 @@ from rest_framework import viewsets, generics, permissions
 # Actualizar imports
 from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer 
 from .models import Task, CustomUser, PMBOKProcess
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 # --- Vista para el Registro de Usuarios ---
 class RegisterView(generics.CreateAPIView):

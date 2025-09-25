@@ -1,7 +1,8 @@
 // frontend/src/components/RegisterPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/apiClient'; // 👈 CAMBIO 1: Importamos apiClient en lugar de axios
+import { AxiosError } from 'axios'; // Importamos AxiosError para un tipado más seguro
 
 const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -28,7 +29,8 @@ const RegisterPage: React.FC = () => {
         }
 
         try {
-            await axios.post('http://127.0.0.1:8000/api/register/', {
+            // 👇 CAMBIO 2: Usamos apiClient y quitamos la URL base.
+            await apiClient.post('/register/', {
                 email: formData.email,
                 first_name: formData.first_name,
                 last_name: formData.last_name,
@@ -38,14 +40,19 @@ const RegisterPage: React.FC = () => {
             // Si el registro es exitoso, redirigimos al login
             navigate('/login');
 
-        } catch (err: any) {
-            if (err.response && err.response.data) {
-                // Muestra el primer error que envíe la API
-                const apiErrors = err.response.data;
+        } catch (err) {
+            const error = err as AxiosError<{[key: string]: string[]}>; // Tipado para el error de la API
+            if (error.response && error.response.data) {
+                // Muestra el primer error que envíe la API de forma más segura
+                const apiErrors = error.response.data;
                 const firstErrorKey = Object.keys(apiErrors)[0];
-                setError(apiErrors[firstErrorKey][0]);
+                if (firstErrorKey && apiErrors[firstErrorKey].length > 0) {
+                    setError(apiErrors[firstErrorKey][0]);
+                } else {
+                    setError('Ocurrió un error durante el registro.');
+                }
             } else {
-                 setError('Ocurrió un error durante el registro.');
+                 setError('Ocurrió un error de red o del servidor.');
             }
             console.error(err);
         }
@@ -85,4 +92,3 @@ const RegisterPage: React.FC = () => {
 };
 
 export default RegisterPage;
-
