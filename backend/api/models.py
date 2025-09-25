@@ -73,7 +73,13 @@ class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     state = models.ForeignKey(ProcessState, on_delete=models.SET_NULL, null=True, related_name='processes')
-    # Puedes agregar más campos si lo necesitas, como 'knowledge_area', 'process_group', etc.
+    
+    # --- CAMPOS AÑADIDOS ---
+    # Usamos TextField para permitir múltiples líneas (una por ítem)
+    inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
+    tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
+    outputs = models.TextField(blank=True, help_text="Lista de salidas, separadas por saltos de línea.")
+    # -------------------------
 
     class Meta:
         ordering = ['process_number']

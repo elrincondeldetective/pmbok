@@ -47,7 +47,9 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PMBOKProcess
-        fields = ('id', 'process_number', 'name', 'state')
+        # --- CAMPOS ACTUALIZADOS ---
+        fields = ('id', 'process_number', 'name', 'state', 'inputs', 'tools_and_techniques', 'outputs')
+        # -----------------------------
 
 
 class TaskSerializer(serializers.ModelSerializer):
