@@ -1,6 +1,6 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-from .models import Task, CustomUser
+from .models import Task, CustomUser, PMBOKProcess, ProcessState # Importar nuevos modelos
 from django.contrib.auth.password_validation import validate_password
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -35,6 +35,19 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
+
+# --- NUEVO: Serializers para los nuevos modelos ---
+class ProcessStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessState
+        fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
+class PMBOKProcessSerializer(serializers.ModelSerializer):
+    state = ProcessStateSerializer(read_only=True) # Serializador anidado
+
+    class Meta:
+        model = PMBOKProcess
+        fields = ('id', 'process_number', 'name', 'state')
 
 
 class TaskSerializer(serializers.ModelSerializer):

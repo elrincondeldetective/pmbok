@@ -57,7 +57,29 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+# --- NUEVO: Modelo para los Estados de los Procesos ---
+class ProcessState(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
+    description = models.TextField(blank=True)
+    tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-500', help_text="Clase de Tailwind para el color de fondo. Ej: bg-indigo-800")
+    tailwind_text_color = models.CharField(max_length=50, default='text-white', help_text="Clase de Tailwind para el color del texto. Ej: text-white")
 
+    def __str__(self):
+        return self.name
+
+# --- NUEVO: Modelo para los Procesos del PMBOK ---
+class PMBOKProcess(models.Model):
+    process_number = models.IntegerField(unique=True)
+    name = models.CharField(max_length=255)
+    state = models.ForeignKey(ProcessState, on_delete=models.SET_NULL, null=True, related_name='processes')
+    # Puedes agregar más campos si lo necesitas, como 'knowledge_area', 'process_group', etc.
+
+    class Meta:
+        ordering = ['process_number']
+
+    def __str__(self):
+        return f"{self.process_number}. {self.name}"
 
 # --- Modelo de Tareas (existente) ---
 class Task(models.Model):
