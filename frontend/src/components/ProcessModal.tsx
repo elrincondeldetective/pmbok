@@ -1,8 +1,19 @@
 // frontend/src/components/ProcessModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // 👈 useContext AÑADIDO
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { IProcess } from '../types/process';
+import type { IProcess, KanbanStatus } from '../types/process';
+import { ProcessContext } from '../context/ProcessContext'; // 👈 CONTEXTO IMPORTADO
+
+const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
+    { value: 'unassigned', label: 'No Asignado' },
+    { value: 'backlog', label: 'Pendiente' },
+    { value: 'todo', label: 'Por Hacer' },
+    { value: 'in_progress', label: 'En Progreso' },
+    { value: 'in_review', label: 'En Revisión' },
+    { value: 'done', label: 'Hecho' },
+];
+
 
 const ProcessModal: React.FC = () => {
     const { processId } = useParams<{ processId: string }>();
@@ -10,6 +21,9 @@ const ProcessModal: React.FC = () => {
     const [process, setProcess] = useState<IProcess | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // 👇 Obtenemos la función para actualizar el estado global
+    const { updateProcessInState } = useContext(ProcessContext);
 
     useEffect(() => {
         if (!processId) return;
@@ -35,12 +49,36 @@ const ProcessModal: React.FC = () => {
         fetchProcess();
         return () => controller.abort();
     }, [processId]);
+    
+    // 👇 NUEVA FUNCIÓN para manejar el cambio de estado Kanban
+    const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newStatus = e.target.value as KanbanStatus;
+        if (!process) return;
 
-    const handleClose = () => {
-        navigate(-1); // Vuelve a la ubicación anterior (el dashboard)
+        // Actualizamos visualmente el estado local de inmediato para una mejor UX
+        const oldProcess = { ...process };
+        setProcess({ ...process, kanban_status: newStatus });
+
+        try {
+            const response = await apiClient.patch<IProcess>(`/pmbok-processes/${processId}/update-kanban-status/`, {
+                kanban_status: newStatus
+            });
+            // Sincronizamos el estado global y local con la respuesta final de la API
+            updateProcessInState(response.data.id, response.data);
+            setProcess(response.data);
+        } catch (error) {
+            console.error("Error al actualizar el estado Kanban:", error);
+            // Si falla la API, revertimos el cambio en la UI y mostramos un error
+            setProcess(oldProcess);
+            alert("No se pudo actualizar el estado. Por favor, inténtalo de nuevo.");
+        }
     };
 
-    // Función para renderizar las listas de Entradas, Herramientas y Salidas
+
+    const handleClose = () => {
+        navigate(-1);
+    };
+
     const renderList = (title: string, items: string | undefined) => {
         if (!items) return null;
         return (
@@ -52,17 +90,15 @@ const ProcessModal: React.FC = () => {
             </div>
         );
     }
-    
+
     return (
-        <div 
-            // ----- CORRECCIÓN 1: Fondo del modal -----
-            // Se cambió 'bg-black bg-opacity-50' por 'bg-gray-900/20' para un efecto más suave y translúcido.
+        <div
             className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-40 flex justify-center items-center p-4 animate-fade-in"
-            onClick={handleClose} // Cierra el modal al hacer clic en el fondo
+            onClick={handleClose}
         >
-            <div 
+            <div
                 className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-transform duration-300 scale-95 animate-scale-in"
-                onClick={(e) => e.stopPropagation()} // Evita que el modal se cierre al hacer clic dentro de él
+                onClick={(e) => e.stopPropagation()}
             >
                 {loading && (
                     <div className="flex items-center justify-center h-48">
@@ -75,21 +111,36 @@ const ProcessModal: React.FC = () => {
                         <button onClick={handleClose} className="mt-4 bg-gray-200 text-gray-800 px-4 py-2 rounded-md">Cerrar</button>
                     </div>
                 )}
-                
+
                 {process && (
                     <>
-                        {/* Cabecera del Modal */}
-                        <div className={`p-6 rounded-t-xl flex justify-between items-center ${process.status?.tailwind_bg_color || 'bg-gray-700'} ${process.status?.tailwind_text_color || 'text-white'}`}>
-                            <div>
-                                <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
-                                {process.stage && <p className={`text-sm opacity-90 mt-1`}>{process.stage.name}</p>}
+                        {/* 👇 CABECERA DEL MODAL ACTUALIZADA */}
+                        <div className={`p-6 rounded-t-xl ${process.status?.tailwind_bg_color || 'bg-gray-700'} ${process.status?.tailwind_text_color || 'text-white'}`}>
+                            <div className="flex justify-between items-start gap-4">
+                                <div className="flex-grow">
+                                    <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
+                                    {process.stage && <p className={`text-sm opacity-90 mt-1`}>{process.stage.name}</p>}
+                                </div>
+                                <div className="flex-shrink-0 flex items-center gap-4">
+                                    <select
+                                        value={process.kanban_status}
+                                        onChange={handleKanbanStatusChange}
+                                        className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
+                                        onClick={(e) => e.stopPropagation()} // Evita cerrar el modal al hacer clic
+                                    >
+                                        {kanbanStatusOptions.map(option => (
+                                            <option key={option.value} value={option.value} className="text-black">
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button onClick={handleClose} className="text-2xl font-bold hover:opacity-75 transition-opacity" aria-label="Cerrar modal">
+                                        &times;
+                                    </button>
+                                </div>
                             </div>
-                            <button onClick={handleClose} className="text-2xl font-bold hover:opacity-75 transition-opacity" aria-label="Cerrar modal">
-                                &times;
-                            </button>
                         </div>
-                        
-                        {/* Cuerpo del Modal con scroll */}
+
                         <div className="p-8 overflow-y-auto space-y-6">
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-700 mb-2">Resumen del Proceso (PMBOK® 6)</h3>
@@ -97,13 +148,11 @@ const ProcessModal: React.FC = () => {
                                     Este proceso documenta formalmente el proyecto, vinculando el trabajo a los objetivos estratégicos de la organización. El <strong>{process.outputs.split('\n')[0].toLowerCase()}</strong> resultante otorga al director del proyecto la autoridad para aplicar los recursos de la organización a las actividades del proyecto.
                                 </p>
                             </div>
-
                             {renderList('Entradas', process.inputs)}
                             {renderList('Herramientas y Técnicas', process.tools_and_techniques)}
                             {renderList('Salidas', process.outputs)}
                         </div>
 
-                        {/* Pie de página del Modal */}
                         <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
                             <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700 transition duration-300">
                                 Cerrar
@@ -112,7 +161,6 @@ const ProcessModal: React.FC = () => {
                     </>
                 )}
             </div>
-            {/* Estilos para animaciones simples de entrada */}
             <style>{`
                 @keyframes fade-in {
                     from { opacity: 0; }

@@ -1,19 +1,16 @@
 // frontend/src/components/Dashboard.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useContext } from 'react'; // 👈 useContext AÑADIDO
 import { useNavigate } from 'react-router-dom';
-
-import { useProcesses } from '../hooks/useProcesses'; 
-
+import { ProcessContext } from '../context/ProcessContext'; // 👈 CONTEXTO IMPORTADO
 import DashboardNav from './dashboard/DashboardNav';
 import FilterLegend from './dashboard/FilterLegend';
 import ProcessGrid from './dashboard/ProcessGrid';
-// CAMBIO 1: Importar el nuevo tablero Kanban
 import KanbanBoard from './dashboard/KanbanBoard';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
-    
-    const { processes, loading, error } = useProcesses();
+    // 👇 CAMBIO: Obtenemos los datos del contexto en lugar del hook
+    const { processes, loading, error } = useContext(ProcessContext);
 
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
     const [selectedStage, setSelectedStage] = useState<string | null>(null);
@@ -59,23 +56,23 @@ const Dashboard: React.FC = () => {
             <DashboardNav onLogout={handleLogout} />
             <main>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    
-                    {/* CAMBIO 2: Añadir el tablero Kanban */}
+
+                    {/* El KanbanBoard ahora recibe los procesos directamente del contexto */}
                     {processes && <KanbanBoard initialProcesses={processes} />}
 
                     <header className="mb-8 text-center">
                         <h1 className="text-3xl font-bold text-gray-800">Guía PMBOK 6ª Edición – 49 Procesos</h1>
                         <p className="text-gray-600 mt-2">Una visión adaptada a un entorno de trabajo ágil.</p>
                     </header>
-                    
-                    <FilterLegend 
+
+                    <FilterLegend
                         selectedStatus={selectedStatus}
                         selectedStage={selectedStage}
                         onStatusFilterClick={handleStatusFilterClick}
                         onStageFilterClick={handleStageFilterClick}
                         onClearFilters={clearFilters}
                     />
-                    
+
                     <ProcessGrid processes={filteredProcesses} />
                 </div>
             </main>
