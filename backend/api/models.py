@@ -81,6 +81,7 @@ class ProcessStage(models.Model):
 class PMBOKProcess(models.Model):
     # CAMBIO 1: Definir las opciones para el estado Kanban
     KANBAN_STATUS_CHOICES = [
+        ('unassigned', 'No Asignado'), # <--- AÑADE ESTA LÍNEA
         ('backlog', 'Pendiente'),
         ('todo', 'Por Hacer'),
         ('in_progress', 'En Progreso'),

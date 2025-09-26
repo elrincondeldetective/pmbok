@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import type { IProcess } from '../../types/process';
 import apiClient from '../../api/apiClient';
 
-// Definimos los tipos para las columnas y su configuración
+// ... (la configuración de las columnas no cambia) ...
 type KanbanStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
 interface ColumnConfig {
@@ -13,7 +13,6 @@ interface ColumnConfig {
     color: string;
 }
 
-// Mapeo de configuración de columnas para un look más limpio
 const columnConfig: Record<KanbanStatus, ColumnConfig> = {
     backlog: { title: 'Pendiente', label: '(Backlog)', color: 'border-t-gray-400' },
     todo: { title: 'Por Hacer', label: '(To Do)', color: 'border-t-blue-500' },
@@ -23,6 +22,7 @@ const columnConfig: Record<KanbanStatus, ColumnConfig> = {
 };
 
 const columnOrder: KanbanStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
 
 interface KanbanBoardProps {
     initialProcesses: IProcess[];
@@ -39,12 +39,35 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
             backlog: [], todo: [], in_progress: [], in_review: [], done: []
         };
         initialProcesses.forEach(process => {
+            // Este `if` ya ignora automáticamente los procesos 'unassigned'
             if (newColumns[process.kanban_status]) {
                 newColumns[process.kanban_status].push(process);
             }
         });
         setColumns(newColumns);
     }, [initialProcesses]);
+
+    // 👇 --- CAMBIO 1: AÑADIR LA FUNCIÓN PARA DESASIGNAR ---
+    const handleRemoveFromKanban = async (processId: number, currentColumn: KanbanStatus) => {
+        try {
+            // Actualiza el estado en el backend a 'unassigned'
+            await apiClient.patch(`/pmbok-processes/${processId}/update-kanban-status/`, {
+                kanban_status: 'unassigned'
+            });
+
+            // Elimina la tarjeta de la vista actualizando el estado local
+            setColumns(prev => ({
+                ...prev,
+                [currentColumn]: prev[currentColumn].filter(p => p.id !== processId),
+            }));
+
+        } catch (error) {
+            console.error("Error al desasignar el proceso:", error);
+            // Opcional: Mostrar una notificación de error al usuario
+            alert("No se pudo quitar la tarea del tablero. Inténtalo de nuevo.");
+        }
+    };
+
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, processId: number, fromColumn: KanbanStatus) => {
         e.dataTransfer.setData('processId', processId.toString());
@@ -84,7 +107,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                     });
                 } catch (error) {
                     console.error("Error al actualizar el estado del proceso:", error);
-                    // Revertir el cambio si la API falla
                     setColumns(prev => {
                         const revertedDestColumn = prev[toColumn].filter(p => p.id !== processId);
                         const revertedSourceColumn = [...prev[fromColumn], processToMove];
@@ -115,35 +137,47 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                             <span className="absolute -mt-10 ml-28 bg-gray-300 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{columns[columnKey]?.length || 0}</span>
                         </div>
 
-                        {/* 💡 CAMBIO PRINCIPAL: Aplicar max-h-[30rem] y overflow-y-auto a todas las columnas */}
                         <div className="space-y-4 flex-grow min-h-48 max-h-[30rem] overflow-y-auto pr-2">
                             {columns[columnKey]?.map(process => (
-                                <Link
-                                    key={process.id}
-                                    to={`/process/${process.id}`}
-                                    state={{ background: location }}
-                                >
-                                    <div
-                                        draggable
-                                        onDragStart={(e) => {
-                                            e.stopPropagation();
-                                            handleDragStart(e, process.id, columnKey);
-                                        }}
-                                        onDragEnd={handleDragEnd}
-                                        className="bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+                                <div key={process.id} className="relative group">
+                                    <Link
+                                        to={`/process/${process.id}`}
+                                        state={{ background: location }}
                                     >
-                                        <div className={`p-3 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
-                                            <p className="text-sm font-bold leading-tight truncate" title={process.name}>
-                                                {process.process_number}. {process.name}
-                                            </p>
+                                        <div
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.stopPropagation();
+                                                handleDragStart(e, process.id, columnKey);
+                                            }}
+                                            onDragEnd={handleDragEnd}
+                                            className="bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+                                        >
+                                            <div className={`p-3 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
+                                                <p className="text-sm font-bold leading-tight truncate" title={process.name}>
+                                                    {process.process_number}. {process.name}
+                                                </p>
+                                            </div>
+                                            <div className={`border-t px-3 py-2 rounded-b-lg text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
+                                                <p className="text-xs font-semibold uppercase tracking-wider truncate" title={process.stage?.name}>
+                                                    {process.stage ? process.stage.name.split(' (')[0] : 'Etapa'}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className={`border-t px-3 py-2 rounded-b-lg text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
-                                            <p className="text-xs font-semibold uppercase tracking-wider truncate" title={process.stage?.name}>
-                                                {process.stage ? process.stage.name.split(' (')[0] : 'Etapa'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Link>
+                                    </Link>
+                                    {/* 👇 --- CAMBIO 2: AÑADIR EL BOTÓN DE ELIMINAR --- */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveFromKanban(process.id, columnKey);
+                                        }}
+                                        className="absolute top-1 right-1 bg-black/10 text-white/70 rounded-full w-6 h-6 flex items-center justify-center text-lg font-bold opacity-0 group-hover:opacity-100 hover:bg-red-600 hover:text-white transition-all duration-200"
+                                        aria-label="Desasignar del tablero"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     </div>
