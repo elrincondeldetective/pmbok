@@ -17,6 +17,8 @@ export interface IProcess {
     name: string;
     status: IProcessStatus | null;
     stage: IProcessStage | null;
+    // CAMBIO: Añadir el nuevo estado Kanban al tipo
+    kanban_status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
     inputs: string;
     tools_and_techniques: string;
     outputs: string;

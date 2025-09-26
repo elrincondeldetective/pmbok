@@ -59,7 +59,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.email
     
 # --- Modelo para los ESTADOS -> Ahora ESTATUS ---
-# CAMBIO 1: Renombramos el modelo para mayor claridad
 class ProcessStatus(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
     description = models.TextField(blank=True)
@@ -80,14 +79,28 @@ class ProcessStage(models.Model):
 
 # --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
 class PMBOKProcess(models.Model):
+    # CAMBIO 1: Definir las opciones para el estado Kanban
+    KANBAN_STATUS_CHOICES = [
+        ('backlog', 'Pendiente'),
+        ('todo', 'Por Hacer'),
+        ('in_progress', 'En Progreso'),
+        ('in_review', 'En Revisión'),
+        ('done', 'Hecho'),
+    ]
+
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     
-    # CAMBIO 2: Renombramos el campo 'state' a 'status'
     status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
-    
-    # CAMBIO 3: Añadimos la relación con la nueva Etapa
     stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    
+    # CAMBIO 2: Añadir el nuevo campo para el estado del Kanban
+    kanban_status = models.CharField(
+        max_length=20,
+        choices=KANBAN_STATUS_CHOICES,
+        default='backlog',
+        help_text="El estado del proceso en el tablero Kanban."
+    )
     
     inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
     tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
@@ -96,8 +109,6 @@ class PMBOKProcess(models.Model):
     class Meta:
         ordering = ['process_number']
 
-    def __str__(self):
-        return f"{self.process_number}. {self.name}"
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
@@ -109,4 +120,3 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
-

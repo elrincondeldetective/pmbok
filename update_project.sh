@@ -1,3 +1,274 @@
+#!/bin/bash
+
+# Este script detendrá su ejecución si algún comando falla.
+set -e
+
+echo "🚀 Iniciando la actualización del proyecto para implementar el tablero Kanban..."
+
+# --- Backend: Actualización de la App Django ---
+echo "🔄 Actualizando el backend..."
+
+# 1. Modificar el modelo PMBOKProcess para añadir el estado del Kanban
+echo "  -> Modificando models.py para añadir 'kanban_status'..."
+cat <<'EOF' > backend/api/models.py
+# backend/api/models.py
+from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+
+# --- Manager para el Modelo de Usuario Personalizado ---
+class CustomUserManager(BaseUserManager):
+    """
+    Manager para nuestro modelo de usuario personalizado.
+    Permite crear usuarios y superusuarios usando el email como identificador.
+    """
+    def create_user(self, email, password=None, **extra_fields):
+        """
+        Crea y guarda un usuario con el email y contraseña proporcionados.
+        """
+        if not email:
+            raise ValueError('El campo Email es obligatorio')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        """
+        Crea y guarda un superusuario.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser debe tener is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser debe tener is_superuser=True.')
+
+        return self.create_user(email, password, **extra_fields)
+
+
+# --- Modelo de Usuario Personalizado ---
+class CustomUser(AbstractBaseUser, PermissionsMixin):
+    """
+    Modelo de usuario que utiliza el email como nombre de usuario.
+    """
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
+    
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    objects = CustomUserManager()
+
+    # El campo que se usará para iniciar sesión
+    USERNAME_FIELD = 'email'
+    # Campos requeridos al crear un usuario (además de email y password)
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return self.email
+    
+# --- Modelo para los ESTADOS -> Ahora ESTATUS ---
+class ProcessStatus(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
+    description = models.TextField(blank=True)
+    tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-500', help_text="Clase de Tailwind para el color de fondo. Ej: bg-indigo-800")
+    tailwind_text_color = models.CharField(max_length=50, default='text-white', help_text="Clase de Tailwind para el color del texto. Ej: text-white")
+
+    def __str__(self):
+        return self.name
+    
+# --- NUEVO: Modelo para las ETAPAS de los Procesos ---
+class ProcessStage(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Integración (Inicio), Alcance (Planeación)")
+    tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-gray-200")
+    tailwind_text_color = models.CharField(max_length=50, default='text-gray-600', help_text="Clase de Tailwind para el texto del footer. Ej: text-gray-800")
+    
+    def __str__(self):
+        return self.name
+
+# --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
+class PMBOKProcess(models.Model):
+    # CAMBIO 1: Definir las opciones para el estado Kanban
+    KANBAN_STATUS_CHOICES = [
+        ('backlog', 'Pendiente'),
+        ('todo', 'Por Hacer'),
+        ('in_progress', 'En Progreso'),
+        ('in_review', 'En Revisión'),
+        ('done', 'Hecho'),
+    ]
+
+    process_number = models.IntegerField(unique=True)
+    name = models.CharField(max_length=255)
+    
+    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    
+    # CAMBIO 2: Añadir el nuevo campo para el estado del Kanban
+    kanban_status = models.CharField(
+        max_length=20,
+        choices=KANBAN_STATUS_CHOICES,
+        default='backlog',
+        help_text="El estado del proceso en el tablero Kanban."
+    )
+    
+    inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
+    tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
+    outputs = models.TextField(blank=True, help_text="Lista de salidas, separadas por saltos de línea.")
+
+    class Meta:
+        ordering = ['process_number']
+
+    def __str__(self):
+        return f"{self.process_number}. {self.name}"
+
+# --- Modelo de Tareas (existente) ---
+class Task(models.Model):
+    title = models.CharField(max_length=200)
+    completed = models.BooleanField(default=False, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+EOF
+
+# 2. Modificar el serializador para incluir el nuevo campo
+echo "  -> Modificando serializers.py para exponer 'kanban_status'..."
+cat <<'EOF' > backend/api/serializers.py
+# backend/api/serializers.py
+from rest_framework import serializers
+from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage
+from django.contrib.auth.password_validation import validate_password
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializador para el registro de nuevos usuarios.
+    """
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ('email', 'first_name', 'last_name', 'password', 'password2')
+
+    def validate(self, attrs):
+        """
+        Valida que las dos contraseñas coincidan.
+        """
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
+        return attrs
+
+    def create(self, validated_data):
+        """
+        Crea un nuevo usuario a partir de los datos validados.
+        """
+        user = CustomUser.objects.create_user(
+            email=validated_data['email'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
+
+class ProcessStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessStatus
+        fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
+class ProcessStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessStage
+        fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
+class PMBOKProcessSerializer(serializers.ModelSerializer):
+    status = ProcessStatusSerializer(read_only=True)
+    stage = ProcessStageSerializer(read_only=True)
+
+    class Meta:
+        model = PMBOKProcess
+        # CAMBIO 1: Añadir 'kanban_status' a los campos serializados
+        fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
+
+# TaskSerializer (Sin cambios)
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
+EOF
+
+# 3. Modificar la vista para permitir la actualización del estado
+echo "  -> Modificando views.py para permitir la actualización del estado Kanban..."
+cat <<'EOF' > backend/api/views.py
+# backend/api/views.py
+from rest_framework import viewsets, generics, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer  
+from .models import Task, CustomUser, PMBOKProcess
+
+# --- Vista para el Registro de Usuarios ---
+class RegisterView(generics.CreateAPIView):
+    """
+    Vista para que nuevos usuarios puedan registrarse.
+    """
+    queryset = CustomUser.objects.all()
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = UserRegistrationSerializer
+
+# PMBOKProcessViewSet (ACTUALIZADO)
+# CAMBIO 1: Cambiar de ReadOnlyModelViewSet a ModelViewSet para permitir actualizaciones
+class PMBOKProcessViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite ver y actualizar los procesos del PMBOK.
+    """
+    queryset = PMBOKProcess.objects.select_related('status', 'stage').all()
+    serializer_class = PMBOKProcessSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    # CAMBIO 2: Crear una acción personalizada para actualizar el estado Kanban
+    # Esto crea un endpoint específico: /api/pmbok-processes/{id}/update_kanban_status/
+    @action(detail=True, methods=['patch'], url_path='update-kanban-status')
+    def update_kanban_status(self, request, pk=None):
+        """
+        Actualiza únicamente el estado kanban de un proceso.
+        Espera un cuerpo de solicitud como: { "kanban_status": "in_progress" }
+        """
+        process = self.get_object()
+        new_status = request.data.get('kanban_status')
+
+        # Validamos que el nuevo estado sea uno de los permitidos en el modelo
+        valid_statuses = [choice[0] for choice in PMBOKProcess.KANBAN_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'El estado "{new_status}" no es válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        process.kanban_status = new_status
+        process.save(update_fields=['kanban_status'])
+        
+        serializer = self.get_serializer(process)
+        return Response(serializer.data)
+
+
+# --- Vista para las Tareas (existente) ---
+class TaskViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite ver o editar tareas.
+    """
+    serializer_class = TaskSerializer
+    queryset = Task.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+EOF
+
+# 4. Modificar el script seeder para inicializar el estado
+echo "  -> Modificando seed_pmbok.py para inicializar todos los procesos en 'backlog'..."
+cat <<'EOF' > backend/api/management/commands/seed_pmbok.py
 # backend/api/management/commands/seed_pmbok.py
 from django.core.management.base import BaseCommand
 from api.models import ProcessStatus, ProcessStage, PMBOKProcess
@@ -117,3 +388,279 @@ class Command(BaseCommand):
             )
         
         self.stdout.write(self.style.SUCCESS('Database has been seeded successfully with all details!'))
+EOF
+
+# --- Frontend: Actualización de la App React ---
+echo "🔄 Actualizando el frontend..."
+
+# 5. Crear el directorio para los componentes del dashboard
+echo "  -> Creando el directorio 'frontend/src/components/dashboard' (si no existe)..."
+mkdir -p frontend/src/components/dashboard
+
+# 6. Actualizar la interfaz de tipos
+echo "  -> Actualizando la interfaz IProcess en 'frontend/src/types/process.ts'..."
+cat <<'EOF' > frontend/src/types/process.ts
+// frontend/src/types/process.ts
+export interface IProcessStatus {
+    name: string;
+    tailwind_bg_color: string;
+    tailwind_text_color: string;
+}
+
+export interface IProcessStage {
+    name: string;
+    tailwind_bg_color: string;
+    tailwind_text_color: string;
+}
+
+export interface IProcess {
+    id: number;
+    process_number: number;
+    name: string;
+    status: IProcessStatus | null;
+    stage: IProcessStage | null;
+    // CAMBIO: Añadir el nuevo estado Kanban al tipo
+    kanban_status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+    inputs: string;
+    tools_and_techniques: string;
+    outputs: string;
+}
+EOF
+
+# 7. Crear el nuevo componente del tablero Kanban
+echo "  -> Creando el nuevo componente 'frontend/src/components/dashboard/KanbanBoard.tsx'..."
+cat <<'EOF' > frontend/src/components/dashboard/KanbanBoard.tsx
+// frontend/src/components/dashboard/KanbanBoard.tsx
+import React, { useState, useEffect } from 'react';
+import type { IProcess } from '../../types/process';
+import apiClient from '../../api/apiClient';
+
+// Definimos los tipos para las columnas y su configuración
+type KanbanStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+
+interface ColumnConfig {
+    title: string;
+    color: string;
+}
+
+const columnConfig: Record<KanbanStatus, ColumnConfig> = {
+    backlog: { title: 'Pendiente (Backlog)', color: 'border-t-gray-400' },
+    todo: { title: 'Por Hacer (To Do)', color: 'border-t-blue-500' },
+    in_progress: { title: 'En Progreso (In Progress)', color: 'border-t-yellow-500' },
+    in_review: { title: 'En Revisión (In Review)', color: 'border-t-purple-500' },
+    done: { title: 'Hecho (Done)', color: 'border-t-green-500' },
+};
+
+const columnOrder: KanbanStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
+interface KanbanBoardProps {
+    initialProcesses: IProcess[];
+}
+
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
+    const [columns, setColumns] = useState<Record<KanbanStatus, IProcess[]>>({
+        backlog: [], todo: [], in_progress: [], in_review: [], done: []
+    });
+
+    // Efecto para organizar los procesos en columnas cuando cambian los props iniciales
+    useEffect(() => {
+        const newColumns: Record<KanbanStatus, IProcess[]> = {
+            backlog: [], todo: [], in_progress: [], in_review: [], done: []
+        };
+        initialProcesses.forEach(process => {
+            if (newColumns[process.kanban_status]) {
+                newColumns[process.kanban_status].push(process);
+            }
+        });
+        setColumns(newColumns);
+    }, [initialProcesses]);
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, processId: number, fromColumn: KanbanStatus) => {
+        e.dataTransfer.setData('processId', processId.toString());
+        e.dataTransfer.setData('fromColumn', fromColumn);
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault(); // Necesario para permitir el drop
+    };
+
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, toColumn: KanbanStatus) => {
+        e.preventDefault();
+        const processId = Number(e.dataTransfer.getData('processId'));
+        const fromColumn = e.dataTransfer.getData('fromColumn') as KanbanStatus;
+
+        if (processId && fromColumn !== toColumn) {
+            const processToMove = columns[fromColumn].find(p => p.id === processId);
+
+            if (processToMove) {
+                // Optimistic UI Update
+                const newSourceColumn = columns[fromColumn].filter(p => p.id !== processId);
+                const newDestColumn = [...columns[toColumn], { ...processToMove, kanban_status: toColumn }];
+
+                setColumns(prev => ({
+                    ...prev,
+                    [fromColumn]: newSourceColumn,
+                    [toColumn]: newDestColumn,
+                }));
+
+                // API Call
+                try {
+                    await apiClient.patch(`/pmbok-processes/${processId}/update-kanban-status/`, {
+                        kanban_status: toColumn
+                    });
+                } catch (error) {
+                    console.error("Error al actualizar el estado del proceso:", error);
+                    // Revertir el cambio si la API falla
+                    setColumns(prev => {
+                        // Volvemos a buscar el proceso en la columna de destino
+                        const revertedDestColumn = prev[toColumn].filter(p => p.id !== processId);
+                        // Lo devolvemos a la columna original
+                        const revertedSourceColumn = [...prev[fromColumn], processToMove];
+                        return {
+                            ...prev,
+                            [fromColumn]: revertedSourceColumn,
+                            [toColumn]: revertedDestColumn,
+                        }
+                    });
+                }
+            }
+        }
+    };
+
+    return (
+        <div className="mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                {columnOrder.map(columnKey => (
+                    <div
+                        key={columnKey}
+                        className="bg-gray-100 rounded-lg p-4 flex flex-col"
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, columnKey)}
+                    >
+                        <h3 className={`font-bold text-gray-700 pb-3 mb-3 border-b-4 ${columnConfig[columnKey].color}`}>
+                            {columnConfig[columnKey].title}
+                            <span className="ml-2 bg-gray-300 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{columns[columnKey]?.length || 0}</span>
+                        </h3>
+                        <div className="space-y-3 flex-grow min-h-48">
+                            {columns[columnKey]?.map(process => (
+                                <div
+                                    key={process.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, process.id, columnKey)}
+                                    className="bg-white p-3 rounded-md shadow hover:shadow-lg cursor-grab active:cursor-grabbing border-l-4"
+                                    style={{ borderColor: process.status?.tailwind_bg_color.startsWith('bg-') ? `var(--color-${process.status.tailwind_bg_color.substring(3)})` : '#ccc' }}
+                                >
+                                    <p className="text-sm font-semibold text-gray-800">{process.process_number}. {process.name}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+             {/* Hack para asegurar que los colores de Tailwind estén disponibles para style binding */}
+            <span className="hidden border-t-gray-400 border-t-blue-500 border-t-yellow-500 border-t-purple-500 border-t-green-500"></span>
+        </div>
+    );
+};
+
+export default KanbanBoard;
+EOF
+
+# 8. Modificar el componente Dashboard para incluir el tablero
+echo "  -> Modificando 'frontend/src/components/Dashboard.tsx' para renderizar el tablero..."
+cat <<'EOF' > frontend/src/components/Dashboard.tsx
+// frontend/src/components/Dashboard.tsx
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { useProcesses } from '../hooks/useProcesses'; 
+
+import DashboardNav from './dashboard/DashboardNav';
+import FilterLegend from './dashboard/FilterLegend';
+import ProcessGrid from './dashboard/ProcessGrid';
+// CAMBIO 1: Importar el nuevo tablero Kanban
+import KanbanBoard from './dashboard/KanbanBoard';
+
+const Dashboard: React.FC = () => {
+    const navigate = useNavigate();
+    
+    const { processes, loading, error } = useProcesses();
+
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [selectedStage, setSelectedStage] = useState<string | null>(null);
+
+    const handleLogout = () => {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        navigate('/login');
+    };
+
+    const handleStatusFilterClick = (statusName: string) => {
+        setSelectedStatus(prev => (prev === statusName ? null : statusName));
+    };
+
+    const handleStageFilterClick = (stageName: string) => {
+        setSelectedStage(prev => (prev === stageName ? null : stageName));
+    };
+
+    const clearFilters = () => {
+        setSelectedStatus(null);
+        setSelectedStage(null);
+    };
+
+    const filteredProcesses = useMemo(() => {
+        if (!processes) return [];
+        return processes.filter(process => {
+            const statusMatch = selectedStatus ? process.status?.name === selectedStatus : true;
+            const stageMatch = selectedStage ? process.stage?.name?.startsWith(selectedStage) : true;
+            return statusMatch && stageMatch;
+        });
+    }, [processes, selectedStatus, selectedStage]);
+
+    if (loading) {
+        return <div className="flex justify-center items-center h-screen bg-gray-100 text-gray-700">Cargando procesos...</div>;
+    }
+
+    if (error) {
+        return <div className="flex justify-center items-center h-screen bg-gray-100 text-red-600 font-semibold">{error}</div>;
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-100">
+            <DashboardNav onLogout={handleLogout} />
+            <main>
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    
+                    {/* CAMBIO 2: Añadir el tablero Kanban */}
+                    {processes && <KanbanBoard initialProcesses={processes} />}
+
+                    <header className="mb-8 text-center">
+                        <h1 className="text-3xl font-bold text-gray-800">Guía PMBOK 6ª Edición – 49 Procesos</h1>
+                        <p className="text-gray-600 mt-2">Una visión adaptada a un entorno de trabajo ágil.</p>
+                    </header>
+                    
+                    <FilterLegend 
+                        selectedStatus={selectedStatus}
+                        selectedStage={selectedStage}
+                        onStatusFilterClick={handleStatusFilterClick}
+                        onStageFilterClick={handleStageFilterClick}
+                        onClearFilters={clearFilters}
+                    />
+                    
+                    <ProcessGrid processes={filteredProcesses} />
+                </div>
+            </main>
+        </div>
+    );
+};
+
+export default Dashboard;
+EOF
+
+echo ""
+echo "✅ ¡Script de actualización completado con éxito!"
+echo "Para aplicar los cambios, guarda este script como 'update_project.sh' en la raíz de tu proyecto y luego ejecútalo con:"
+echo "chmod +x update_project.sh"
+echo "./update_project.sh"
+echo ""
+echo "⚠️  Recuerda ejecutar las migraciones y reiniciar la base de datos de Django después de correr el script."
