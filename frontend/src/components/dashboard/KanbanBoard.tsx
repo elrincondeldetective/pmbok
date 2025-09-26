@@ -1,5 +1,6 @@
 // frontend/src/components/dashboard/KanbanBoard.tsx
 import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import type { IProcess } from '../../types/process';
 import apiClient from '../../api/apiClient';
 
@@ -8,15 +9,17 @@ type KanbanStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
 interface ColumnConfig {
     title: string;
+    label: string;
     color: string;
 }
 
+// Mapeo de configuración de columnas para un look más limpio
 const columnConfig: Record<KanbanStatus, ColumnConfig> = {
-    backlog: { title: 'Pendiente (Backlog)', color: 'border-t-gray-400' },
-    todo: { title: 'Por Hacer (To Do)', color: 'border-t-blue-500' },
-    in_progress: { title: 'En Progreso (In Progress)', color: 'border-t-yellow-500' },
-    in_review: { title: 'En Revisión (In Review)', color: 'border-t-purple-500' },
-    done: { title: 'Hecho (Done)', color: 'border-t-green-500' },
+    backlog: { title: 'Pendiente', label: '(Backlog)', color: 'border-t-gray-400' },
+    todo: { title: 'Por Hacer', label: '(To Do)', color: 'border-t-blue-500' },
+    in_progress: { title: 'En Progreso', label: '(In Progress)', color: 'border-t-yellow-500' },
+    in_review: { title: 'En Revisión', label: '(In Review)', color: 'border-t-purple-500' },
+    done: { title: 'Hecho', label: '(Done)', color: 'border-t-green-500' },
 };
 
 const columnOrder: KanbanStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
@@ -26,11 +29,11 @@ interface KanbanBoardProps {
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
+    const location = useLocation();
     const [columns, setColumns] = useState<Record<KanbanStatus, IProcess[]>>({
         backlog: [], todo: [], in_progress: [], in_review: [], done: []
     });
 
-    // Efecto para organizar los procesos en columnas cuando cambian los props iniciales
     useEffect(() => {
         const newColumns: Record<KanbanStatus, IProcess[]> = {
             backlog: [], todo: [], in_progress: [], in_review: [], done: []
@@ -46,10 +49,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, processId: number, fromColumn: KanbanStatus) => {
         e.dataTransfer.setData('processId', processId.toString());
         e.dataTransfer.setData('fromColumn', fromColumn);
+        e.currentTarget.classList.add('opacity-50');
+    };
+
+    const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+        e.currentTarget.classList.remove('opacity-50');
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault(); // Necesario para permitir el drop
+        e.preventDefault();
     };
 
     const handleDrop = async (e: React.DragEvent<HTMLDivElement>, toColumn: KanbanStatus) => {
@@ -61,7 +69,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
             const processToMove = columns[fromColumn].find(p => p.id === processId);
 
             if (processToMove) {
-                // Optimistic UI Update
                 const newSourceColumn = columns[fromColumn].filter(p => p.id !== processId);
                 const newDestColumn = [...columns[toColumn], { ...processToMove, kanban_status: toColumn }];
 
@@ -71,7 +78,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                     [toColumn]: newDestColumn,
                 }));
 
-                // API Call
                 try {
                     await apiClient.patch(`/pmbok-processes/${processId}/update-kanban-status/`, {
                         kanban_status: toColumn
@@ -80,9 +86,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                     console.error("Error al actualizar el estado del proceso:", error);
                     // Revertir el cambio si la API falla
                     setColumns(prev => {
-                        // Volvemos a buscar el proceso en la columna de destino
                         const revertedDestColumn = prev[toColumn].filter(p => p.id !== processId);
-                        // Lo devolvemos a la columna original
                         const revertedSourceColumn = [...prev[fromColumn], processToMove];
                         return {
                             ...prev,
@@ -97,36 +101,54 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
 
     return (
         <div className="mb-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {columnOrder.map(columnKey => (
                     <div
                         key={columnKey}
-                        className="bg-gray-100 rounded-lg p-4 flex flex-col"
+                        className="bg-gray-200/50 rounded-lg p-4 flex flex-col"
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, columnKey)}
                     >
-                        <h3 className={`font-bold text-gray-700 pb-3 mb-3 border-b-4 ${columnConfig[columnKey].color}`}>
-                            {columnConfig[columnKey].title}
-                            <span className="ml-2 bg-gray-300 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{columns[columnKey]?.length || 0}</span>
-                        </h3>
-                        <div className="space-y-3 flex-grow min-h-48">
+                        <div className={`text-center pb-3 mb-3 border-b-4 ${columnConfig[columnKey].color}`}>
+                            <h3 className="font-bold text-gray-700">{columnConfig[columnKey].title}</h3>
+                            <p className="text-xs text-gray-500">{columnConfig[columnKey].label}</p>
+                            <span className="absolute -mt-10 ml-28 bg-gray-300 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{columns[columnKey]?.length || 0}</span>
+                        </div>
+
+                        {/* 💡 CAMBIO PRINCIPAL: Aplicar max-h-[30rem] y overflow-y-auto a todas las columnas */}
+                        <div className="space-y-4 flex-grow min-h-48 max-h-[30rem] overflow-y-auto pr-2">
                             {columns[columnKey]?.map(process => (
-                                <div
+                                <Link
                                     key={process.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, process.id, columnKey)}
-                                    className="bg-white p-3 rounded-md shadow hover:shadow-lg cursor-grab active:cursor-grabbing border-l-4"
-                                    style={{ borderColor: process.status?.tailwind_bg_color.startsWith('bg-') ? `var(--color-${process.status.tailwind_bg_color.substring(3)})` : '#ccc' }}
+                                    to={`/process/${process.id}`}
+                                    state={{ background: location }}
                                 >
-                                    <p className="text-sm font-semibold text-gray-800">{process.process_number}. {process.name}</p>
-                                </div>
+                                    <div
+                                        draggable
+                                        onDragStart={(e) => {
+                                            e.stopPropagation();
+                                            handleDragStart(e, process.id, columnKey);
+                                        }}
+                                        onDragEnd={handleDragEnd}
+                                        className="bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+                                    >
+                                        <div className={`p-3 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
+                                            <p className="text-sm font-bold leading-tight truncate" title={process.name}>
+                                                {process.process_number}. {process.name}
+                                            </p>
+                                        </div>
+                                        <div className={`border-t px-3 py-2 rounded-b-lg text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
+                                            <p className="text-xs font-semibold uppercase tracking-wider truncate" title={process.stage?.name}>
+                                                {process.stage ? process.stage.name.split(' (')[0] : 'Etapa'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </Link>
                             ))}
                         </div>
                     </div>
                 ))}
             </div>
-             {/* Hack para asegurar que los colores de Tailwind estén disponibles para style binding */}
-            <span className="hidden border-t-gray-400 border-t-blue-500 border-t-yellow-500 border-t-purple-500 border-t-green-500"></span>
         </div>
     );
 };
