@@ -1,4 +1,4 @@
-// frontend/src/components/HybridView.tsx
+// frontend/src/components/r
 import React from 'react';
 import PMBOKSection from './pmbok/PMBOKSection.tsx'; // Ruta corregida
 import ScrumSection from './scrum/ScrumSection.tsx'; // Ruta corregida
