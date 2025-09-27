@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import (
 router = routers.DefaultRouter()
 router.register(r'tasks', views.TaskViewSet)
 router.register(r'pmbok-processes', views.PMBOKProcessViewSet) # AÑADIR ESTA LÍNEA
+router.register(r'scrum-processes', views.ScrumProcessViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

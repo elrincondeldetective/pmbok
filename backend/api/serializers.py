@@ -1,6 +1,6 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage
+from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage, ScrumProcess
 from django.contrib.auth.password_validation import validate_password
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -53,6 +53,14 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
         model = PMBOKProcess
         # CAMBIO 1: Añadir 'kanban_status' a los campos serializados
         fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
+
+class ScrumProcessSerializer(serializers.ModelSerializer):
+    status = ProcessStatusSerializer(read_only=True)
+    stage = ProcessStageSerializer(read_only=True)
+
+    class Meta:
+        model = ScrumProcess
+        fields = ('id', 'process_number', 'name', 'status', 'stage', 'inputs', 'tools_and_techniques', 'outputs')
 
 # TaskSerializer (Sin cambios)
 class TaskSerializer(serializers.ModelSerializer):

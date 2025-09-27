@@ -2,8 +2,8 @@
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer  
-from .models import Task, CustomUser, PMBOKProcess
+from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer, ScrumProcessSerializer 
+from .models import Task, CustomUser, PMBOKProcess, ScrumProcess
 
 # --- Vista para el Registro de Usuarios ---
 class RegisterView(generics.CreateAPIView):
@@ -13,6 +13,14 @@ class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = (permissions.AllowAny,)
     serializer_class = UserRegistrationSerializer
+
+class ScrumProcessViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint que permite ver los procesos de Scrum.
+    """
+    queryset = ScrumProcess.objects.select_related('status', 'stage').all()
+    serializer_class = ScrumProcessSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 # PMBOKProcessViewSet (ACTUALIZADO)
 # CAMBIO 1: Cambiar de ReadOnlyModelViewSet a ModelViewSet para permitir actualizaciones
