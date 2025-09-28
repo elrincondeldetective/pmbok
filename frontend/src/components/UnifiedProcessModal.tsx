@@ -20,6 +20,7 @@ interface ActionIconsProps {
     onAdd: () => void;
 }
 
+// --- CAMBIO: Se añade un manejador de evento al icono '+' para evitar que el click se propague ---
 const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAdd }) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
         <FaPencilAlt onClick={onEdit} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
@@ -33,22 +34,19 @@ const UnifiedProcessModal: React.FC = () => {
     const { processId } = useParams<{ processId: string }>();
     const navigate = useNavigate();
     const isPmbokRoute = useMatch("/process/:processId");
-    const { updateProcessInState } = useContext(ProcessContext);
+    const { updateProcessInState, processes } = useContext(ProcessContext);
 
     const [process, setProcess] = useState<AnyProcess | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
-    // --- INICIO: CAMBIO 1 ---
-    // El estado de edición ahora incluye un flag para identificar si es un item nuevo.
+
+    // --- CAMBIO 1: El estado de edición ahora incluye un flag para identificar si es un item nuevo. ---
     const [editingState, setEditingState] = useState<{ id: string | null; name: string; url: string; isNew?: boolean }>({
         id: null,
         name: '',
         url: '',
         isNew: false,
     });
-    // Se elimina el estado `tempItems` que ya no es necesario.
-    // --- FIN: CAMBIO 1 ---
 
     const processType = isPmbokRoute ? 'pmbok' : 'scrum';
     const apiEndpoint = processType === 'pmbok' ? 'pmbok-processes' : 'scrum-processes';
@@ -56,50 +54,53 @@ const UnifiedProcessModal: React.FC = () => {
     useEffect(() => {
         if (!processId) return;
 
-        const controller = new AbortController();
-        const fetchProcess = async () => {
-            setLoading(true);
-            try {
-                const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`, {
-                    signal: controller.signal
-                });
-                setProcess({ ...response.data, type: processType });
-            } catch (err: any) {
-                if (err.name !== 'CanceledError') {
-                    console.error("Failed to fetch process details:", err);
-                    setError('No se pudo cargar el detalle del proceso. Inténtalo de nuevo.');
+        // Busca primero en el estado del contexto para una carga más rápida
+        const existingProcess = processes.find(p => p.id === parseInt(processId) && p.type === processType);
+        if (existingProcess) {
+            setProcess(existingProcess);
+            setLoading(false);
+        } else {
+            // Si no está en el contexto, lo busca en la API
+            const controller = new AbortController();
+            const fetchProcess = async () => {
+                setLoading(true);
+                try {
+                    const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`, {
+                        signal: controller.signal
+                    });
+                    setProcess({ ...response.data, type: processType });
+                } catch (err: any) {
+                    if (err.name !== 'CanceledError') {
+                        console.error("Failed to fetch process details:", err);
+                        setError('No se pudo cargar el detalle del proceso. Inténtalo de nuevo.');
+                    }
+                } finally {
+                    setLoading(false);
                 }
-            } finally {
-                setLoading(false);
-            }
-        };
+            };
 
-        fetchProcess();
-        return () => controller.abort();
-    }, [processId, apiEndpoint, processType]);
-    
-    // --- INICIO: CAMBIO 2 ---
-    // Nueva función para manejar la adición de un item.
+            fetchProcess();
+            return () => controller.abort();
+        }
+    }, [processId, apiEndpoint, processType, processes]);
+
+    // --- CAMBIO 2: Nueva función para manejar la adición de un item. ---
     const handleAddItem = (listKey: 'inputs' | 'tools_and_techniques' | 'outputs', listTitle: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas') => {
         if (!process) return;
 
-        // 1. Crea un nuevo item por defecto.
         const newItem: ITTOItem = { name: 'Nuevo documento', url: '' };
-        
-        // 2. Añade el nuevo item al estado local del proceso para que aparezca en la UI.
+
         const updatedItems = [...process[listKey], newItem];
         const updatedProcess = { ...process, [listKey]: updatedItems };
         setProcess(updatedProcess);
-        
-        // 3. Inmediatamente activa el modo de edición para este nuevo item.
+
         setEditingState({
-            id: `${listTitle}-${updatedItems.length - 1}`, // El ID se basa en su nueva posición en la lista.
+            id: `${listTitle}-${updatedItems.length - 1}`,
             name: newItem.name,
             url: newItem.url,
-            isNew: true // Se marca como nuevo para poder cancelarlo correctamente.
+            isNew: true
         });
     };
-    // --- FIN: CAMBIO 2 ---
 
     const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as KanbanStatus;
@@ -138,24 +139,24 @@ const UnifiedProcessModal: React.FC = () => {
 
         const processKey = propertyMap[listTitle as keyof typeof propertyMap];
         if (!processKey) return;
-        
-        const oldProcess = {...process};
-        
+
+        const oldProcess = { ...process };
+
         const originalItem = process[processKey][index];
         const wasKeyElement = process.type === 'scrum' && originalItem?.name.trim().endsWith('*');
-        
-        const newName = wasKeyElement 
-            ? `${editingState.name.trim()}*` 
+
+        const newName = wasKeyElement
+            ? `${editingState.name.trim()}*`
             : editingState.name.trim();
 
         const updatedItems = [...process[processKey]];
         updatedItems[index] = { name: newName, url: editingState.url };
-        
+
         const updatedProcess = { ...process, [processKey]: updatedItems };
 
         setProcess(updatedProcess);
         updateProcessInState(process.id, process.type, updatedProcess);
-        handleCancelEdit(); // Limpia el estado de edición.
+        handleCancelEdit();
 
         try {
             await apiClient.patch(`/${apiEndpoint}/${process.id}/update-ittos/`, {
@@ -169,10 +170,8 @@ const UnifiedProcessModal: React.FC = () => {
         }
     };
 
-    // --- INICIO: CAMBIO 3 ---
-    // Se actualiza la función de cancelar para manejar los items nuevos.
+    // --- CAMBIO 3: Se actualiza la función de cancelar para manejar los items nuevos. ---
     const handleCancelEdit = () => {
-        // Si estábamos añadiendo un item nuevo, al cancelar se elimina de la lista.
         if (editingState.isNew && process && editingState.id) {
             const [listTitle] = editingState.id.split(/-(?=\d+$)/);
             const propertyMap = {
@@ -180,17 +179,14 @@ const UnifiedProcessModal: React.FC = () => {
             } as const;
             const processKey = propertyMap[listTitle as keyof typeof propertyMap];
             if (processKey) {
-                // Elimina el último item que se había añadido temporalmente.
                 const updatedItems = process[processKey].slice(0, -1);
                 const updatedProcess = { ...process, [processKey]: updatedItems };
                 setProcess(updatedProcess);
             }
         }
-        
-        // Limpia el estado de edición en cualquier caso.
+
         setEditingState({ id: null, name: '', url: '', isNew: false });
     };
-    // --- FIN: CAMBIO 3 ---
 
     const renderList = (title: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas', items: ITTOItem[] | undefined, icon: React.ReactNode) => {
         if (!items) return null;
@@ -200,7 +196,7 @@ const UnifiedProcessModal: React.FC = () => {
             'Herramientas y Técnicas': 'tools_and_techniques',
             'Salidas': 'outputs'
         } as const;
-        
+
         const processKey = propertyMap[title as keyof typeof propertyMap];
 
         return (
@@ -250,7 +246,7 @@ const UnifiedProcessModal: React.FC = () => {
                                             {item.url ? (
                                                 <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline hover:text-blue-800 flex items-center" onClick={e => e.stopPropagation()}>
                                                     {cleanName}
-                                                    <FaLink className="w-3 h-3 ml-2 opacity-60"/>
+                                                    <FaLink className="w-3 h-3 ml-2 opacity-60" />
                                                 </a>
                                             ) : (
                                                 cleanName
@@ -258,20 +254,17 @@ const UnifiedProcessModal: React.FC = () => {
                                             {isKeyElement && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
                                         </span>
                                         <div className="flex-shrink-0">
-                                            {/* --- INICIO: CAMBIO 4 --- */}
-                                            {/* Se pasa el `title` para poder construir el ID del nuevo item. */}
-                                            <ActionIcons 
+                                            {/* --- CAMBIO 4: Se pasa el 'title' para poder construir el ID del nuevo item. --- */}
+                                            <ActionIcons
                                                 onEdit={() => setEditingState({ id: itemId, name: cleanName, url: item.url, isNew: false })}
                                                 onAdd={() => handleAddItem(processKey, title)}
                                             />
-                                            {/* --- FIN: CAMBIO 4 --- */}
                                         </div>
                                     </>
                                 )}
                             </li>
                         );
                     })}
-                    {/* Se elimina el bloque que renderizaba `tempItems`. */}
                 </ul>
             </div>
         );
@@ -327,22 +320,22 @@ const UnifiedProcessModal: React.FC = () => {
                 <div className="p-8 overflow-y-auto space-y-8 bg-gray-50">
                     <div>
                         <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
-                            <FaInfoCircle className="text-gray-500"/>
+                            <FaInfoCircle className="text-gray-500" />
                             <span className="ml-2">Resumen del Proceso ({frameworkName})</span>
                         </h3>
                         {isPmbok ? (
-                             <p className="text-gray-700 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 shadow-sm text-sm">
-                                 Este proceso documenta formalmente el proyecto. El <strong>{(process as IPMBOKProcess).outputs[0]?.name.toLowerCase() || 'resultado'}</strong> resultante otorga la autoridad para aplicar recursos.
-                             </p>
+                            <p className="text-gray-700 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 shadow-sm text-sm">
+                                Este proceso documenta formalmente el proyecto. El <strong>{(process as IPMBOKProcess).outputs[0]?.name.toLowerCase() || 'resultado'}</strong> resultante otorga la autoridad para aplicar recursos.
+                            </p>
                         ) : (
                             <p className="text-gray-700 bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm text-sm">
                                 Este proceso es parte del marco de trabajo Scrum, enfocado en la <strong>colaboración, adaptación e inspección continua</strong> para entregar valor.
                             </p>
                         )}
                     </div>
-                    {renderList('Entradas', process.inputs, <FaSignInAlt className="text-blue-500"/>)}
-                    {renderList('Herramientas y Técnicas', process.tools_and_techniques, <FaTools className="text-amber-500"/>)}
-                    {renderList('Salidas', process.outputs, <FaSignOutAlt className="text-green-500"/>)}
+                    {renderList('Entradas', process.inputs, <FaSignInAlt className="text-blue-500" />)}
+                    {renderList('Herramientas y Técnicas', process.tools_and_techniques, <FaTools className="text-amber-500" />)}
+                    {renderList('Salidas', process.outputs, <FaSignOutAlt className="text-green-500" />)}
                 </div>
 
                 <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
@@ -366,20 +359,19 @@ const UnifiedProcessModal: React.FC = () => {
                 {renderContent()}
             </div>
             <style>{`
-                @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-                .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
-                .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
-                
-                @keyframes fade-in-down {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
-            `}</style>
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+        .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
+        
+        @keyframes fade-in-down {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
+      `}</style>
         </div>
     );
 };
 
 export default UnifiedProcessModal;
-
