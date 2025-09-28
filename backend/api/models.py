@@ -68,7 +68,7 @@ class ProcessStatus(models.Model):
     def __str__(self):
         return self.name
     
-# --- NUEVO: Modelo para las ETAPAS de los Procesos ---
+# --- Modelo para las ETAPAS (Áreas de Conocimiento) de PMBOK ---
 class ProcessStage(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Integración (Inicio), Alcance (Planeación)")
     tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-gray-200")
@@ -77,11 +77,23 @@ class ProcessStage(models.Model):
     def __str__(self):
         return self.name
 
+# --- NUEVO: Modelo para las FASES de los Procesos Scrum ---
+class ScrumPhase(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Inicio, Planificación y Estimación")
+    tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-sky-100")
+    tailwind_text_color = models.CharField(max_length=50, default='text-gray-600', help_text="Clase de Tailwind para el texto del footer. Ej: text-sky-800")
+    
+    class Meta:
+        verbose_name = "Scrum Phase"
+        verbose_name_plural = "Scrum Phases"
+
+    def __str__(self):
+        return self.name
+
 # --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
 class PMBOKProcess(models.Model):
-    # CAMBIO 1: Definir las opciones para el estado Kanban
     KANBAN_STATUS_CHOICES = [
-        ('unassigned', 'No Asignado'), # <--- AÑADE ESTA LÍNEA
+        ('unassigned', 'No Asignado'),
         ('backlog', 'Pendiente'),
         ('todo', 'Por Hacer'),
         ('in_progress', 'En Progreso'),
@@ -92,10 +104,9 @@ class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     
-    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
-    stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='processes')
+    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='pmbok_processes')
+    stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='pmbok_processes')
     
-    # CAMBIO 2: Añadir el nuevo campo para el estado del Kanban
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
@@ -123,14 +134,16 @@ class Task(models.Model):
         return self.title
 
 
-# --- Modelo para los Procesos de SCRUM ---
+# --- Modelo para los Procesos de SCRUM (ACTUALIZADO) ---
 class ScrumProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     
-    # Reutilizamos los modelos de Estatus y Etapa que ya existen
-    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes')
-    stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes')
+    # Reutilizamos el modelo de Estatus que ya existe
+    status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_status')
+    
+    # CAMBIO: Usamos el nuevo modelo ScrumPhase en lugar de ProcessStage
+    phase = models.ForeignKey(ScrumPhase, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_phase')
     
     inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
     tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")

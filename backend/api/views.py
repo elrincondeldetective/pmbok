@@ -2,7 +2,7 @@
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer, ScrumProcessSerializer 
+from .serializers import TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer, ScrumProcessSerializer
 from .models import Task, CustomUser, PMBOKProcess, ScrumProcess
 
 # --- Vista para el Registro de Usuarios ---
@@ -14,16 +14,17 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = UserRegistrationSerializer
 
+# CAMBIO: Actualizar la vista de Scrum
 class ScrumProcessViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint que permite ver los procesos de Scrum.
     """
-    queryset = ScrumProcess.objects.select_related('status', 'stage').all()
+    # La consulta ahora debe buscar la relación 'phase' en lugar de 'stage'
+    queryset = ScrumProcess.objects.select_related('status', 'phase').all()
     serializer_class = ScrumProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 # PMBOKProcessViewSet (ACTUALIZADO)
-# CAMBIO 1: Cambiar de ReadOnlyModelViewSet a ModelViewSet para permitir actualizaciones
 class PMBOKProcessViewSet(viewsets.ModelViewSet):
     """
     API endpoint que permite ver y actualizar los procesos del PMBOK.
@@ -32,8 +33,7 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
     serializer_class = PMBOKProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # CAMBIO 2: Crear una acción personalizada para actualizar el estado Kanban
-    # Esto crea un endpoint específico: /api/pmbok-processes/{id}/update_kanban_status/
+    # Acción personalizada para actualizar el estado Kanban
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
     def update_kanban_status(self, request, pk=None):
         """

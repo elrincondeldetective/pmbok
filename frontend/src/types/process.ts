@@ -1,23 +1,27 @@
 // frontend/src/types/process.ts
 
-// Tipo para los estados de Kanban (sin cambios)
 export type KanbanStatus = 'unassigned' | 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
-// Interfaz para el Estatus de un proceso (sin cambios)
 export interface IProcessStatus {
     name: string;
     tailwind_bg_color: string;
     tailwind_text_color: string;
 }
 
-// Interfaz para la Etapa de un proceso (sin cambios)
-export interface IProcessStage {
+export interface IProcessStage { // Para PMBOK
     name: string;
     tailwind_bg_color: string;
     tailwind_text_color: string;
 }
 
-// Interfaz para un proceso de PMBOK (kanban_status es específico de PMBOK)
+// AÑADIDO: Interfaz para las Fases de Scrum (aunque sea igual a Stage, es conceptualmente distinta)
+export interface IScrumPhase {
+    name: string;
+    tailwind_bg_color: string;
+    tailwind_text_color: string;
+}
+
+
 export interface IPMBOKProcess {
     id: number;
     process_number: number;
@@ -30,17 +34,16 @@ export interface IPMBOKProcess {
     outputs: string;
 }
 
-// NUEVA INTERFAZ: para un proceso de Scrum
+// CAMBIO: La interfaz de Scrum ahora usa 'phase'
 export interface IScrumProcess {
     id: number;
     process_number: number;
     name: string;
     status: IProcessStatus | null;
-    stage: IProcessStage | null;
+    phase: IScrumPhase | null; // Cambiado de 'stage' a 'phase'
     inputs: string;
     tools_and_techniques: string;
     outputs: string;
 }
 
-// TIPO UNIFICADO: para usar en componentes genéricos como la tarjeta
 export type AnyProcess = IPMBOKProcess | IScrumProcess;

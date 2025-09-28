@@ -1,6 +1,7 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage, ScrumProcess
+# CAMBIO: Importar también ScrumPhase
+from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage, ScrumProcess, ScrumPhase
 from django.contrib.auth.password_validation import validate_password
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -45,22 +46,30 @@ class ProcessStageSerializer(serializers.ModelSerializer):
         model = ProcessStage
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
+# AÑADIDO: Serializador para el nuevo modelo ScrumPhase
+class ScrumPhaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScrumPhase
+        fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
 class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     stage = ProcessStageSerializer(read_only=True)
 
     class Meta:
         model = PMBOKProcess
-        # CAMBIO 1: Añadir 'kanban_status' a los campos serializados
         fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
 
+# CAMBIO: Actualizar el serializador de Scrum
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
-    stage = ProcessStageSerializer(read_only=True)
+    # Usar 'phase' con su propio serializador en lugar de 'stage'
+    phase = ScrumPhaseSerializer(read_only=True)
 
     class Meta:
         model = ScrumProcess
-        fields = ('id', 'process_number', 'name', 'status', 'stage', 'inputs', 'tools_and_techniques', 'outputs')
+        # Actualizar los campos para reflejar el cambio de 'stage' a 'phase'
+        fields = ('id', 'process_number', 'name', 'status', 'phase', 'inputs', 'tools_and_techniques', 'outputs')
 
 # TaskSerializer (Sin cambios)
 class TaskSerializer(serializers.ModelSerializer):

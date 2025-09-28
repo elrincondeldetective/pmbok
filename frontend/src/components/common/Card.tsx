@@ -1,7 +1,7 @@
 // frontend/src/components/common/Card.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { AnyProcess, IPMBOKProcess } from '../../types/process';
+import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../../types/process';
 
 interface CardProps {
   process: AnyProcess;
@@ -17,8 +17,14 @@ function isPMBOKProcess(process: AnyProcess): process is IPMBOKProcess {
 const Card: React.FC<CardProps> = ({ process, framework }) => {
     const location = useLocation();
 
-    // El enlace al modal solo aplica para PMBOK por ahora
     const linkTarget = isPMBOKProcess(process) ? `/process/${process.id}` : '#';
+
+    // CAMBIO: Determinar el grupo (Etapa o Fase) y sus propiedades de forma condicional
+    const group = isPMBOKProcess(process) ? process.stage : (process as IScrumProcess).phase;
+    const groupBgColor = group?.tailwind_bg_color || 'bg-gray-200';
+    const groupTextColor = group?.tailwind_text_color || 'text-gray-700';
+    const groupName = group?.name || 'No definida';
+
 
     const cardContent = (
         <div className="bg-white rounded-lg shadow-lg flex flex-col h-full transform hover:-translate-y-1 transition-transform duration-300 cursor-pointer">
@@ -51,9 +57,10 @@ const Card: React.FC<CardProps> = ({ process, framework }) => {
                 </div>}
             </div>
 
-            <div className={`border-t p-4 rounded-b-lg mt-auto text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
+            {/* CAMBIO: Usar las variables condicionales para el pie de la tarjeta */}
+            <div className={`border-t p-4 rounded-b-lg mt-auto text-center ${groupBgColor} ${groupTextColor}`}>
                 <p className="text-xs font-bold uppercase tracking-wider">
-                    {process.stage ? process.stage.name : 'Etapa no definida'}
+                    {groupName}
                 </p>
             </div>
         </div>
