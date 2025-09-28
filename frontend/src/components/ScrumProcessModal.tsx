@@ -1,9 +1,9 @@
 // frontend/src/components/ScrumProcessModal.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient';
-import type { IScrumProcess, KanbanStatus } from '../types/process';
-import { ProcessContext } from '../context/ProcessContext';
+import apiClient from '/src/api/apiClient';
+import type { IScrumProcess, KanbanStatus } from '/src/types/process';
+import { ProcessContext } from '/src/context/ProcessContext';
 
 // Opciones para el selector de estado Kanban
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
@@ -101,7 +101,15 @@ const ScrumProcessModal: React.FC = () => {
                             <div className="flex justify-between items-start gap-4">
                                 <div className="flex-grow">
                                     <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
-                                    {process.phase && <p className={`text-sm opacity-90 mt-1`}>{process.phase.name}</p>}
+                                    {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
+                                    {/* Se añade un indicador visual para el modal. */}
+                                    <div className="mt-2">
+                                        <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                                            SCRUM GUIDE
+                                        </span>
+                                    </div>
+                                    {/* ===== FIN: CAMBIO SOLICITADO ===== */}
+                                    {process.phase && <p className={`text-sm opacity-90 mt-2`}>{process.phase.name}</p>}
                                 </div>
                                 <div className="flex-shrink-0 flex items-center gap-4">
                                     {/* === SELECTOR KANBAN AÑADIDO === */}
@@ -140,3 +148,4 @@ const ScrumProcessModal: React.FC = () => {
 };
 
 export default ScrumProcessModal;
+

@@ -1,9 +1,9 @@
 // frontend/src/components/ProcessModal.tsx
-import React, { useState, useEffect, useContext } from 'react'; // 👈 useContext AÑADIDO
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient';
-import type { IProcess, KanbanStatus } from '../types/process';
-import { ProcessContext } from '../context/ProcessContext'; // 👈 CONTEXTO IMPORTADO
+import apiClient from '/src/api/apiClient';
+import type { KanbanStatus, IPMBOKProcess } from '/src/types/process';
+import { ProcessContext } from '/src/context/ProcessContext';
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'unassigned', label: 'No Asignado' },
@@ -18,11 +18,10 @@ const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
 const ProcessModal: React.FC = () => {
     const { processId } = useParams<{ processId: string }>();
     const navigate = useNavigate();
-    const [process, setProcess] = useState<IProcess | null>(null);
+    const [process, setProcess] = useState<IPMBOKProcess | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // 👇 Obtenemos la función para actualizar el estado global
     const { updateProcessInState } = useContext(ProcessContext);
 
     useEffect(() => {
@@ -32,10 +31,10 @@ const ProcessModal: React.FC = () => {
         const fetchProcess = async () => {
             setLoading(true);
             try {
-                const response = await apiClient.get<IProcess>(`/pmbok-processes/${processId}/`, {
+                const response = await apiClient.get<IPMBOKProcess>(`/pmbok-processes/${processId}/`, {
                     signal: controller.signal
                 });
-                setProcess(response.data);
+                setProcess({...response.data, type: 'pmbok'});
             } catch (err: any) {
                 if (err.name !== 'CanceledError') {
                     console.error("Failed to fetch process details:", err);
@@ -50,25 +49,21 @@ const ProcessModal: React.FC = () => {
         return () => controller.abort();
     }, [processId]);
     
-    // 👇 NUEVA FUNCIÓN para manejar el cambio de estado Kanban
     const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as KanbanStatus;
         if (!process) return;
 
-        // Actualizamos visualmente el estado local de inmediato para una mejor UX
         const oldProcess = { ...process };
         setProcess({ ...process, kanban_status: newStatus });
 
         try {
-            const response = await apiClient.patch<IProcess>(`/pmbok-processes/${processId}/update-kanban-status/`, {
+            const response = await apiClient.patch<IPMBOKProcess>(`/pmbok-processes/${processId}/update-kanban-status/`, {
                 kanban_status: newStatus
             });
-            // Sincronizamos el estado global y local con la respuesta final de la API
-            updateProcessInState(response.data.id, response.data);
-            setProcess(response.data);
+            updateProcessInState(response.data.id, 'pmbok', {...response.data, type: 'pmbok'});
+            setProcess({...response.data, type: 'pmbok'});
         } catch (error) {
             console.error("Error al actualizar el estado Kanban:", error);
-            // Si falla la API, revertimos el cambio en la UI y mostramos un error
             setProcess(oldProcess);
             alert("No se pudo actualizar el estado. Por favor, inténtalo de nuevo.");
         }
@@ -114,12 +109,19 @@ const ProcessModal: React.FC = () => {
 
                 {process && (
                     <>
-                        {/* 👇 CABECERA DEL MODAL ACTUALIZADA */}
                         <div className={`p-6 rounded-t-xl ${process.status?.tailwind_bg_color || 'bg-gray-700'} ${process.status?.tailwind_text_color || 'text-white'}`}>
                             <div className="flex justify-between items-start gap-4">
                                 <div className="flex-grow">
                                     <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
-                                    {process.stage && <p className={`text-sm opacity-90 mt-1`}>{process.stage.name}</p>}
+                                    {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
+                                    {/* Se añade un indicador visual para el modal. */}
+                                    <div className="mt-2">
+                                        <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                                            PMBOK® 6
+                                        </span>
+                                    </div>
+                                    {/* ===== FIN: CAMBIO SOLICITADO ===== */}
+                                    {process.stage && <p className={`text-sm opacity-90 mt-2`}>{process.stage.name}</p>}
                                 </div>
                                 <div className="flex-shrink-0 flex items-center gap-4">
                                     <select
@@ -178,3 +180,4 @@ const ProcessModal: React.FC = () => {
 };
 
 export default ProcessModal;
+

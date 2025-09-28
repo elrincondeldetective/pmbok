@@ -1,9 +1,9 @@
 // frontend/src/components/dashboard/KanbanBoard.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { AnyProcess, KanbanStatus, IPMBOKProcess } from '../../types/process';
-import apiClient from '../../api/apiClient';
-import SectionHeader from '../common/SectionHeader';
+import type { AnyProcess, KanbanStatus } from '/src/types/process';
+import apiClient from '/src/api/apiClient';
+import SectionHeader from '/src/components/common/SectionHeader';
 
 type KanbanColumnStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
@@ -141,7 +141,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
 
                                 return (
                                 <div key={`${process.type}-${process.id}`} className="relative group">
-                                     <Link
+                                    <Link
                                         to={linkTarget}
                                         state={{ background: location }}
                                         draggable
@@ -149,10 +149,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                                         onDragEnd={handleDragEnd}
                                         className={`bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-l-4 ${borderColor}`}
                                     >
-                                        <div className={`p-3 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
+                                        <div className={`p-3 rounded-t-lg text-center ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
                                             <p className="text-sm font-bold leading-tight truncate" title={process.name}>
                                                 {process.process_number}. {process.name}
                                             </p>
+                                            {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
+                                            {/* Se añade un indicador visual para diferenciar entre PMBOK y Scrum en el Kanban. */}
+                                            <span className="mt-1.5 inline-block bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                {process.type === 'pmbok' ? 'PMBOK® 6' : 'SCRUM'}
+                                            </span>
+                                            {/* ===== FIN: CAMBIO SOLICITADO ===== */}
                                         </div>
                                         <div className={`border-t px-3 py-2 rounded-b-lg text-center ${group ? `${group.tailwind_bg_color} ${group.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
                                             <p className="text-xs font-semibold uppercase tracking-wider truncate" title={group?.name}>
@@ -181,3 +187,4 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
 };
 
 export default KanbanBoard;
+

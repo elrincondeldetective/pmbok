@@ -34,6 +34,14 @@ const Card: React.FC<CardProps> = ({ process }) => {
                     className={`p-4 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}
                 >
                     <h2 className="font-bold text-lg leading-tight">{process.process_number}. {process.name}</h2>
+                    {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
+                    {/* Se añade un indicador visual para diferenciar entre PMBOK y Scrum. */}
+                    <div className="mt-2">
+                        <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                            {isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE'}
+                        </span>
+                    </div>
+                    {/* ===== FIN: CAMBIO SOLICITADO ===== */}
                 </div>
 
                 <div className="p-6 flex-grow flex flex-col space-y-4">
