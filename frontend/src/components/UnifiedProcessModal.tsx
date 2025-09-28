@@ -1,9 +1,9 @@
 // frontend/src/components/UnifiedProcessModal.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useMatch } from 'react-router-dom';
-import apiClient from '../api/apiClient.ts';
-import type { AnyProcess, KanbanStatus, IPMBOKProcess, IScrumProcess, ITTOItem } from '../types/process.ts';
-import { ProcessContext } from '../context/ProcessContext.tsx';
+import apiClient from '/src/api/apiClient';
+import type { AnyProcess, KanbanStatus, IPMBOKProcess, IScrumProcess, ITTOItem } from '/src/types/process';
+import { ProcessContext } from '/src/context/ProcessContext';
 import { FaSignInAlt, FaTools, FaSignOutAlt, FaPencilAlt, FaPlus, FaTimes, FaEye, FaInfoCircle, FaLink } from 'react-icons/fa';
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
@@ -18,14 +18,15 @@ const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
 interface ActionIconsProps {
     onEdit: () => void;
     onAdd: () => void;
+    onDelete: () => void;
 }
 
-// --- CAMBIO: Se añade un manejador de evento al icono '+' para evitar que el click se propague ---
-const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAdd }) => (
+// --- CAMBIO: Se añade un manejador `onDelete` al icono FaTimes ---
+const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAdd, onDelete }) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
         <FaPencilAlt onClick={onEdit} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
         <FaPlus onClick={(e) => { e.stopPropagation(); e.preventDefault(); onAdd(); }} className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
-        <FaTimes className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
+        <FaTimes onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(); }} className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
         <FaEye className="w-3.5 h-3.5 text-blue-600 cursor-pointer hover:text-blue-500" title="Ver" />
     </div>
 );
@@ -40,7 +41,6 @@ const UnifiedProcessModal: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // --- CAMBIO 1: El estado de edición ahora incluye un flag para identificar si es un item nuevo. ---
     const [editingState, setEditingState] = useState<{ id: string | null; name: string; url: string; isNew?: boolean }>({
         id: null,
         name: '',
@@ -48,19 +48,72 @@ const UnifiedProcessModal: React.FC = () => {
         isNew: false,
     });
 
+    // --- INICIO: NUEVO ESTADO Y MANEJADORES PARA EL MODAL DE CONFIRMACIÓN ---
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{
+        isVisible: boolean;
+        itemToDelete: { id: string; name: string } | null;
+    }>({ isVisible: false, itemToDelete: null });
+
+    const handleOpenDeleteModal = (itemId: string, itemName: string) => {
+        setDeleteConfirmation({ isVisible: true, itemToDelete: { id: itemId, name: itemName } });
+    };
+
+    const handleCloseDeleteModal = () => {
+        setDeleteConfirmation({ isVisible: false, itemToDelete: null });
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!process || !deleteConfirmation.itemToDelete) return;
+
+        const { id: itemId } = deleteConfirmation.itemToDelete;
+        const [listTitle, indexStr] = itemId.split(/-(?=\d+$)/);
+        const index = parseInt(indexStr, 10);
+
+        const propertyMap = {
+            'Entradas': 'inputs',
+            'Herramientas y Técnicas': 'tools_and_techniques',
+            'Salidas': 'outputs'
+        } as const;
+
+        const processKey = propertyMap[listTitle as keyof typeof propertyMap];
+        if (!processKey) return;
+
+        const oldProcess = { ...process }; // Backup para rollback
+
+        const updatedItems = process[processKey].filter((_, i) => i !== index);
+        const updatedProcess = { ...process, [processKey]: updatedItems };
+
+        // Actualización optimista de la UI
+        setProcess(updatedProcess);
+        updateProcessInState(process.id, process.type, updatedProcess);
+        handleCloseDeleteModal(); // Cierra el modal de confirmación
+
+        // Llamada a la API para persistir el cambio
+        try {
+            await apiClient.patch(`/${apiEndpoint}/${process.id}/update-ittos/`, {
+                [processKey]: updatedItems
+            });
+        } catch (error) {
+            console.error(`Error al eliminar el item de ${processKey}:`, error);
+            // Revertir en caso de error
+            setProcess(oldProcess);
+            updateProcessInState(oldProcess.id, oldProcess.type, oldProcess);
+            alert('No se pudo eliminar el documento. Inténtalo de nuevo.');
+        }
+    };
+    // --- FIN: NUEVO ESTADO Y MANEJADORES PARA EL MODAL DE CONFIRMACIÓN ---
+
     const processType = isPmbokRoute ? 'pmbok' : 'scrum';
     const apiEndpoint = processType === 'pmbok' ? 'pmbok-processes' : 'scrum-processes';
 
     useEffect(() => {
         if (!processId) return;
 
-        // Busca primero en el estado del contexto para una carga más rápida
         const existingProcess = processes.find(p => p.id === parseInt(processId) && p.type === processType);
         if (existingProcess) {
             setProcess(existingProcess);
             setLoading(false);
         } else {
-            // Si no está en el contexto, lo busca en la API
             const controller = new AbortController();
             const fetchProcess = async () => {
                 setLoading(true);
@@ -84,7 +137,6 @@ const UnifiedProcessModal: React.FC = () => {
         }
     }, [processId, apiEndpoint, processType, processes]);
 
-    // --- CAMBIO 2: Nueva función para manejar la adición de un item. ---
     const handleAddItem = (listKey: 'inputs' | 'tools_and_techniques' | 'outputs', listTitle: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas') => {
         if (!process) return;
 
@@ -170,7 +222,6 @@ const UnifiedProcessModal: React.FC = () => {
         }
     };
 
-    // --- CAMBIO 3: Se actualiza la función de cancelar para manejar los items nuevos. ---
     const handleCancelEdit = () => {
         if (editingState.isNew && process && editingState.id) {
             const [listTitle] = editingState.id.split(/-(?=\d+$)/);
@@ -254,10 +305,10 @@ const UnifiedProcessModal: React.FC = () => {
                                             {isKeyElement && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
                                         </span>
                                         <div className="flex-shrink-0">
-                                            {/* --- CAMBIO 4: Se pasa el 'title' para poder construir el ID del nuevo item. --- */}
                                             <ActionIcons
                                                 onEdit={() => setEditingState({ id: itemId, name: cleanName, url: item.url, isNew: false })}
                                                 onAdd={() => handleAddItem(processKey, title)}
+                                                onDelete={() => handleOpenDeleteModal(itemId, cleanName)}
                                             />
                                         </div>
                                     </>
@@ -353,10 +404,55 @@ const UnifiedProcessModal: React.FC = () => {
             onClick={handleClose}
         >
             <div
-                className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-transform duration-300 scale-95 animate-scale-in"
+                className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-transform duration-300 scale-95 animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
                 {renderContent()}
+                
+                {/* --- INICIO: RENDERIZADO DEL NUEVO MODAL DE CONFIRMACIÓN --- */}
+                {deleteConfirmation.isVisible && (
+                    <div 
+                        className="absolute inset-0 bg-black/40 z-50 flex justify-center items-center p-4 animate-fade-in rounded-xl"
+                        onClick={handleCloseDeleteModal}
+                    >
+                        <div 
+                            className="bg-white rounded-lg shadow-xl w-full max-w-md animate-scale-in"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-6">
+                                <div className="text-center">
+                                    <svg className="mx-auto mb-4 text-yellow-400 w-12 h-12" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                    </svg>
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-800">Aviso Importante</h3>
+                                    <p className="mb-5 text-sm text-gray-600">
+                                        No es recomendable borrar documentos. Es mejor que inicies otro y dejes este para consultas futuras.
+                                    </p>
+                                    <p className="mb-6 text-sm text-gray-500 bg-gray-100 p-2 rounded-md truncate">
+                                        Documento: <strong className="font-medium text-gray-800" title={deleteConfirmation.itemToDelete?.name}>{deleteConfirmation.itemToDelete?.name}</strong>
+                                    </p>
+                                </div>
+                                <div className="flex justify-center items-center space-x-4">
+                                    <button 
+                                        onClick={handleCloseDeleteModal} 
+                                        type="button" 
+                                        className="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        onClick={handleConfirmDelete} 
+                                        type="button" 
+                                        className="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center"
+                                    >
+                                        Confirmar Borrado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* --- FIN: RENDERIZADO DEL NUEVO MODAL DE CONFIRMACIÓN --- */}
             </div>
             <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -375,3 +471,4 @@ const UnifiedProcessModal: React.FC = () => {
 };
 
 export default UnifiedProcessModal;
+
