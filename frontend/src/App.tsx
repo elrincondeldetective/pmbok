@@ -6,8 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
-import ProcessModal from './components/ProcessModal';
-import ScrumProcessModal from './components/ScrumProcessModal'; // Importamos el nuevo modal
+// CAMBIO 1: Importar el nuevo modal unificado
+import UnifiedProcessModal from './components/UnifiedProcessModal'; 
 import { ProcessProvider } from './context/ProcessContext';
 
 function App() {
@@ -30,9 +30,9 @@ function App() {
 
             {background && (
                 <Routes>
-                    <Route path="/process/:processId" element={<ProcessModal />} />
-                    {/* Añadimos la nueva ruta para el modal de Scrum */}
-                    <Route path="/scrum-process/:processId" element={<ScrumProcessModal />} />
+                    {/* CAMBIO 2: Ambas rutas ahora apuntan al mismo componente modal */}
+                    <Route path="/process/:processId" element={<UnifiedProcessModal />} />
+                    <Route path="/scrum-process/:processId" element={<UnifiedProcessModal />} />
                 </Routes>
             )}
         </ProcessProvider>
