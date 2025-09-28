@@ -7,15 +7,18 @@ export default {
   
   // Clases que NUNCA deben ser purgadas por Tailwind
   safelist: [
-    // --- Colores para ESTATUS (Cabecera de la tarjeta PMBOK y Scrum) ---
+    // --- Colores para ESTATUS (PMBOK y ahora también Scrum) ---
     'bg-indigo-800',
     'bg-blue-700',
     'bg-green-600',
     'bg-amber-500',
     'bg-gray-400',
+    'bg-gray-500', // Añadido para Scrum Escalado
+    'bg-purple-800', // Añadido para Scrum Fase 0
+    'bg-rose-700', // Añadido para Scrum Lanzamiento
     'text-white',
     'text-gray-800',
-    'bg-sky-700', // Estatus "Aplicable en Scrum"
+    'bg-sky-700', 
 
     // --- Colores para ETAPAS PMBOK (Pie de página de la tarjeta) ---
     'bg-gray-200',
@@ -48,6 +51,8 @@ export default {
     'text-slate-800',
     'bg-violet-200',
     'text-violet-800',
+    'bg-pink-100', // Añadido para Lanzamiento
+    'text-pink-800', // Añadido para Lanzamiento
   ],
 
   theme: {

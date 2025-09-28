@@ -4,83 +4,90 @@ import apiClient from '../../api/apiClient';
 import type { IScrumProcess } from '../../types/process';
 import SectionHeader from '../common/SectionHeader';
 import ScrumGrid from './ScrumGrid';
-import ScrumFilterLegend from './ScrumFilterLegend'; // 1. Importar el nuevo componente
+import ScrumFilterLegend from './ScrumFilterLegend';
 
 const ScrumSection: React.FC = () => {
-    const [scrumProcesses, setScrumProcesses] = useState<IScrumProcess[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
+    const [scrumProcesses, setScrumProcesses] = useState<IScrumProcess[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // 2. Añadir estado para manejar el filtro de fase
-    const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
+    // --- AÑADIDO: Estado para ambos filtros ---
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
 
-    useEffect(() => {
-        const controller = new AbortController();
+    useEffect(() => {
+        const controller = new AbortController();
+        const fetchScrumProcesses = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await apiClient.get<IScrumProcess[]>('/scrum-processes/', {
+                    signal: controller.signal
+                });
+                setScrumProcesses(response.data);
+            } catch (err: any) {
+                if (err.name !== 'CanceledError') {
+                    console.error("Error fetching Scrum processes:", err);
+                    setError("No se pudieron cargar los procesos de Scrum.");
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            }
+        };
+        fetchScrumProcesses();
+        return () => {
+            controller.abort();
+        };
+    }, []);
 
-        const fetchScrumProcesses = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await apiClient.get<IScrumProcess[]>('/scrum-processes/', {
-                    signal: controller.signal
-                });
-                setScrumProcesses(response.data);
-            } catch (err: any) {
-                if (err.name !== 'CanceledError') {
-                    console.error("Error fetching Scrum processes:", err);
-                    setError("No se pudieron cargar los procesos de Scrum.");
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                }
-            }
-        };
+    // --- AÑADIDO: Handlers para ambos filtros ---
+    const handleStatusFilterClick = (statusName: string) => {
+        setSelectedStatus(prev => (prev === statusName ? null : statusName));
+    };
+    
+    const handlePhaseFilterClick = (phaseName: string) => {
+        setSelectedPhase(prev => (prev === phaseName ? null : phaseName));
+    };
 
-        fetchScrumProcesses();
+    const clearFilters = () => {
+        setSelectedStatus(null);
+        setSelectedPhase(null);
+    };
 
-        return () => {
-            controller.abort();
-        };
-    }, []);
+    // --- MODIFICADO: Lógica de filtrado para incluir el estatus ---
+    const filteredScrumProcesses = useMemo(() => {
+        return scrumProcesses.filter(process => {
+            const statusMatch = selectedStatus ? process.status?.name === selectedStatus : true;
+            const phaseMatch = selectedPhase ? process.phase?.name === selectedPhase : true;
+            return statusMatch && phaseMatch;
+        });
+    }, [scrumProcesses, selectedStatus, selectedPhase]);
 
-    // 3. Funciones para manejar los clics en los filtros
-    const handlePhaseFilterClick = (phaseName: string) => {
-        setSelectedPhase(prev => (prev === phaseName ? null : phaseName));
-    };
-
-    const clearFilters = () => {
-        setSelectedPhase(null);
-    };
-
-    // 4. Lógica de filtrado que se recalcula solo cuando cambian las dependencias
-    const filteredScrumProcesses = useMemo(() => {
-        if (!selectedPhase) {
-            return scrumProcesses;
-        }
-        return scrumProcesses.filter(process => process.phase?.name === selectedPhase);
-    }, [scrumProcesses, selectedPhase]);
-
-    return (
-        <section className="mb-16">
-            {/* 5. Renderizar la leyenda y filtros arriba del título */}
-            {!loading && !error && (
-                <ScrumFilterLegend
-                    selectedPhase={selectedPhase}
-                    onPhaseFilterClick={handlePhaseFilterClick}
-                    onClearFilters={clearFilters}
-                />
-            )}
-            <SectionHeader
-                title="Guía Scrum Una visión adaptada a un entorno de trabajo ágil."
-            />
-            {loading && <p className="text-center text-gray-700">Cargando procesos de Scrum...</p>}
-            {error && <p className="text-center text-red-600 font-semibold">{error}</p>}
-            {/* 6. Pasar los procesos ya filtrados a la cuadrícula */}
-            {!loading && !error && <ScrumGrid processes={filteredScrumProcesses} />}
-        </section>
-    );
+    return (
+        <section className="mb-16">
+            <SectionHeader
+                title="Guía Scrum: Una visión adaptada a un entorno de trabajo ágil"
+                subtitle="Filtrado por Fases de Trabajo y Grupos de Procesos"
+            />
+            {loading && <p className="text-center text-gray-700">Cargando procesos de Scrum...</p>}
+            {error && <p className="text-center text-red-600 font-semibold">{error}</p>}
+            
+            {!loading && !error && (
+                <>
+                    <ScrumFilterLegend
+                        selectedStatus={selectedStatus}
+                        selectedPhase={selectedPhase}
+                        onStatusFilterClick={handleStatusFilterClick}
+                        onPhaseFilterClick={handlePhaseFilterClick}
+                        onClearFilters={clearFilters}
+                    />
+                    <ScrumGrid processes={filteredScrumProcesses} />
+                </>
+            )}
+        </section>
+    );
 };
 
 export default ScrumSection;
-
