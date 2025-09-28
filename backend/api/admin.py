@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 # CAMBIO 1: Importar los modelos con sus nuevos nombres y el nuevo modelo
-from .models import CustomUser, Task, ProcessStatus, ProcessStage, PMBOKProcess
+from .models import CustomUser, Task, ProcessStatus, ProcessStage, PMBOKProcess, ScrumProcess
 
 # Configuramos cómo se verá nuestro modelo CustomUser en el panel de admin.
 class CustomUserAdmin(UserAdmin):
@@ -37,6 +37,24 @@ class PMBOKProcessAdmin(admin.ModelAdmin):
     list_filter = ('status', 'stage',) # Añadir 'stage'
     search_fields = ('name', 'process_number')
     list_editable = ('status', 'stage',) # Añadir 'stage' para editar en la lista
+
+# --- AÑADIDO: Registrar el modelo ScrumProcess ---
+@admin.register(ScrumProcess)
+class ScrumProcessAdmin(admin.ModelAdmin):
+    """
+    Configuración para mostrar el modelo ScrumProcess en el panel de admin.
+    """
+    # Columnas que se mostrarán en la lista de procesos
+    list_display = ('process_number', 'name', 'status', 'stage') 
+    
+    # Opciones para filtrar en el panel lateral
+    list_filter = ('status', 'stage',)
+    
+    # Campos por los que se puede buscar
+    search_fields = ('name', 'process_number')
+    
+    # Campos que se pueden editar directamente desde la lista
+    list_editable = ('status', 'stage',)
 
 # Registros finales
 admin.site.register(CustomUser, CustomUserAdmin)
