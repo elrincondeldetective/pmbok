@@ -14,36 +14,35 @@ export interface IProcessStage { // Para PMBOK
     tailwind_text_color: string;
 }
 
-// AÑADIDO: Interfaz para las Fases de Scrum (aunque sea igual a Stage, es conceptualmente distinta)
-export interface IScrumPhase {
+export interface IScrumPhase { // Para Scrum
     name: string;
     tailwind_bg_color: string;
     tailwind_text_color: string;
 }
 
-
-export interface IPMBOKProcess {
+// Interfaz Base para campos comunes
+interface IBaseProcess {
     id: number;
     process_number: number;
     name: string;
     status: IProcessStatus | null;
-    stage: IProcessStage | null;
     kanban_status: KanbanStatus;
     inputs: string;
     tools_and_techniques: string;
     outputs: string;
 }
 
-// CAMBIO: La interfaz de Scrum ahora usa 'phase'
-export interface IScrumProcess {
-    id: number;
-    process_number: number;
-    name: string;
-    status: IProcessStatus | null;
-    phase: IScrumPhase | null; // Cambiado de 'stage' a 'phase'
-    inputs: string;
-    tools_and_techniques: string;
-    outputs: string;
+// IPMBOKProcess ahora extiende la base y añade sus campos específicos
+export interface IPMBOKProcess extends IBaseProcess {
+    type: 'pmbok'; // Campo discriminador
+    stage: IProcessStage | null;
 }
 
+// IScrumProcess ahora extiende la base y añade sus campos específicos
+export interface IScrumProcess extends IBaseProcess {
+    type: 'scrum'; // Campo discriminador
+    phase: IScrumPhase | null; 
+}
+
+// Tipo de Unión para cualquier tipo de proceso
 export type AnyProcess = IPMBOKProcess | IScrumProcess;

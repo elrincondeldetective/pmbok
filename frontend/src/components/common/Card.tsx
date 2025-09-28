@@ -1,29 +1,28 @@
+// frontend/src/components/common/Card.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../../types/process';
+import type { AnyProcess, IScrumProcess } from '../../types/process';
 
 interface CardProps {
   process: AnyProcess;
 }
 
-// Esta función nos ayuda a diferenciar entre tipos de procesos
-function isPMBOKProcess(process: AnyProcess): process is IPMBOKProcess {
-    return 'kanban_status' in process;
-}
-
 const Card: React.FC<CardProps> = ({ process }) => {
     const location = useLocation();
 
-    // 1. Determinar dinámicamente el enlace y las propiedades del grupo
-    const isPmbok = isPMBOKProcess(process);
+    // === CORRECCIÓN ===
+    // Se elimina la función 'isPMBOKProcess' que era incorrecta.
+    // Ahora usamos directamente la propiedad 'type' que ya existe en el objeto 'process'
+    // para determinar el tipo de tarjeta y generar el enlace correcto.
+    const isPmbok = process.type === 'pmbok';
     const linkTarget = isPmbok ? `/process/${process.id}` : `/scrum-process/${process.id}`;
     
+    // La lógica para obtener el grupo (stage o phase) también se simplifica usando 'process.type'
     const group = isPmbok ? process.stage : (process as IScrumProcess).phase;
     const groupBgColor = group?.tailwind_bg_color || 'bg-gray-200';
     const groupTextColor = group?.tailwind_text_color || 'text-gray-700';
     const groupName = group?.name || 'No definida';
 
-    // 2. Envolver siempre la tarjeta en un Link con el destino correcto
     return (
         <Link
             to={linkTarget}

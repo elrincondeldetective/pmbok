@@ -1,9 +1,19 @@
 // frontend/src/components/ScrumProcessModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// RUTA CORREGIDA: ../../api/apiClient -> ../api/apiClient
 import apiClient from '../api/apiClient';
-import type { IScrumProcess } from '../../types/process';
+import type { IScrumProcess, KanbanStatus } from '../types/process';
+import { ProcessContext } from '../context/ProcessContext';
+
+// Opciones para el selector de estado Kanban
+const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
+    { value: 'unassigned', label: 'No Asignado' },
+    { value: 'backlog', label: 'Pendiente' },
+    { value: 'todo', label: 'Por Hacer' },
+    { value: 'in_progress', label: 'En Progreso' },
+    { value: 'in_review', label: 'En Revisión' },
+    { value: 'done', label: 'Hecho' },
+];
 
 const ScrumProcessModal: React.FC = () => {
     const { processId } = useParams<{ processId: string }>();
@@ -12,35 +22,54 @@ const ScrumProcessModal: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Obtenemos la función para actualizar el estado global desde el contexto
+    const { updateProcessInState } = useContext(ProcessContext);
+
     useEffect(() => {
         if (!processId) return;
-
         const controller = new AbortController();
         const fetchProcess = async () => {
             setLoading(true);
             try {
-                // Hacemos la petición al endpoint de scrum-processes
                 const response = await apiClient.get<IScrumProcess>(`/scrum-processes/${processId}/`, {
                     signal: controller.signal
                 });
-                setProcess(response.data);
+                setProcess({...response.data, type: 'scrum'});
             } catch (err: any) {
                 if (err.name !== 'CanceledError') {
-                    console.error("Failed to fetch scrum process details:", err);
-                    setError('No se pudo cargar el detalle del proceso de Scrum. Inténtalo de nuevo.');
+                    setError('No se pudo cargar el detalle del proceso de Scrum.');
                 }
             } finally {
                 setLoading(false);
             }
         };
-
         fetchProcess();
         return () => controller.abort();
     }, [processId]);
 
-    const handleClose = () => {
-        navigate(-1);
+    const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newStatus = e.target.value as KanbanStatus;
+        if (!process) return;
+
+        const oldProcess = { ...process };
+        const updatedProcess = { ...process, kanban_status: newStatus };
+        setProcess(updatedProcess); // Actualización optimista
+
+        try {
+            const response = await apiClient.patch<IScrumProcess>(`/scrum-processes/${processId}/update-kanban-status/`, {
+                kanban_status: newStatus
+            });
+            // Sincronizamos el estado global y local con la respuesta de la API
+            updateProcessInState(response.data.id, 'scrum', {...response.data, type: 'scrum'});
+            setProcess({...response.data, type: 'scrum'});
+        } catch (error) {
+            console.error("Error al actualizar el estado Kanban:", error);
+            setProcess(oldProcess); // Revertir en caso de error
+            alert("No se pudo actualizar el estado. Por favor, inténtalo de nuevo.");
+        }
     };
+
+    const handleClose = () => navigate(-1);
 
     const renderList = (title: string, items: string | undefined) => {
         if (!items) return null;
@@ -63,62 +92,49 @@ const ScrumProcessModal: React.FC = () => {
                 className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-transform duration-300 scale-95 animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
-                {loading && (
-                    <div className="flex items-center justify-center h-48">
-                        <p className="text-gray-600">Cargando detalles del proceso...</p>
-                    </div>
-                )}
-                {error && (
-                    <div className="flex flex-col items-center justify-center h-48 p-8">
-                        <p className="text-red-600 font-semibold">{error}</p>
-                        <button onClick={handleClose} className="mt-4 bg-gray-200 text-gray-800 px-4 py-2 rounded-md">Cerrar</button>
-                    </div>
-                )}
+                {loading && <div className="flex items-center justify-center h-48"><p>Cargando...</p></div>}
+                {error && <div className="flex flex-col items-center justify-center h-48 p-8"><p className="text-red-600">{error}</p><button onClick={handleClose}>Cerrar</button></div>}
 
                 {process && (
                     <>
-                        {/* Cabecera del Modal */}
                         <div className={`p-6 rounded-t-xl ${process.status?.tailwind_bg_color || 'bg-gray-700'} ${process.status?.tailwind_text_color || 'text-white'}`}>
                             <div className="flex justify-between items-start gap-4">
                                 <div className="flex-grow">
                                     <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
                                     {process.phase && <p className={`text-sm opacity-90 mt-1`}>{process.phase.name}</p>}
                                 </div>
-                                <button onClick={handleClose} className="text-2xl font-bold hover:opacity-75 transition-opacity" aria-label="Cerrar modal">
-                                    &times;
-                                </button>
+                                <div className="flex-shrink-0 flex items-center gap-4">
+                                    {/* === SELECTOR KANBAN AÑADIDO === */}
+                                    <select
+                                        value={process.kanban_status}
+                                        onChange={handleKanbanStatusChange}
+                                        className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {kanbanStatusOptions.map(option => (
+                                            <option key={option.value} value={option.value} className="text-black">
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button onClick={handleClose} className="text-2xl font-bold hover:opacity-75" aria-label="Cerrar modal">&times;</button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Cuerpo del Modal */}
                         <div className="p-8 overflow-y-auto space-y-6">
                             {renderList('Entradas', process.inputs)}
                             {renderList('Herramientas y Técnicas', process.tools_and_techniques)}
                             {renderList('Salidas', process.outputs)}
                         </div>
 
-                        {/* Pie del Modal */}
                         <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
-                            <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700 transition duration-300">
-                                Cerrar
-                            </button>
+                            <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700">Cerrar</button>
                         </div>
                     </>
                 )}
             </div>
-             {/* Estilos para animaciones */}
-            <style>{`
-                @keyframes fade-in {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes scale-in {
-                    from { transform: scale(0.95); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-                .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
-                .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
-            `}</style>
+            <style>{`.animate-fade-in{animation:fade-in .2s ease-out forwards}@keyframes fade-in{from{opacity:0}to{opacity:1}}.animate-scale-in{animation:scale-in .2s ease-out forwards}@keyframes scale-in{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
         </div>
     );
 };

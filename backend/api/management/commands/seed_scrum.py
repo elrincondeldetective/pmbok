@@ -92,7 +92,8 @@ class Command(BaseCommand):
                 outputs=outputs,
                 phase=phase_obj,
                 status=status_obj,
+                # === CAMBIO: ESTABLECEMOS EL ESTADO KANBAN POR DEFECTO ===
+                kanban_status='unassigned',
             )
         
         self.stdout.write(self.style.SUCCESS('Database has been seeded successfully with full Scrum details!'))
-

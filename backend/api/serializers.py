@@ -1,6 +1,5 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-# CAMBIO: Importar también ScrumPhase
 from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage, ScrumProcess, ScrumPhase
 from django.contrib.auth.password_validation import validate_password
 
@@ -46,7 +45,6 @@ class ProcessStageSerializer(serializers.ModelSerializer):
         model = ProcessStage
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
-# AÑADIDO: Serializador para el nuevo modelo ScrumPhase
 class ScrumPhaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScrumPhase
@@ -60,16 +58,15 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
         model = PMBOKProcess
         fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
 
-# CAMBIO: Actualizar el serializador de Scrum
+# === CAMBIO: AÑADIDO 'kanban_status' AL SERIALIZADOR DE SCRUM ===
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
-    # Usar 'phase' con su propio serializador en lugar de 'stage'
     phase = ScrumPhaseSerializer(read_only=True)
 
     class Meta:
         model = ScrumProcess
-        # Actualizar los campos para reflejar el cambio de 'stage' a 'phase'
-        fields = ('id', 'process_number', 'name', 'status', 'phase', 'inputs', 'tools_and_techniques', 'outputs')
+        # Añadimos 'kanban_status' a la lista de campos
+        fields = ('id', 'process_number', 'name', 'status', 'phase', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
 
 # TaskSerializer (Sin cambios)
 class TaskSerializer(serializers.ModelSerializer):

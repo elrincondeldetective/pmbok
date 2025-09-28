@@ -2,56 +2,45 @@
 import React, { useState, useMemo, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Componentes de UI
 import DashboardNav from './dashboard/DashboardNav.tsx';
 import SectionHeader from './common/SectionHeader.tsx';
 import FilterLegend from './dashboard/FilterLegend.tsx';
 import KanbanBoard from './dashboard/KanbanBoard.tsx';
-
-// Componentes de Secciones
 import ScrumSection from './scrum/ScrumSection.tsx';
 import PMBOKSection from './pmbok/PMBOKSection.tsx';
 
-// Contexto y Tipos
 import { ProcessContext } from '../context/ProcessContext.tsx';
-import type { IPMBOKProcess } from '../types/process.ts';
+import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../types/process.ts';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     
-    // --- Lógica de estado y contexto para PMBOK (antes en PMBOKSection) ---
+    // Obtenemos la lista combinada de procesos desde el contexto unificado
     const { processes, loading, error } = useContext(ProcessContext);
-    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-    const [selectedStage, setSelectedStage] = useState<string | null>(null);
+    
+    // Filtros para PMBOK
+    const [selectedPmbokStatus, setSelectedPmbokStatus] = useState<string | null>(null);
+    const [selectedPmbokStage, setSelectedPmbokStage] = useState<string | null>(null);
 
-    const handleStatusFilterClick = (statusName: string) => {
-        setSelectedStatus(prev => (prev === statusName ? null : statusName));
-    };
-
-    const handleStageFilterClick = (stageName: string) => {
-        setSelectedStage(prev => (prev === stageName ? null : stageName));
-    };
-
-    const clearFilters = () => {
-        setSelectedStatus(null);
-        setSelectedStage(null);
-    };
-
-    // Procesos para el tablero Kanban (solo los que están asignados a una columna)
+    // Procesos filtrados para el tablero Kanban (todos los que no están 'unassigned')
     const kanbanProcesses = useMemo(() => {
-        const pmbokProcesses = processes as IPMBOKProcess[];
-        return pmbokProcesses?.filter(p => p.kanban_status !== 'unassigned') || [];
+        return processes?.filter(p => p.kanban_status !== 'unassigned') || [];
     }, [processes]);
 
-    // Procesos para la cuadrícula de tarjetas (afectada por los filtros de la leyenda)
-    const filteredGridProcesses = useMemo(() => {
-        if (!processes) return [];
-        return (processes as IPMBOKProcess[]).filter(process => {
-            const statusMatch = selectedStatus ? process.status?.name === selectedStatus : true;
-            const stageMatch = selectedStage ? process.stage?.name?.startsWith(selectedStage) : true;
+    // Procesos filtrados para la cuadrícula de PMBOK
+    const filteredPmbokProcesses = useMemo(() => {
+        return (processes?.filter(p => p.type === 'pmbok') as IPMBOKProcess[]).filter(process => {
+            const statusMatch = selectedPmbokStatus ? process.status?.name === selectedPmbokStatus : true;
+            const stageMatch = selectedPmbokStage ? process.stage?.name?.startsWith(selectedPmbokStage) : true;
             return statusMatch && stageMatch;
         });
-    }, [processes, selectedStatus, selectedStage]);
+    }, [processes, selectedPmbokStatus, selectedPmbokStage]);
+
+    // Procesos filtrados para la sección de Scrum
+    const scrumProcesses = useMemo(() => {
+        return processes?.filter(p => p.type === 'scrum') as IScrumProcess[] || [];
+    }, [processes]);
+
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
@@ -64,36 +53,38 @@ const Dashboard: React.FC = () => {
             <DashboardNav onLogout={handleLogout} />
             <main>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
-                    <KanbanBoard initialProcesses={kanbanProcesses} />
-                    {/* Sección de Scrum (sin cambios) */}
-                    <ScrumSection />
-            
-                    <hr className="border-t-2 border-gray-300 border-dashed" />
+                    
+                    {loading && <div className="text-center text-gray-700 py-10">Cargando todos los procesos...</div>}
+                    {error && <div className="text-center text-red-600 font-semibold py-10">{error}</div>}
+                    
+                    {!loading && !error && (
+                        <>
+                            <KanbanBoard initialProcesses={kanbanProcesses} />
+                            
+                            <hr className="border-t-2 border-gray-300 border-dashed" />
+                            
+                            {/* ScrumSection ahora recibe los procesos de Scrum como prop */}
+                            <ScrumSection processes={scrumProcesses} />
+                    
+                            <hr className="border-t-2 border-gray-300 border-dashed" />
 
-                    {/* Nueva sección de PMBOK, ahora orquestada desde el Dashboard */}
-                    <section>
-                         <SectionHeader 
-                            title="Guía PMBOK 6ª Edición – 49 Procesos"
-                            subtitle="Una visión adaptada a un entorno de trabajo ágil."
-                        />
-                        {loading && <div className="text-center text-gray-700 py-10">Cargando datos de PMBOK...</div>}
-                        {error && <div className="text-center text-red-600 font-semibold py-10">{error}</div>}
-                        
-                        {!loading && !error && (
-                            <>
-                                
-                                <FilterLegend
-                                    selectedStatus={selectedStatus}
-                                    selectedStage={selectedStage}
-                                    onStatusFilterClick={handleStatusFilterClick}
-                                    onStageFilterClick={handleStageFilterClick}
-                                    onClearFilters={clearFilters}
+                            <section>
+                                 <SectionHeader 
+                                    title="Guía PMBOK 6ª Edición – 49 Procesos"
+                                    subtitle="Una visión adaptada a un entorno de trabajo ágil."
                                 />
-                                {/* PMBOKSection ahora solo renderiza las tarjetas, ya filtradas */}
-                                <PMBOKSection processes={filteredGridProcesses} />
-                            </>
-                        )}
-                    </section>
+                                <FilterLegend
+                                    selectedStatus={selectedPmbokStatus}
+                                    selectedStage={selectedPmbokStage}
+                                    onStatusFilterClick={(name) => setSelectedPmbokStatus(prev => prev === name ? null : name)}
+                                    onStageFilterClick={(name) => setSelectedPmbokStage(prev => prev === name ? null : name)}
+                                    onClearFilters={() => { setSelectedPmbokStatus(null); setSelectedPmbokStage(null); }}
+                                />
+                                <PMBOKSection processes={filteredPmbokProcesses} />
+                            </section>
+                        </>
+                    )}
+
                 </div>
             </main>
         </div>
@@ -101,4 +92,3 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
-

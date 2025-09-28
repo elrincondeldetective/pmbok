@@ -90,17 +90,18 @@ class ScrumPhase(models.Model):
     def __str__(self):
         return self.name
 
+# --- Choices para el estado Kanban, compartidos por ambos modelos ---
+KANBAN_STATUS_CHOICES = [
+    ('unassigned', 'No Asignado'),
+    ('backlog', 'Pendiente'),
+    ('todo', 'Por Hacer'),
+    ('in_progress', 'En Progreso'),
+    ('in_review', 'En Revisión'),
+    ('done', 'Hecho'),
+]
+
 # --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
 class PMBOKProcess(models.Model):
-    KANBAN_STATUS_CHOICES = [
-        ('unassigned', 'No Asignado'),
-        ('backlog', 'Pendiente'),
-        ('todo', 'Por Hacer'),
-        ('in_progress', 'En Progreso'),
-        ('in_review', 'En Revisión'),
-        ('done', 'Hecho'),
-    ]
-
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     
@@ -110,7 +111,7 @@ class PMBOKProcess(models.Model):
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
-        default='backlog',
+        default='unassigned',
         help_text="El estado del proceso en el tablero Kanban."
     )
     
@@ -139,11 +140,16 @@ class ScrumProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
     
-    # Reutilizamos el modelo de Estatus que ya existe
     status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_status')
-    
-    # CAMBIO: Usamos el nuevo modelo ScrumPhase en lugar de ProcessStage
     phase = models.ForeignKey(ScrumPhase, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_phase')
+    
+    # === CAMBIO CLAVE: AÑADIDO EL CAMPO KANBAN ===
+    kanban_status = models.CharField(
+        max_length=20,
+        choices=KANBAN_STATUS_CHOICES,
+        default='unassigned',
+        help_text="El estado del proceso en el tablero Kanban."
+    )
     
     inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
     tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
