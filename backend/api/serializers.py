@@ -4,9 +4,6 @@ from .models import Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage,
 from django.contrib.auth.password_validation import validate_password
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """
-    Serializador para el registro de nuevos usuarios.
-    """
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
 
@@ -15,17 +12,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ('email', 'first_name', 'last_name', 'password', 'password2')
 
     def validate(self, attrs):
-        """
-        Valida que las dos contraseñas coincidan.
-        """
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
         return attrs
 
     def create(self, validated_data):
-        """
-        Crea un nuevo usuario a partir de los datos validados.
-        """
         user = CustomUser.objects.create_user(
             email=validated_data['email'],
             first_name=validated_data.get('first_name', ''),
@@ -50,6 +41,9 @@ class ScrumPhaseSerializer(serializers.ModelSerializer):
         model = ScrumPhase
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
+# --- CAMBIO: El serializador ahora manejará automáticamente los campos JSON ---
+# No se necesitan cambios explícitos aquí, pero es bueno saber que
+# DRF serializará/deserializará los JSONFields correctamente.
 class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     stage = ProcessStageSerializer(read_only=True)
@@ -58,17 +52,14 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
         model = PMBOKProcess
         fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
 
-# === CAMBIO: AÑADIDO 'kanban_status' AL SERIALIZADOR DE SCRUM ===
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     phase = ScrumPhaseSerializer(read_only=True)
 
     class Meta:
         model = ScrumProcess
-        # Añadimos 'kanban_status' a la lista de campos
         fields = ('id', 'process_number', 'name', 'status', 'phase', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
 
-# TaskSerializer (Sin cambios)
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task

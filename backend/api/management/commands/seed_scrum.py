@@ -2,6 +2,14 @@
 from django.core.management.base import BaseCommand
 from api.models import ProcessStatus, ScrumPhase, ScrumProcess
 
+# --- NUEVA FUNCIÓN ---
+# Helper para convertir string a formato JSON [{name: "...", url: ""}]
+def to_json_list(text_block):
+    if not text_block or not text_block.strip():
+        return []
+    # --- CAMBIO LÓGICO: Mantenemos el asterisco '*' en el nombre para elementos clave ---
+    return [{"name": item.strip(), "url": ""} for item in text_block.split('\n') if item.strip()]
+
 class Command(BaseCommand):
     help = 'Seeds the database with the 27 Scrum processes with full details'
 
@@ -87,13 +95,14 @@ class Command(BaseCommand):
             ScrumProcess.objects.create(
                 process_number=num,
                 name=name,
-                inputs=inputs,
-                tools_and_techniques=tools,
-                outputs=outputs,
+                # --- CAMBIO: Convertir strings a JSON ---
+                inputs=to_json_list(inputs),
+                tools_and_techniques=to_json_list(tools),
+                outputs=to_json_list(outputs),
                 phase=phase_obj,
                 status=status_obj,
-                # === CAMBIO: ESTABLECEMOS EL ESTADO KANBAN POR DEFECTO ===
                 kanban_status='unassigned',
             )
         
         self.stdout.write(self.style.SUCCESS('Database has been seeded successfully with full Scrum details!'))
+

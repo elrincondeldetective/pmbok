@@ -1,11 +1,11 @@
+// frontend/src/components/UnifiedProcessModal.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useMatch } from 'react-router-dom';
 import apiClient from '../api/apiClient.ts';
-import type { AnyProcess, KanbanStatus, IPMBOKProcess, IScrumProcess } from '../types/process.ts';
+import type { AnyProcess, KanbanStatus, IPMBOKProcess, IScrumProcess, ITTOItem } from '../types/process.ts';
 import { ProcessContext } from '../context/ProcessContext.tsx';
-import { FaSignInAlt, FaTools, FaSignOutAlt, FaPencilAlt, FaPlus, FaTimes, FaEye, FaInfoCircle } from 'react-icons/fa';
+import { FaSignInAlt, FaTools, FaSignOutAlt, FaPencilAlt, FaPlus, FaTimes, FaEye, FaInfoCircle, FaLink } from 'react-icons/fa';
 
-// --- Constantes y componentes compartidos ---
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'unassigned', label: 'No Asignado' },
     { value: 'backlog', label: 'Pendiente' },
@@ -76,68 +76,86 @@ const UnifiedProcessModal: React.FC = () => {
         if (!process) return;
 
         const oldProcess = { ...process };
-        setProcess({ ...process, kanban_status: newStatus });
+        const updatedProcessPreview = { ...process, kanban_status: newStatus };
+        setProcess(updatedProcessPreview);
+        updateProcessInState(process.id, process.type, updatedProcessPreview);
 
         try {
-            const response = await apiClient.patch<AnyProcess>(`/${apiEndpoint}/${processId}/update-kanban-status/`, {
+            await apiClient.patch(`/${apiEndpoint}/${processId}/update-kanban-status/`, {
                 kanban_status: newStatus
             });
-            const updatedData = { ...response.data, type: processType };
-            updateProcessInState(response.data.id, processType, updatedData);
-            setProcess(updatedData);
         } catch (error) {
             console.error("Error al actualizar el estado Kanban:", error);
             setProcess(oldProcess);
+            updateProcessInState(process.id, process.type, oldProcess);
             alert("No se pudo actualizar el estado. Por favor, inténtalo de nuevo.");
         }
     };
 
     const handleClose = () => navigate(-1);
 
-    const handleSaveEdit = () => {
+    // --- LÓGICA DE GUARDADO ACTUALIZADA ---
+    const handleSaveEdit = async () => {
         if (!process || !editingState.id) return;
 
         const [listTitle, indexStr] = editingState.id.split(/-(?=\d+$)/);
         const index = parseInt(indexStr, 10);
 
-        const propertyMap: { [key: string]: keyof AnyProcess } = {
+        const propertyMap = {
             'Entradas': 'inputs',
             'Herramientas y Técnicas': 'tools_and_techniques',
             'Salidas': 'outputs'
-        };
+        } as const;
 
-        const processKey = propertyMap[listTitle];
+        const processKey = propertyMap[listTitle as keyof typeof propertyMap];
         if (!processKey) return;
-
-        const originalString = (process[processKey] as string) || '';
-        const items = originalString.split('\n');
         
-        const originalItem = items[index] || '';
-        const wasKeyElement = process?.type === 'scrum' && originalItem.trim().endsWith('*');
-        const updatedName = wasKeyElement ? `${editingState.name.trim()}*` : editingState.name.trim();
+        const oldProcess = {...process};
+        
+        // --- INICIO: CORRECCIÓN BUG ASTERISCO ---
+        // Verificar si el elemento original era un elemento clave
+        const originalItem = process[processKey][index];
+        const wasKeyElement = process.type === 'scrum' && originalItem.name.trim().endsWith('*');
+        
+        // Re-añadir el asterisco si era necesario
+        const newName = wasKeyElement 
+            ? `${editingState.name.trim()}*` 
+            : editingState.name.trim();
+        // --- FIN: CORRECCIÓN BUG ASTERISCO ---
 
-        items[index] = updatedName;
-        const updatedItemsString = items.join('\n');
+        // Crear una copia actualizada del array
+        const updatedItems = [...process[processKey]];
+        updatedItems[index] = { name: newName, url: editingState.url };
+        
+        // Crear una copia del proceso con el array actualizado
+        const updatedProcess = { ...process, [processKey]: updatedItems };
 
-        setProcess(prevProcess => {
-            if (!prevProcess) return null;
-            return {
-                ...prevProcess,
-                [processKey]: updatedItemsString
-            };
-        });
-
+        // Actualización optimista de la UI
+        setProcess(updatedProcess);
+        updateProcessInState(process.id, process.type, updatedProcess);
         handleCancelEdit();
+
+        // Llamada a la API
+        try {
+            await apiClient.patch(`/${apiEndpoint}/${process.id}/update-ittos/`, {
+                [processKey]: updatedItems
+            });
+        } catch (error) {
+            console.error(`Error al guardar los cambios para ${processKey}:`, error);
+            // Revertir en caso de error
+            setProcess(oldProcess);
+            updateProcessInState(oldProcess.id, oldProcess.type, oldProcess);
+            alert('No se pudieron guardar los cambios. Inténtalo de nuevo.');
+        }
     };
 
     const handleCancelEdit = () => {
         setEditingState({ id: null, name: '', url: '' });
     };
 
-    const renderList = (title: string, items: string | undefined, icon: React.ReactNode) => {
-        if (!items) return null;
-        const itemList = items.split('\n').filter(item => item.trim() !== '');
-        if (itemList.length === 0) return null;
+    // --- LÓGICA DE RENDERIZADO DE LISTA ACTUALIZADA ---
+    const renderList = (title: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas', items: ITTOItem[] | undefined, icon: React.ReactNode) => {
+        if (!items || items.length === 0) return null;
 
         return (
             <div>
@@ -146,11 +164,11 @@ const UnifiedProcessModal: React.FC = () => {
                     <span className="ml-2">{title}</span>
                 </h3>
                 <ul className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    {itemList.map((item, index) => {
+                    {items.map((item, index) => {
                         const itemId = `${title}-${index}`;
                         const isEditing = editingState.id === itemId;
-                        const originalName = item.trim().replace(/\*$/, '');
-                        const isKeyElement = process?.type === 'scrum' && item.trim().endsWith('*');
+                        const isKeyElement = process?.type === 'scrum' && item.name.trim().endsWith('*');
+                        const cleanName = item.name.replace(/\*$/, '').trim();
 
                         return (
                             <li key={index} className="group flex items-center justify-between py-2.5 border-b border-gray-200/80 last:border-b-0">
@@ -182,12 +200,19 @@ const UnifiedProcessModal: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        <span className="flex-grow pr-4 text-sm">
-                                            {originalName}
+                                        <span className="flex-grow pr-4 text-sm flex items-center">
+                                            {item.url ? (
+                                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline hover:text-blue-800 flex items-center" onClick={e => e.stopPropagation()}>
+                                                    {cleanName}
+                                                    <FaLink className="w-3 h-3 ml-2 opacity-60"/>
+                                                </a>
+                                            ) : (
+                                                cleanName
+                                            )}
                                             {isKeyElement && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
                                         </span>
                                         <div className="flex-shrink-0">
-                                            <ActionIcons onEdit={() => setEditingState({ id: itemId, name: originalName, url: '' })} />
+                                            <ActionIcons onEdit={() => setEditingState({ id: itemId, name: cleanName, url: item.url })} />
                                         </div>
                                     </>
                                 )}
@@ -254,11 +279,11 @@ const UnifiedProcessModal: React.FC = () => {
                         </h3>
                         {isPmbok ? (
                              <p className="text-gray-700 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 shadow-sm text-sm">
-                                Este proceso documenta formalmente el proyecto, vinculando el trabajo a los objetivos estratégicos de la organización. El <strong>{process.outputs.split('\n')[0].trim().toLowerCase()}</strong> resultante otorga al director del proyecto la autoridad para aplicar los recursos de la organización a las actividades del proyecto.
+                                Este proceso documenta formalmente el proyecto. El <strong>{(process as IPMBOKProcess).outputs[0]?.name.toLowerCase() || 'resultado'}</strong> resultante otorga la autoridad para aplicar recursos.
                             </p>
                         ) : (
                             <p className="text-gray-700 bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm text-sm">
-                                Este proceso es parte del marco de trabajo Scrum, diseñado para entregar valor en ciclos cortos e iterativos. Se enfoca en la <strong>colaboración, adaptación e inspección continua</strong> para lograr los objetivos del proyecto de manera eficiente.
+                                Este proceso es parte del marco de trabajo Scrum, enfocado en la <strong>colaboración, adaptación e inspección continua</strong> para entregar valor.
                             </p>
                         )}
                     </div>
@@ -294,18 +319,10 @@ const UnifiedProcessModal: React.FC = () => {
                 .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
                 
                 @keyframes fade-in-down {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-10px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
-                .animate-fade-in-down {
-                    animation: fade-in-down 0.3s ease-out forwards;
-                }
+                .animate-fade-in-down { animation: fade-in-down 0.3s ease-out forwards; }
             `}</style>
         </div>
     );

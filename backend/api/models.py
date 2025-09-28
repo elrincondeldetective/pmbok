@@ -9,9 +9,6 @@ class CustomUserManager(BaseUserManager):
     Permite crear usuarios y superusuarios usando el email como identificador.
     """
     def create_user(self, email, password=None, **extra_fields):
-        """
-        Crea y guarda un usuario con el email y contraseña proporcionados.
-        """
         if not email:
             raise ValueError('El campo Email es obligatorio')
         email = self.normalize_email(email)
@@ -21,44 +18,31 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        """
-        Crea y guarda un superusuario.
-        """
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser debe tener is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser debe tener is_superuser=True.')
-
         return self.create_user(email, password, **extra_fields)
 
 
 # --- Modelo de Usuario Personalizado ---
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    """
-    Modelo de usuario que utiliza el email como nombre de usuario.
-    """
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
-    
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
-
     objects = CustomUserManager()
-
-    # El campo que se usará para iniciar sesión
     USERNAME_FIELD = 'email'
-    # Campos requeridos al crear un usuario (además de email y password)
     REQUIRED_FIELDS = []
 
     def __str__(self):
         return self.email
-    
-# --- Modelo para los ESTADOS -> Ahora ESTATUS ---
+
+# --- Modelo para los ESTATUS ---
 class ProcessStatus(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
     description = models.TextField(blank=True)
@@ -67,7 +51,7 @@ class ProcessStatus(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 # --- Modelo para las ETAPAS (Áreas de Conocimiento) de PMBOK ---
 class ProcessStage(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Integración (Inicio), Alcance (Planeación)")
@@ -77,7 +61,7 @@ class ProcessStage(models.Model):
     def __str__(self):
         return self.name
 
-# --- NUEVO: Modelo para las FASES de los Procesos Scrum ---
+# --- Modelo para las FASES de los Procesos Scrum ---
 class ScrumPhase(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Inicio, Planificación y Estimación")
     tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-sky-100")
@@ -90,7 +74,7 @@ class ScrumPhase(models.Model):
     def __str__(self):
         return self.name
 
-# --- Choices para el estado Kanban, compartidos por ambos modelos ---
+# --- Choices para el estado Kanban ---
 KANBAN_STATUS_CHOICES = [
     ('unassigned', 'No Asignado'),
     ('backlog', 'Pendiente'),
@@ -100,7 +84,7 @@ KANBAN_STATUS_CHOICES = [
     ('done', 'Hecho'),
 ]
 
-# --- Modelo para los Procesos del PMBOK (ACTUALIZADO) ---
+# --- CAMBIO PRINCIPAL: Se usa JSONField para almacenar datos estructurados ---
 class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
@@ -115,9 +99,10 @@ class PMBOKProcess(models.Model):
         help_text="El estado del proceso en el tablero Kanban."
     )
     
-    inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
-    tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
-    outputs = models.TextField(blank=True, help_text="Lista de salidas, separadas por saltos de línea.")
+    # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
+    inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
+    tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
+    outputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de salida, cada uno con 'name' y 'url'.")
 
     class Meta:
         ordering = ['process_number']
@@ -134,7 +119,6 @@ class Task(models.Model):
     def __str__(self):
         return self.title
 
-
 # --- Modelo para los Procesos de SCRUM (ACTUALIZADO) ---
 class ScrumProcess(models.Model):
     process_number = models.IntegerField(unique=True)
@@ -143,7 +127,6 @@ class ScrumProcess(models.Model):
     status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_status')
     phase = models.ForeignKey(ScrumPhase, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_phase')
     
-    # === CAMBIO CLAVE: AÑADIDO EL CAMPO KANBAN ===
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
@@ -151,9 +134,10 @@ class ScrumProcess(models.Model):
         help_text="El estado del proceso en el tablero Kanban."
     )
     
-    inputs = models.TextField(blank=True, help_text="Lista de entradas, separadas por saltos de línea.")
-    tools_and_techniques = models.TextField(blank=True, help_text="Lista de herramientas y técnicas, separadas por saltos de línea.")
-    outputs = models.TextField(blank=True, help_text="Lista de salidas, separadas por saltos de línea.")
+    # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
+    inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
+    tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
+    outputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de salida, cada uno con 'name' y 'url'.")
 
     class Meta:
         ordering = ['process_number']

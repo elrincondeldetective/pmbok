@@ -2,6 +2,13 @@
 
 export type KanbanStatus = 'unassigned' | 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
+// --- NUEVA INTERFAZ ---
+// Define la estructura de cada item en las listas de Entradas, Herramientas y Salidas.
+export interface ITTOItem {
+    name: string;
+    url: string;
+}
+
 export interface IProcessStatus {
     name: string;
     tailwind_bg_color: string;
@@ -20,29 +27,26 @@ export interface IScrumPhase { // Para Scrum
     tailwind_text_color: string;
 }
 
-// Interfaz Base para campos comunes
 interface IBaseProcess {
     id: number;
     process_number: number;
     name: string;
     status: IProcessStatus | null;
     kanban_status: KanbanStatus;
-    inputs: string;
-    tools_and_techniques: string;
-    outputs: string;
+    // --- CAMBIO: Los campos ahora son un array del nuevo tipo ITTOItem ---
+    inputs: ITTOItem[];
+    tools_and_techniques: ITTOItem[];
+    outputs: ITTOItem[];
 }
 
-// IPMBOKProcess ahora extiende la base y añade sus campos específicos
 export interface IPMBOKProcess extends IBaseProcess {
-    type: 'pmbok'; // Campo discriminador
+    type: 'pmbok';
     stage: IProcessStage | null;
 }
 
-// IScrumProcess ahora extiende la base y añade sus campos específicos
 export interface IScrumProcess extends IBaseProcess {
-    type: 'scrum'; // Campo discriminador
+    type: 'scrum';
     phase: IScrumPhase | null; 
 }
 
-// Tipo de Unión para cualquier tipo de proceso
 export type AnyProcess = IPMBOKProcess | IScrumProcess;

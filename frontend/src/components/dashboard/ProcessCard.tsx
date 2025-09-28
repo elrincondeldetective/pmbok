@@ -1,10 +1,10 @@
 // frontend/src/components/dashboard/ProcessCard.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { IProcess } from '../../types/process';
+import type { IPMBOKProcess } from '../../types/process'; // Corrección: tipo específico
 
 interface ProcessCardProps {
-    process: IProcess;
+    process: IPMBOKProcess; // Corrección: tipo específico
 }
 
 const ProcessCard: React.FC<ProcessCardProps> = ({ process }) => {
@@ -23,34 +23,37 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process }) => {
                     <h2 className="font-bold text-lg leading-tight">{process.process_number}. {process.name}</h2>
                 </div>
 
-                {/* ----- CORRECCIÓN 2: Espaciado de las tarjetas ----- */}
-                {/* Se cambió 'p-4' por 'p-6' y 'space-y-3' por 'space-y-4' para más aire. */}
+                {/* --- INICIO: CAMBIOS PARA MANEJAR DATOS JSON --- */}
                 <div className="p-6 flex-grow flex flex-col space-y-4">
-                    {process.inputs && <div>
-                        {/* Se aumentó el margen inferior de mb-1 a mb-2 */}
+                    {process.inputs && process.inputs.length > 0 && <div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Entradas</h3>
-                        {/* Se aumentó el espaciado entre items de space-y-1 a space-y-2 */}
                         <ul className="list-disc list-inside text-sm space-y-2 text-gray-700">
-                            {process.inputs.split('\n').map((item, index) => item.trim() && <li key={index}>{item.trim()}</li>)}
+                            {process.inputs.map((item, index) => (
+                                item.name.trim() && <li key={index}>{item.name.trim()}</li>
+                            ))}
                         </ul>
                     </div>}
 
-                    {process.tools_and_techniques && <div>
+                    {process.tools_and_techniques && process.tools_and_techniques.length > 0 && <div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Herramientas y Técnicas</h3>
                         <ul className="list-disc list-inside text-sm space-y-2 text-gray-700">
-                            {process.tools_and_techniques.split('\n').map((item, index) => item.trim() && <li key={index}>{item.trim()}</li>)}
+                            {process.tools_and_techniques.map((item, index) => (
+                                item.name.trim() && <li key={index}>{item.name.trim()}</li>
+                            ))}
                         </ul>
                     </div>}
 
-                    {process.outputs && <div>
+                    {process.outputs && process.outputs.length > 0 && <div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Salidas</h3>
                         <ul className="list-disc list-inside text-sm space-y-2 text-gray-700">
-                            {process.outputs.split('\n').map((item, index) => item.trim() && <li key={index}>{item.trim()}</li>)}
+                            {process.outputs.map((item, index) => (
+                                item.name.trim() && <li key={index}>{item.name.trim()}</li>
+                            ))}
                         </ul>
                     </div>}
                 </div>
+                {/* --- FIN: CAMBIOS PARA MANEJAR DATOS JSON --- */}
 
-                {/* Se restauró el padding de p-3 a p-4 para consistencia */}
                 <div className={`border-t p-4 rounded-b-lg mt-auto text-center ${process.stage ? `${process.stage.tailwind_bg_color} ${process.stage.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
                     <p className="text-xs font-bold uppercase tracking-wider">
                         {process.stage ? process.stage.name : 'Etapa no definida'}

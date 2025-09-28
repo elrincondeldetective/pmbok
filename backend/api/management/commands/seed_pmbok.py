@@ -2,6 +2,13 @@
 from django.core.management.base import BaseCommand
 from api.models import ProcessStatus, ProcessStage, PMBOKProcess
 
+# --- NUEVA FUNCIÓN ---
+# Helper para convertir string a formato JSON [{name: "...", url: ""}]
+def to_json_list(text_block):
+    if not text_block or not text_block.strip():
+        return []
+    return [{"name": item.strip(), "url": ""} for item in text_block.split('\n') if item.strip()]
+
 class Command(BaseCommand):
     help = 'Seeds the database with PMBOK processes, statuses, stages, and ITTOs'
 
@@ -107,13 +114,13 @@ class Command(BaseCommand):
             PMBOKProcess.objects.create(
                 process_number=num,
                 name=name,
-                inputs=inputs,
-                tools_and_techniques=tools,
-                outputs=outputs,
+                inputs=to_json_list(inputs),
+                tools_and_techniques=to_json_list(tools),
+                outputs=to_json_list(outputs),
                 status=status_obj,
                 stage=stage_obj,
-                # CAMBIO: Establecemos el estado Kanban por defecto a 'backlog'
                 kanban_status='backlog' 
             )
         
         self.stdout.write(self.style.SUCCESS('Database has been seeded successfully with all details!'))
+
