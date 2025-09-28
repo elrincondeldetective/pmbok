@@ -1,10 +1,12 @@
 // frontend/src/components/ProcessModal.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import apiClient from '/src/api/apiClient';
-import type { KanbanStatus, IPMBOKProcess } from '/src/types/process';
-import { ProcessContext } from '/src/context/ProcessContext';
+import apiClient from '../api/apiClient.ts';
+import type { KanbanStatus, IPMBOKProcess } from '../types/process.ts';
+import { ProcessContext } from '../context/ProcessContext.tsx';
+import { FaSignInAlt, FaTools, FaSignOutAlt, FaPencilAlt, FaPlus, FaTimes, FaEye, FaInfoCircle } from 'react-icons/fa';
 
+// --- Opciones para el selector de estado Kanban ---
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'unassigned', label: 'No Asignado' },
     { value: 'backlog', label: 'Pendiente' },
@@ -13,6 +15,18 @@ const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'in_review', label: 'En Revisión' },
     { value: 'done', label: 'Hecho' },
 ];
+
+// --- Componente de Iconos de Acción ---
+const ActionIcons: React.FC = () => {
+    return (
+        <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
+            <FaPencilAlt className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
+            <FaPlus className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
+            <FaTimes className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
+            <FaEye className="w-3.5 h-3.5 text-blue-600 cursor-pointer hover:text-blue-500" title="Ver" />
+        </div>
+    );
+};
 
 
 const ProcessModal: React.FC = () => {
@@ -74,17 +88,35 @@ const ProcessModal: React.FC = () => {
         navigate(-1);
     };
 
-    const renderList = (title: string, items: string | undefined) => {
+    const renderList = (title: string, items: string | undefined, icon: React.ReactNode) => {
         if (!items) return null;
+        const itemList = items.split('\n').filter(item => item.trim() !== '');
+        if (itemList.length === 0) return null;
+
         return (
             <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">{title}</h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 bg-gray-50 p-4 rounded-md border border-gray-200">
-                    {items.split('\n').map((item, index) => item.trim() && <li key={index}>{item.trim()}</li>)}
+                 <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
+                    {icon}
+                    <span className="ml-2">{title}</span>
+                </h3>
+                <ul className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    {itemList.map((item, index) => (
+                        <li
+                            key={index}
+                            className="group flex items-center justify-between py-2.5 border-b border-gray-200/80 last:border-b-0"
+                        >
+                            <span className="flex-grow pr-4 text-sm">
+                                {item.trim()}
+                            </span>
+                            <div className="flex-shrink-0">
+                                <ActionIcons />
+                            </div>
+                        </li>
+                    ))}
                 </ul>
             </div>
         );
-    }
+    };
 
     return (
         <div
@@ -113,22 +145,19 @@ const ProcessModal: React.FC = () => {
                             <div className="flex justify-between items-start gap-4">
                                 <div className="flex-grow">
                                     <h2 className="text-2xl font-bold">{process.process_number}. {process.name}</h2>
-                                    {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
-                                    {/* Se añade un indicador visual para el modal. */}
-                                    <div className="mt-2">
+                                    <div className="mt-2 flex items-center gap-4">
                                         <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
                                             PMBOK® 6
                                         </span>
+                                        {process.stage && <p className={`text-sm opacity-90`}>{process.stage.name}</p>}
                                     </div>
-                                    {/* ===== FIN: CAMBIO SOLICITADO ===== */}
-                                    {process.stage && <p className={`text-sm opacity-90 mt-2`}>{process.stage.name}</p>}
                                 </div>
                                 <div className="flex-shrink-0 flex items-center gap-4">
                                     <select
                                         value={process.kanban_status}
                                         onChange={handleKanbanStatusChange}
                                         className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
-                                        onClick={(e) => e.stopPropagation()} // Evita cerrar el modal al hacer clic
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         {kanbanStatusOptions.map(option => (
                                             <option key={option.value} value={option.value} className="text-black">
@@ -143,16 +172,21 @@ const ProcessModal: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="p-8 overflow-y-auto space-y-6">
+                        <div className="p-8 overflow-y-auto space-y-8 bg-gray-50">
+                            {/* --- SECCIÓN DE RESUMEN RESTAURADA --- */}
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">Resumen del Proceso (PMBOK® 6)</h3>
-                                <p className="text-gray-600 bg-blue-50 p-4 rounded-md border-l-4 border-blue-400">
-                                    Este proceso documenta formalmente el proyecto, vinculando el trabajo a los objetivos estratégicos de la organización. El <strong>{process.outputs.split('\n')[0].toLowerCase()}</strong> resultante otorga al director del proyecto la autoridad para aplicar los recursos de la organización a las actividades del proyecto.
+                                <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
+                                    <FaInfoCircle className="text-gray-500"/>
+                                    <span className="ml-2">Resumen del Proceso (PMBOK® 6)</span>
+                                </h3>
+                                <p className="text-gray-700 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 shadow-sm text-sm">
+                                    Este proceso documenta formalmente el proyecto, vinculando el trabajo a los objetivos estratégicos de la organización. El <strong>{process.outputs.split('\n')[0].trim().toLowerCase()}</strong> resultante otorga al director del proyecto la autoridad para aplicar los recursos de la organización a las actividades del proyecto.
                                 </p>
                             </div>
-                            {renderList('Entradas', process.inputs)}
-                            {renderList('Herramientas y Técnicas', process.tools_and_techniques)}
-                            {renderList('Salidas', process.outputs)}
+
+                            {renderList('Entradas', process.inputs, <FaSignInAlt className="text-blue-500"/>)}
+                            {renderList('Herramientas y Técnicas', process.tools_and_techniques, <FaTools className="text-amber-500"/>)}
+                            {renderList('Salidas', process.outputs, <FaSignOutAlt className="text-green-500"/>)}
                         </div>
 
                         <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
@@ -164,14 +198,8 @@ const ProcessModal: React.FC = () => {
                 )}
             </div>
             <style>{`
-                @keyframes fade-in {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes scale-in {
-                    from { transform: scale(0.95); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
+                @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
                 .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
                 .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
             `}</style>
@@ -180,4 +208,5 @@ const ProcessModal: React.FC = () => {
 };
 
 export default ProcessModal;
+
 
