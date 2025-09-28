@@ -1,6 +1,5 @@
-// frontend/src/components/pmbok/PMBOKGrid.tsx
 import React from 'react';
-import Card from '../common/Card.tsx'; // Ruta corregida
+import Card from '../common/Card.tsx'; 
 import type { IPMBOKProcess } from '../../types/process';
 
 interface PMBOKGridProps {
@@ -19,11 +18,10 @@ const PMBOKGrid: React.FC<PMBOKGridProps> = ({ processes }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
       {processes.map((process) => (
-         <Card key={process.id} process={process} framework="pmbok" />
+         <Card key={process.id} process={process} />
       ))}
     </div>
   );
 };
 
 export default PMBOKGrid;
-

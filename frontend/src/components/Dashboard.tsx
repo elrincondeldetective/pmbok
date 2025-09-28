@@ -64,6 +64,7 @@ const Dashboard: React.FC = () => {
             <DashboardNav onLogout={handleLogout} />
             <main>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
+                    <KanbanBoard initialProcesses={kanbanProcesses} />
                     {/* Sección de Scrum (sin cambios) */}
                     <ScrumSection />
             
@@ -80,7 +81,7 @@ const Dashboard: React.FC = () => {
                         
                         {!loading && !error && (
                             <>
-                                <KanbanBoard initialProcesses={kanbanProcesses} />
+                                
                                 <FilterLegend
                                     selectedStatus={selectedStatus}
                                     selectedStage={selectedStage}

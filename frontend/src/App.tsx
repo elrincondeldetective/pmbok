@@ -7,14 +7,14 @@ import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProcessModal from './components/ProcessModal';
-import { ProcessProvider } from './context/ProcessContext'; // 👈 AÑADIDO
+import ScrumProcessModal from './components/ScrumProcessModal'; // Importamos el nuevo modal
+import { ProcessProvider } from './context/ProcessContext';
 
 function App() {
     const location = useLocation();
     const background = location.state && location.state.background;
 
     return (
-        // 👇 AÑADIDO: Envolvemos todo en el Provider
         <ProcessProvider>
             <Routes location={background || location}>
                 <Route path="/" element={
@@ -31,6 +31,8 @@ function App() {
             {background && (
                 <Routes>
                     <Route path="/process/:processId" element={<ProcessModal />} />
+                    {/* Añadimos la nueva ruta para el modal de Scrum */}
+                    <Route path="/scrum-process/:processId" element={<ScrumProcessModal />} />
                 </Routes>
             )}
         </ProcessProvider>
