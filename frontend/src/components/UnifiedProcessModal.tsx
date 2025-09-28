@@ -17,12 +17,13 @@ const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
 
 interface ActionIconsProps {
     onEdit: () => void;
+    onAdd: () => void;
 }
 
-const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit }) => (
+const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAdd }) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
         <FaPencilAlt onClick={onEdit} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
-        <FaPlus className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
+        <FaPlus onClick={(e) => { e.stopPropagation(); e.preventDefault(); onAdd(); }} className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
         <FaTimes className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
         <FaEye className="w-3.5 h-3.5 text-blue-600 cursor-pointer hover:text-blue-500" title="Ver" />
     </div>
@@ -37,11 +38,17 @@ const UnifiedProcessModal: React.FC = () => {
     const [process, setProcess] = useState<AnyProcess | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [editingState, setEditingState] = useState<{ id: string | null; name: string; url: string }>({
+    
+    // --- INICIO: CAMBIO 1 ---
+    // El estado de edición ahora incluye un flag para identificar si es un item nuevo.
+    const [editingState, setEditingState] = useState<{ id: string | null; name: string; url: string; isNew?: boolean }>({
         id: null,
         name: '',
-        url: ''
+        url: '',
+        isNew: false,
     });
+    // Se elimina el estado `tempItems` que ya no es necesario.
+    // --- FIN: CAMBIO 1 ---
 
     const processType = isPmbokRoute ? 'pmbok' : 'scrum';
     const apiEndpoint = processType === 'pmbok' ? 'pmbok-processes' : 'scrum-processes';
@@ -70,6 +77,29 @@ const UnifiedProcessModal: React.FC = () => {
         fetchProcess();
         return () => controller.abort();
     }, [processId, apiEndpoint, processType]);
+    
+    // --- INICIO: CAMBIO 2 ---
+    // Nueva función para manejar la adición de un item.
+    const handleAddItem = (listKey: 'inputs' | 'tools_and_techniques' | 'outputs', listTitle: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas') => {
+        if (!process) return;
+
+        // 1. Crea un nuevo item por defecto.
+        const newItem: ITTOItem = { name: 'Nuevo documento', url: '' };
+        
+        // 2. Añade el nuevo item al estado local del proceso para que aparezca en la UI.
+        const updatedItems = [...process[listKey], newItem];
+        const updatedProcess = { ...process, [listKey]: updatedItems };
+        setProcess(updatedProcess);
+        
+        // 3. Inmediatamente activa el modo de edición para este nuevo item.
+        setEditingState({
+            id: `${listTitle}-${updatedItems.length - 1}`, // El ID se basa en su nueva posición en la lista.
+            name: newItem.name,
+            url: newItem.url,
+            isNew: true // Se marca como nuevo para poder cancelarlo correctamente.
+        });
+    };
+    // --- FIN: CAMBIO 2 ---
 
     const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as KanbanStatus;
@@ -94,7 +124,6 @@ const UnifiedProcessModal: React.FC = () => {
 
     const handleClose = () => navigate(-1);
 
-    // --- LÓGICA DE GUARDADO ACTUALIZADA ---
     const handleSaveEdit = async () => {
         if (!process || !editingState.id) return;
 
@@ -112,50 +141,67 @@ const UnifiedProcessModal: React.FC = () => {
         
         const oldProcess = {...process};
         
-        // --- INICIO: CORRECCIÓN BUG ASTERISCO ---
-        // Verificar si el elemento original era un elemento clave
         const originalItem = process[processKey][index];
-        const wasKeyElement = process.type === 'scrum' && originalItem.name.trim().endsWith('*');
+        const wasKeyElement = process.type === 'scrum' && originalItem?.name.trim().endsWith('*');
         
-        // Re-añadir el asterisco si era necesario
         const newName = wasKeyElement 
             ? `${editingState.name.trim()}*` 
             : editingState.name.trim();
-        // --- FIN: CORRECCIÓN BUG ASTERISCO ---
 
-        // Crear una copia actualizada del array
         const updatedItems = [...process[processKey]];
         updatedItems[index] = { name: newName, url: editingState.url };
         
-        // Crear una copia del proceso con el array actualizado
         const updatedProcess = { ...process, [processKey]: updatedItems };
 
-        // Actualización optimista de la UI
         setProcess(updatedProcess);
         updateProcessInState(process.id, process.type, updatedProcess);
-        handleCancelEdit();
+        handleCancelEdit(); // Limpia el estado de edición.
 
-        // Llamada a la API
         try {
             await apiClient.patch(`/${apiEndpoint}/${process.id}/update-ittos/`, {
                 [processKey]: updatedItems
             });
         } catch (error) {
             console.error(`Error al guardar los cambios para ${processKey}:`, error);
-            // Revertir en caso de error
             setProcess(oldProcess);
             updateProcessInState(oldProcess.id, oldProcess.type, oldProcess);
             alert('No se pudieron guardar los cambios. Inténtalo de nuevo.');
         }
     };
 
+    // --- INICIO: CAMBIO 3 ---
+    // Se actualiza la función de cancelar para manejar los items nuevos.
     const handleCancelEdit = () => {
-        setEditingState({ id: null, name: '', url: '' });
+        // Si estábamos añadiendo un item nuevo, al cancelar se elimina de la lista.
+        if (editingState.isNew && process && editingState.id) {
+            const [listTitle] = editingState.id.split(/-(?=\d+$)/);
+            const propertyMap = {
+                'Entradas': 'inputs', 'Herramientas y Técnicas': 'tools_and_techniques', 'Salidas': 'outputs'
+            } as const;
+            const processKey = propertyMap[listTitle as keyof typeof propertyMap];
+            if (processKey) {
+                // Elimina el último item que se había añadido temporalmente.
+                const updatedItems = process[processKey].slice(0, -1);
+                const updatedProcess = { ...process, [processKey]: updatedItems };
+                setProcess(updatedProcess);
+            }
+        }
+        
+        // Limpia el estado de edición en cualquier caso.
+        setEditingState({ id: null, name: '', url: '', isNew: false });
     };
+    // --- FIN: CAMBIO 3 ---
 
-    // --- LÓGICA DE RENDERIZADO DE LISTA ACTUALIZADA ---
     const renderList = (title: 'Entradas' | 'Herramientas y Técnicas' | 'Salidas', items: ITTOItem[] | undefined, icon: React.ReactNode) => {
-        if (!items || items.length === 0) return null;
+        if (!items) return null;
+
+        const propertyMap = {
+            'Entradas': 'inputs',
+            'Herramientas y Técnicas': 'tools_and_techniques',
+            'Salidas': 'outputs'
+        } as const;
+        
+        const processKey = propertyMap[title as keyof typeof propertyMap];
 
         return (
             <div>
@@ -212,13 +258,20 @@ const UnifiedProcessModal: React.FC = () => {
                                             {isKeyElement && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
                                         </span>
                                         <div className="flex-shrink-0">
-                                            <ActionIcons onEdit={() => setEditingState({ id: itemId, name: cleanName, url: item.url })} />
+                                            {/* --- INICIO: CAMBIO 4 --- */}
+                                            {/* Se pasa el `title` para poder construir el ID del nuevo item. */}
+                                            <ActionIcons 
+                                                onEdit={() => setEditingState({ id: itemId, name: cleanName, url: item.url, isNew: false })}
+                                                onAdd={() => handleAddItem(processKey, title)}
+                                            />
+                                            {/* --- FIN: CAMBIO 4 --- */}
                                         </div>
                                     </>
                                 )}
                             </li>
                         );
                     })}
+                    {/* Se elimina el bloque que renderizaba `tempItems`. */}
                 </ul>
             </div>
         );
@@ -279,8 +332,8 @@ const UnifiedProcessModal: React.FC = () => {
                         </h3>
                         {isPmbok ? (
                              <p className="text-gray-700 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 shadow-sm text-sm">
-                                Este proceso documenta formalmente el proyecto. El <strong>{(process as IPMBOKProcess).outputs[0]?.name.toLowerCase() || 'resultado'}</strong> resultante otorga la autoridad para aplicar recursos.
-                            </p>
+                                 Este proceso documenta formalmente el proyecto. El <strong>{(process as IPMBOKProcess).outputs[0]?.name.toLowerCase() || 'resultado'}</strong> resultante otorga la autoridad para aplicar recursos.
+                             </p>
                         ) : (
                             <p className="text-gray-700 bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm text-sm">
                                 Este proceso es parte del marco de trabajo Scrum, enfocado en la <strong>colaboración, adaptación e inspección continua</strong> para entregar valor.
