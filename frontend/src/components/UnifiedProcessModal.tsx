@@ -1,4 +1,3 @@
-// frontend/src/components/UnifiedProcessModal.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useMatch } from 'react-router-dom';
 import apiClient from '../api/apiClient.ts';
@@ -16,9 +15,13 @@ const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'done', label: 'Hecho' },
 ];
 
-const ActionIcons: React.FC = () => (
+interface ActionIconsProps {
+    onEdit: () => void;
+}
+
+const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit }) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
-        <FaPencilAlt className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
+        <FaPencilAlt onClick={onEdit} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
         <FaPlus className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
         <FaTimes className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
         <FaEye className="w-3.5 h-3.5 text-blue-600 cursor-pointer hover:text-blue-500" title="Ver" />
@@ -28,15 +31,18 @@ const ActionIcons: React.FC = () => (
 const UnifiedProcessModal: React.FC = () => {
     const { processId } = useParams<{ processId: string }>();
     const navigate = useNavigate();
-    // Determina el tipo de proceso basándose en la ruta actual
     const isPmbokRoute = useMatch("/process/:processId");
     const { updateProcessInState } = useContext(ProcessContext);
 
     const [process, setProcess] = useState<AnyProcess | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [editingState, setEditingState] = useState<{ id: string | null; name: string; url: string }>({
+        id: null,
+        name: '',
+        url: ''
+    });
 
-    // Define el tipo de proceso y el endpoint de la API dinámicamente
     const processType = isPmbokRoute ? 'pmbok' : 'scrum';
     const apiEndpoint = processType === 'pmbok' ? 'pmbok-processes' : 'scrum-processes';
 
@@ -50,7 +56,6 @@ const UnifiedProcessModal: React.FC = () => {
                 const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`, {
                     signal: controller.signal
                 });
-                // Añadimos la propiedad 'type' para usarla en la renderización condicional
                 setProcess({ ...response.data, type: processType });
             } catch (err: any) {
                 if (err.name !== 'CanceledError') {
@@ -71,7 +76,7 @@ const UnifiedProcessModal: React.FC = () => {
         if (!process) return;
 
         const oldProcess = { ...process };
-        setProcess({ ...process, kanban_status: newStatus }); // Actualización optimista
+        setProcess({ ...process, kanban_status: newStatus });
 
         try {
             const response = await apiClient.patch<AnyProcess>(`/${apiEndpoint}/${processId}/update-kanban-status/`, {
@@ -82,12 +87,52 @@ const UnifiedProcessModal: React.FC = () => {
             setProcess(updatedData);
         } catch (error) {
             console.error("Error al actualizar el estado Kanban:", error);
-            setProcess(oldProcess); // Revertir en caso de error
+            setProcess(oldProcess);
             alert("No se pudo actualizar el estado. Por favor, inténtalo de nuevo.");
         }
     };
 
     const handleClose = () => navigate(-1);
+
+    const handleSaveEdit = () => {
+        if (!process || !editingState.id) return;
+
+        const [listTitle, indexStr] = editingState.id.split(/-(?=\d+$)/);
+        const index = parseInt(indexStr, 10);
+
+        const propertyMap: { [key: string]: keyof AnyProcess } = {
+            'Entradas': 'inputs',
+            'Herramientas y Técnicas': 'tools_and_techniques',
+            'Salidas': 'outputs'
+        };
+
+        const processKey = propertyMap[listTitle];
+        if (!processKey) return;
+
+        const originalString = (process[processKey] as string) || '';
+        const items = originalString.split('\n');
+        
+        const originalItem = items[index] || '';
+        const wasKeyElement = process?.type === 'scrum' && originalItem.trim().endsWith('*');
+        const updatedName = wasKeyElement ? `${editingState.name.trim()}*` : editingState.name.trim();
+
+        items[index] = updatedName;
+        const updatedItemsString = items.join('\n');
+
+        setProcess(prevProcess => {
+            if (!prevProcess) return null;
+            return {
+                ...prevProcess,
+                [processKey]: updatedItemsString
+            };
+        });
+
+        handleCancelEdit();
+    };
+
+    const handleCancelEdit = () => {
+        setEditingState({ id: null, name: '', url: '' });
+    };
 
     const renderList = (title: string, items: string | undefined, icon: React.ReactNode) => {
         if (!items) return null;
@@ -96,22 +141,59 @@ const UnifiedProcessModal: React.FC = () => {
 
         return (
             <div>
-                 <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
+                <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
                     {icon}
                     <span className="ml-2">{title}</span>
                 </h3>
                 <ul className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    {itemList.map((item, index) => (
-                        <li key={index} className="group flex items-center justify-between py-2.5 border-b border-gray-200/80 last:border-b-0">
-                            <span className="flex-grow pr-4 text-sm">
-                                {process?.type === 'scrum' ? item.trim().replace(/\*$/, '') : item.trim()}
-                                {process?.type === 'scrum' && item.endsWith('*') && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
-                            </span>
-                            <div className="flex-shrink-0">
-                                <ActionIcons />
-                            </div>
-                        </li>
-                    ))}
+                    {itemList.map((item, index) => {
+                        const itemId = `${title}-${index}`;
+                        const isEditing = editingState.id === itemId;
+                        const originalName = item.trim().replace(/\*$/, '');
+                        const isKeyElement = process?.type === 'scrum' && item.trim().endsWith('*');
+
+                        return (
+                            <li key={index} className="group flex items-center justify-between py-2.5 border-b border-gray-200/80 last:border-b-0">
+                                {isEditing ? (
+                                    <div className="w-full py-1">
+                                        <input
+                                            type="text"
+                                            value={editingState.name}
+                                            onChange={(e) => setEditingState({ ...editingState, name: e.target.value })}
+                                            className="w-full p-2 border border-blue-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                            autoFocus
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <div className="mt-2 p-3 bg-gray-100 rounded-md border animate-fade-in-down">
+                                            <label className="text-xs font-semibold text-gray-500 block mb-1">URL del Documento (Opcional)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="https://ejemplo.com/documento"
+                                                value={editingState.url}
+                                                onChange={(e) => setEditingState({ ...editingState, url: e.target.value })}
+                                                className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-end space-x-3 mt-3">
+                                            <button onClick={handleCancelEdit} className="text-sm font-semibold text-gray-600 hover:text-gray-900 px-3 py-1 rounded-md">Cancelar</button>
+                                            <button onClick={handleSaveEdit} className="text-sm bg-blue-600 text-white font-bold px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors">Guardar</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className="flex-grow pr-4 text-sm">
+                                            {originalName}
+                                            {isKeyElement && <span className="text-blue-500 font-semibold ml-1" title="Elemento clave">*</span>}
+                                        </span>
+                                        <div className="flex-shrink-0">
+                                            <ActionIcons onEdit={() => setEditingState({ id: itemId, name: originalName, url: '' })} />
+                                        </div>
+                                    </>
+                                )}
+                            </li>
+                        );
+                    })}
                 </ul>
             </div>
         );
@@ -210,9 +292,24 @@ const UnifiedProcessModal: React.FC = () => {
                 @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
                 .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
                 .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
+                
+                @keyframes fade-in-down {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .animate-fade-in-down {
+                    animation: fade-in-down 0.3s ease-out forwards;
+                }
             `}</style>
         </div>
     );
 };
 
 export default UnifiedProcessModal;
+
