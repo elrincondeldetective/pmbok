@@ -25,7 +25,7 @@ interface ITTOListProps {
 
 const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setProcess, apiEndpoint }) => {
     const { updateProcessInState } = useContext(ProcessContext);
-    
+
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [isNewItem, setIsNewItem] = useState<boolean>(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ isVisible: boolean; itemToDelete: { id: string; name: string } | null; }>({ isVisible: false, itemToDelete: null });
@@ -48,11 +48,11 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
             alert(`No se pudieron guardar los cambios en ${title}.`);
         }
     };
-    
+
     const handleAddItem = () => {
         const newItem: ITTOItem = { name: 'Nuevo Documento', url: '' };
         const updatedItems = [...items, newItem];
-        
+
         const updatedProcess = { ...process, [processKey]: updatedItems };
         setProcess(updatedProcess);
 
@@ -64,14 +64,14 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
         const updatedItems = [...items];
         const originalItem = updatedItems[index];
         const isKeyElement = process.type === 'scrum' && originalItem?.name.trim().endsWith('*');
-        
+
         updatedItems[index] = {
             name: isKeyElement ? `${newName.trim()}*` : newName.trim(),
             url: newUrl,
         };
-        
+
         handlePersistChanges(updatedItems);
-        
+
         setEditingIndex(null);
         setIsNewItem(false);
     };
@@ -85,12 +85,12 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
         setEditingIndex(null);
         setIsNewItem(false);
     };
-    
+
     const handleConfirmDelete = async () => {
         if (!deleteConfirmation.itemToDelete) return;
         const [_, indexStr] = deleteConfirmation.itemToDelete.id.split(/-(?=\d+$)/);
         const index = parseInt(indexStr, 10);
-        
+
         const updatedItems = items.filter((_, i) => i !== index);
         await handlePersistChanges(updatedItems);
         setDeleteConfirmation({ isVisible: false, itemToDelete: null });
@@ -98,10 +98,19 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
 
     return (
         <div>
+            {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
             <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
                 {icon}
                 <span className="ml-2">{title}</span>
+                <button
+                    onClick={handleAddItem}
+                    className="ml-2 flex items-center justify-center w-5 h-5 bg-gray-200 text-gray-500 rounded-full hover:bg-green-500 hover:text-white transition-all duration-200"
+                    title={`Añadir nueva ${title.slice(0, -1).toLowerCase()}`}
+                >
+                    <span className="text-base font-bold leading-none -mt-px">+</span>
+                </button>
             </h3>
+            {/* ===== FIN: CAMBIO SOLICITADO ===== */}
             <ul className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                 {items.map((item, index) => (
                     <ITTOListItem
@@ -132,4 +141,3 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
 };
 
 export default ITTOList;
-
