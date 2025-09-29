@@ -6,8 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
-// CAMBIO 1: Importar el nuevo modal unificado
-import UnifiedProcessModal from './components/UnifiedProcessModal'; 
+// CAMBIO: Apuntar a la nueva ruta del modal refactorizado
+import UnifiedProcessModal from './components/modal/UnifiedProcessModal'; 
 import { ProcessProvider } from './context/ProcessContext';
 
 function App() {
@@ -30,7 +30,7 @@ function App() {
 
             {background && (
                 <Routes>
-                    {/* CAMBIO 2: Ambas rutas ahora apuntan al mismo componente modal */}
+                    {/* Las rutas no cambian, pero el componente que renderizan es el nuevo */}
                     <Route path="/process/:processId" element={<UnifiedProcessModal />} />
                     <Route path="/scrum-process/:processId" element={<UnifiedProcessModal />} />
                 </Routes>
