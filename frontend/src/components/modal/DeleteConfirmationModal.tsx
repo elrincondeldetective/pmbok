@@ -13,7 +13,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({ isVis
 
     return (
         <div
-            className="absolute inset-0 bg-black/40 z-50 flex justify-center items-center p-4 animate-fade-in rounded-xl"
+            className="fixed inset-0 bg-black/40 z-50 flex justify-center items-center p-4 animate-fade-in"
             onClick={onClose}
         >
             <div
