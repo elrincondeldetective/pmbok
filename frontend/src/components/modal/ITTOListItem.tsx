@@ -87,25 +87,17 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
     const cleanName = item.name.replace(/\*$/, '').trim();
     const hasVersions = !!item.versions && item.versions.length > 0;
 
-    // ===== INICIO DE LA LÓGICA CORREGIDA =====
-    
-    // 1. Determinar cuál es la versión activa. Si ninguna lo es, el "padre" se considera el activo.
     const activeVersion = hasVersions ? item.versions?.find(v => v.isActive) : null;
     
-    // 2. El nombre y la URL a mostrar son los de la versión activa, o los del padre si no hay ninguna activa.
-    // ESTO CORRIGE EL BUG DE SELECCIÓN: la UI ahora reacciona al cambio de `isActive`.
+    // ===== CORRECCIÓN =====
+    // Se usan las propiedades del documento visible (el activo o el padre) para la edición.
     const displayName = activeVersion ? activeVersion.name : cleanName;
     const displayUrl = activeVersion ? activeVersion.url : item.url;
     
-    // 3. Crear una lista de todas las versiones seleccionables.
-    // Esto incluye el documento "original" (el padre) para poder volver a seleccionarlo.
-    // ESTO CORRIGE EL BUG DE "EL ORIGINAL DESAPARECE".
     const allSelectableVersions: ITTOItem[] = hasVersions ? [
-        // El elemento 'padre' se trata como la versión original, es activo si ninguna otra versión lo es.
         { ...item, name: `${cleanName}`, id: item.id, isActive: !activeVersion },
         ...item.versions
     ] : [];
-    // ===== FIN DE LA LÓGICA CORREGIDA =====
 
     const handleViewClick = () => {
         if (hasVersions) {
@@ -118,8 +110,9 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
             <div className="flex items-center w-full group">
                 {isEditing ? (
                     <EditItemForm
-                        initialName={cleanName}
-                        initialUrl={item.url}
+                        // ===== CAMBIO: Usar displayName y displayUrl en lugar de las props del padre =====
+                        initialName={displayName}
+                        initialUrl={displayUrl}
                         onSave={onSave}
                         onCancel={onCancel}
                     />
