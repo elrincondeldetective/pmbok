@@ -5,6 +5,7 @@ import type { AnyProcess, ITTOItem } from '../../types/process';
 import { ProcessContext } from '../../context/ProcessContext';
 import ITTOListItem from './ITTOListItem';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import { v4 as uuidv4 } from 'uuid'; // Importamos para generar IDs únicos
 
 type ListTitle = 'Entradas' | 'Herramientas y Técnicas' | 'Salidas';
 
@@ -26,7 +27,7 @@ interface ITTOListProps {
 const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setProcess, apiEndpoint }) => {
     const { updateProcessInState } = useContext(ProcessContext);
 
-    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [isNewItem, setIsNewItem] = useState<boolean>(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ isVisible: boolean; itemToDelete: { id: string; name: string } | null; }>({ isVisible: false, itemToDelete: null });
 
@@ -49,82 +50,131 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
         }
     };
 
-    const handleAddItem = () => {
-        const newItem: ITTOItem = { name: 'Nuevo Documento', url: '' };
+    // --- CAMBIO: Renombrada para claridad. Añade un nuevo documento "padre". ---
+    const handleAddParentItem = () => {
+        const newItem: ITTOItem = { id: uuidv4(), name: 'Nuevo Documento', url: '', versions: [] };
         const updatedItems = [...items, newItem];
-
         const updatedProcess = { ...process, [processKey]: updatedItems };
         setProcess(updatedProcess);
 
         setIsNewItem(true);
-        setEditingIndex(updatedItems.length - 1);
+        setEditingId(newItem.id);
     };
 
-    const handleSave = (index: number, newName: string, newUrl: string) => {
-        const updatedItems = [...items];
-        const originalItem = updatedItems[index];
-        const isKeyElement = process.type === 'scrum' && originalItem?.name.trim().endsWith('*');
-
-        updatedItems[index] = {
-            name: isKeyElement ? `${newName.trim()}*` : newName.trim(),
-            url: newUrl,
+    // --- NUEVA FUNCIÓN: Añade una versión a un documento existente ---
+    const handleAddVersion = (parentId: string) => {
+        const updatedItems = JSON.parse(JSON.stringify(items)); // Deep copy
+        
+        const findAndAddVersion = (item: ITTOItem) => {
+            if (item.id === parentId) {
+                const newVersion: ITTOItem = {
+                    id: uuidv4(),
+                    name: `Versión de "${item.name.replace(/\*$/, '').trim()}"`,
+                    url: '',
+                };
+                if (!item.versions) {
+                    item.versions = [];
+                }
+                item.versions.push(newVersion);
+                return true;
+            }
+            return false;
         };
 
-        handlePersistChanges(updatedItems);
+        for (const item of updatedItems) {
+            if (findAndAddVersion(item)) break;
+        }
 
-        setEditingIndex(null);
+        handlePersistChanges(updatedItems);
+    };
+
+    const handleSave = (itemId: string, newName: string, newUrl: string) => {
+        const updatedItems = JSON.parse(JSON.stringify(items)); // Deep copy
+
+        let itemFound = false;
+        const findAndUpdate = (item: ITTOItem) => {
+            if (item.id === itemId) {
+                const isKeyElement = process.type === 'scrum' && item.name.trim().endsWith('*');
+                item.name = isKeyElement ? `${newName.trim()}*` : newName.trim();
+                item.url = newUrl;
+                itemFound = true;
+            } else if (item.versions) {
+                 item.versions.forEach(findAndUpdate);
+            }
+        };
+
+        updatedItems.forEach(findAndUpdate);
+
+        if (itemFound) {
+            handlePersistChanges(updatedItems);
+        }
+
+        setEditingId(null);
         setIsNewItem(false);
     };
 
     const handleCancel = () => {
         if (isNewItem) {
-            const updatedItems = items.slice(0, -1);
+            const updatedItems = items.filter(item => item.id !== editingId);
             const updatedProcess = { ...process, [processKey]: updatedItems };
             setProcess(updatedProcess);
         }
-        setEditingIndex(null);
+        setEditingId(null);
         setIsNewItem(false);
     };
 
     const handleConfirmDelete = async () => {
         if (!deleteConfirmation.itemToDelete) return;
-        const [_, indexStr] = deleteConfirmation.itemToDelete.id.split(/-(?=\d+$)/);
-        const index = parseInt(indexStr, 10);
+        
+        const itemIdToDelete = deleteConfirmation.itemToDelete.id;
+        let updatedItems = JSON.parse(JSON.stringify(items));
 
-        const updatedItems = items.filter((_, i) => i !== index);
+        const filterOutItem = (items: ITTOItem[]): ITTOItem[] => {
+            return items.filter(item => {
+                if (item.id === itemIdToDelete) {
+                    return false;
+                }
+                if (item.versions) {
+                    item.versions = filterOutItem(item.versions);
+                }
+                return true;
+            });
+        };
+
+        updatedItems = filterOutItem(updatedItems);
+
         await handlePersistChanges(updatedItems);
         setDeleteConfirmation({ isVisible: false, itemToDelete: null });
     };
 
     return (
         <div>
-            {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
             <h3 className="flex items-center text-lg font-semibold text-gray-800 mb-3">
                 {icon}
                 <span className="ml-2">{title}</span>
+                {/* --- CAMBIO: Este botón ahora solo agrega documentos "padre" --- */}
                 <button
-                    onClick={handleAddItem}
+                    onClick={handleAddParentItem}
                     className="ml-2 flex items-center justify-center w-5 h-5 bg-gray-200 text-gray-500 rounded-full hover:bg-green-500 hover:text-white transition-all duration-200"
-                    title={`Añadir nueva ${title.slice(0, -1).toLowerCase()}`}
+                    title={`Añadir nuevo documento a ${title}`}
                 >
                     <span className="text-base font-bold leading-none -mt-px">+</span>
                 </button>
             </h3>
-            {/* ===== FIN: CAMBIO SOLICITADO ===== */}
             <ul className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                {items.map((item, index) => (
+                {items.map((item) => (
                     <ITTOListItem
-                        key={index}
+                        key={item.id}
                         item={item}
-                        isEditing={editingIndex === index}
+                        isEditing={editingId === item.id}
                         processType={process.type}
-                        onEditStart={() => { setIsNewItem(false); setEditingIndex(index); }}
-                        onSave={(name, url) => handleSave(index, name, url)}
+                        onEditStart={() => { setIsNewItem(false); setEditingId(item.id); }}
+                        onSave={(name, url) => handleSave(item.id, name, url)}
                         onCancel={handleCancel}
-                        onAdd={handleAddItem}
-                        onDelete={() => {
-                            const cleanName = item.name.replace(/\*$/, '').trim();
-                            setDeleteConfirmation({ isVisible: true, itemToDelete: { id: `${title}-${index}`, name: cleanName } });
+                        // --- CAMBIO: Pasamos la nueva función para crear versiones ---
+                        onAddVersion={() => handleAddVersion(item.id)}
+                        onDeleteRequest={(id, name) => {
+                            setDeleteConfirmation({ isVisible: true, itemToDelete: { id, name } });
                         }}
                     />
                 ))}

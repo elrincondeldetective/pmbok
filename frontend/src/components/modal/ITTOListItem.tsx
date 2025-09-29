@@ -1,25 +1,27 @@
 // frontend/src/components/modal/ITTOListItem.tsx
 import React, { useState } from 'react';
-import { FaLink, FaPencilAlt, FaPlus, FaTimes, FaEye } from 'react-icons/fa';
+import { FaLink, FaPencilAlt, FaPlus, FaTimes, FaEye, FaFileAlt } from 'react-icons/fa';
 import type { ITTOItem } from '../../types/process';
 
 interface ActionIconsProps {
     onEdit: () => void;
-    onAdd: () => void;
+    // --- CAMBIO: onAdd se renombra a onAddVersion para mayor claridad ---
+    onAddVersion: () => void;
     onDelete: () => void;
     onView: () => void;
-    hasUrl: boolean;
+    hasVersions: boolean;
 }
 
-const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAdd, onDelete, onView, hasUrl }) => (
+// --- CAMBIO: El ícono "+" ahora se asocia con "Añadir Versión" ---
+const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAddVersion, onDelete, onView, hasVersions }) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
         <FaPencilAlt onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
-        <FaPlus onClick={(e) => { e.stopPropagation(); onAdd(); }} className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir" />
+        <FaPlus onClick={(e) => { e.stopPropagation(); onAddVersion(); }} className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir Versión" />
         <FaTimes onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
-        <FaEye 
-            onClick={(e) => { e.stopPropagation(); if (hasUrl) onView(); }} 
-            className={`w-3.5 h-3.5 ${hasUrl ? 'text-blue-600 cursor-pointer hover:text-blue-500' : 'text-gray-400 cursor-not-allowed'}`} 
-            title={hasUrl ? "Desplegar/Ocultar URL" : "No hay URL disponible"} 
+        <FaEye
+            onClick={(e) => { e.stopPropagation(); if (hasVersions) onView(); }}
+            className={`w-3.5 h-3.5 ${hasVersions ? 'text-blue-600 cursor-pointer hover:text-blue-500' : 'text-gray-400 cursor-not-allowed'}`}
+            title={hasVersions ? "Desplegar/Ocultar Versiones" : "No hay versiones disponibles"}
         />
     </div>
 );
@@ -76,19 +78,20 @@ interface ITTOListItemProps {
     onEditStart: () => void;
     onSave: (name: string, url: string) => void;
     onCancel: () => void;
-    onAdd: () => void;
-    onDelete: () => void;
+    onAddVersion: () => void;
+    onDeleteRequest: (id: string, name: string) => void;
 }
 
-const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processType, onEditStart, onSave, onCancel, onAdd, onDelete }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processType, onEditStart, onSave, onCancel, onAddVersion, onDeleteRequest }) => {
+    // --- CAMBIO: El estado de expansión ahora controla la visibilidad de las versiones ---
+    const [showVersions, setShowVersions] = useState(false);
     const isKeyElement = processType === 'scrum' && item.name.trim().endsWith('*');
     const cleanName = item.name.replace(/\*$/, '').trim();
-    const hasUrl = !!item.url;
+    const hasVersions = !!item.versions && item.versions.length > 0;
 
-    const handleView = () => {
-        if (hasUrl) {
-            setIsExpanded(prev => !prev);
+    const handleViewClick = () => {
+        if (hasVersions) {
+            setShowVersions(prev => !prev);
         }
     };
 
@@ -118,25 +121,38 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
                         <div className="flex-shrink-0">
                             <ActionIcons
                                 onEdit={onEditStart}
-                                onAdd={onAdd}
-                                onDelete={onDelete}
-                                onView={handleView}
-                                hasUrl={hasUrl}
+                                onAddVersion={onAddVersion}
+                                onDelete={() => onDeleteRequest(item.id, cleanName)}
+                                onView={handleViewClick}
+                                hasVersions={hasVersions}
                             />
                         </div>
                     </>
                 )}
             </div>
-            {isExpanded && hasUrl && !isEditing && (
-                 <div className="mt-2 ml-4 p-2 bg-gray-100 rounded-md border text-xs text-gray-600 w-auto self-start animate-fade-in-down break-all">
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                        {item.url}
-                    </a>
-                </div>
+            {/* --- NUEVO: Bloque para renderizar las versiones anidadas --- */}
+            {showVersions && hasVersions && !isEditing && (
+                 <div className="mt-2 pl-6 pr-2 py-2 bg-gray-50 border-l-2 border-blue-300 rounded-r-md animate-fade-in-down">
+                    <h4 className="text-xs font-bold text-gray-500 mb-2">Versiones:</h4>
+                    <ul className="space-y-1.5">
+                        {item.versions?.map(version => (
+                            <li key={version.id} className="text-sm text-gray-800 flex items-center">
+                                <FaFileAlt className="w-3 h-3 mr-2 text-gray-400 flex-shrink-0" />
+                                {version.url ? (
+                                     <a href={version.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center" onClick={e => e.stopPropagation()}>
+                                        {version.name}
+                                        <FaLink className="w-2.5 h-2.5 ml-1.5 opacity-50" />
+                                    </a>
+                                ) : (
+                                    version.name
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                 </div>
             )}
         </li>
     );
 };
 
 export default ITTOListItem;
-

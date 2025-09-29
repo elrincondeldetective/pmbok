@@ -2,11 +2,13 @@
 
 export type KanbanStatus = 'unassigned' | 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
-// --- NUEVA INTERFAZ ---
-// Define la estructura de cada item en las listas de Entradas, Herramientas y Salidas.
+// --- CAMBIO: Se añade un ID único y un array opcional para las versiones ---
+// Esto nos permite anidar documentos y gestionarlos de forma única en el estado.
 export interface ITTOItem {
+    id: string; // ID único para cada item, esencial para React
     name: string;
     url: string;
+    versions?: ITTOItem[]; // Array para almacenar las versiones anidadas
 }
 
 export interface IProcessStatus {
@@ -33,7 +35,7 @@ interface IBaseProcess {
     name: string;
     status: IProcessStatus | null;
     kanban_status: KanbanStatus;
-    // --- CAMBIO: Los campos ahora son un array del nuevo tipo ITTOItem ---
+    // --- SIN CAMBIOS AQUÍ, PERO AHORA USARÁN LA NUEVA ESTRUCTURA DE ITTOItem ---
     inputs: ITTOItem[];
     tools_and_techniques: ITTOItem[];
     outputs: ITTOItem[];
@@ -46,7 +48,7 @@ export interface IPMBOKProcess extends IBaseProcess {
 
 export interface IScrumProcess extends IBaseProcess {
     type: 'scrum';
-    phase: IScrumPhase | null; 
+    phase: IScrumPhase | null;
 }
 
 export type AnyProcess = IPMBOKProcess | IScrumProcess;
