@@ -5,13 +5,14 @@ import apiClient from '../api/apiClient';
 import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem } from '../types/process';
 import { v4 as uuidv4 } from 'uuid'; // Importamos para generar IDs únicos
 
-// --- NUEVA FUNCIÓN HELPER ---
-// Se asegura de que cada ITTOItem y sus versiones anidadas tengan un ID único.
+// --- FUNCIÓN HELPER ACTUALIZADA ---
+// Se asegura de que cada ITTOItem y sus versiones tengan un ID único y el campo `isActive`.
 // Esto es crucial para que React maneje correctamente el estado y las listas.
 const ensureIds = (items: ITTOItem[]): ITTOItem[] => {
     return items.map(item => ({
         ...item,
         id: item.id || uuidv4(),
+        isActive: item.isActive ?? false, // Asegura que el campo isActive exista
         versions: item.versions ? ensureIds(item.versions) : [],
     }));
 };
@@ -27,7 +28,7 @@ export const ProcessContext = createContext<ProcessContextType>({
     processes: [],
     loading: true,
     error: null,
-    updateProcessInState: () => {},
+    updateProcessInState: () => { },
 });
 
 export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
