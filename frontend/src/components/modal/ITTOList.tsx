@@ -5,10 +5,7 @@ import type { AnyProcess, ITTOItem } from '../../types/process';
 import { ProcessContext } from '../../context/ProcessContext';
 import ITTOListItem from './ITTOListItem';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
-// ===== INICIO: CAMBIO SOLICITADO =====
-// 1. Importar el nuevo modal para añadir documentos o versiones.
 import AddVersionModal from './AddVersionModal';
-// ===== FIN: CAMBIO SOLICITADO =====
 import { v4 as uuidv4 } from 'uuid';
 
 type ListTitle = 'Entradas' | 'Herramientas y Técnicas' | 'Salidas';
@@ -35,11 +32,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
     const [isNewItem, setIsNewItem] = useState<boolean>(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ isVisible: boolean; itemToDelete: { id: string; name: string } | null; }>({ isVisible: false, itemToDelete: null });
 
-    // ===== INICIO: CAMBIO SOLICITADO =====
-    // 2. Añadir un estado para controlar el modal de "añadir".
-    //    Guardará la visibilidad y el ID/nombre del documento padre si aplica.
     const [addModal, setAddModal] = useState<{ isVisible: boolean; parentId: string | null; parentName: string | null }>({ isVisible: false, parentId: null, parentName: null });
-    // ===== FIN: CAMBIO SOLICITADO =====
 
     const processKey = propertyMap[title];
 
@@ -60,30 +53,28 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
         }
     };
 
-    // 3. Modificar los handlers para que usen el modal.
     const handleAddParentItemRequest = () => {
-        // Abre el modal para crear un nuevo documento padre (sin parentId).
         setAddModal({ isVisible: true, parentId: null, parentName: null });
     };
 
     const handleAddVersionRequest = (parentId: string, parentName: string) => {
-        // Abre el modal para crear una versión hija, pasando los datos del padre.
         setAddModal({ isVisible: true, parentId: parentId, parentName: parentName });
     };
 
-    // 4. Crear una función que se ejecutará al confirmar el modal.
-    const handleConfirmAdd = (newName: string) => {
+    // ===== CAMBIO 1: El handler ahora acepta `newName` y `newUrl` =====
+    const handleConfirmAdd = (newName: string, newUrl: string) => {
         const parentId = addModal.parentId;
 
         if (parentId) {
-             // Lógica para añadir una VERSIÓN a un documento existente.
+            // Lógica para añadir una VERSIÓN a un documento existente.
             const updatedItems = JSON.parse(JSON.stringify(items));
             let itemFound = false;
 
             const findAndAddVersion = (item: ITTOItem) => {
                 if (itemFound) return;
                 if (item.id === parentId) {
-                    const newVersion: ITTOItem = { id: uuidv4(), name: newName, url: '', versions: [] };
+                    // ===== CAMBIO 2: Crear la nueva versión con la URL =====
+                    const newVersion: ITTOItem = { id: uuidv4(), name: newName, url: newUrl, versions: [] };
                     if (!item.versions) item.versions = [];
                     item.versions.push(newVersion);
                     itemFound = true;
@@ -92,17 +83,17 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
                 }
             };
             updatedItems.forEach(findAndAddVersion);
-             if (itemFound) {
+            if (itemFound) {
                 handlePersistChanges(updatedItems);
             }
         } else {
-             // Lógica para añadir un nuevo DOCUMENTO PADRE.
-             const newItem: ITTOItem = { id: uuidv4(), name: newName, url: '', versions: [] };
-             const updatedItems = [...items, newItem];
-             handlePersistChanges(updatedItems);
+            // Lógica para añadir un nuevo DOCUMENTO PADRE.
+            // ===== CAMBIO 3: Crear el nuevo item con la URL =====
+            const newItem: ITTOItem = { id: uuidv4(), name: newName, url: newUrl, versions: [] };
+            const updatedItems = [...items, newItem];
+            handlePersistChanges(updatedItems);
         }
 
-        // 5. Cerrar el modal después de la operación.
         setAddModal({ isVisible: false, parentId: null, parentName: null });
     };
 
@@ -119,7 +110,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
                 item.url = newUrl;
                 itemFound = true;
             } else if (item.versions) {
-                 item.versions.forEach(findAndUpdate);
+                item.versions.forEach(findAndUpdate);
             }
         };
 
@@ -145,7 +136,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
 
     const handleConfirmDelete = async () => {
         if (!deleteConfirmation.itemToDelete) return;
-        
+
         const itemIdToDelete = deleteConfirmation.itemToDelete.id;
         let updatedItems = JSON.parse(JSON.stringify(items));
 
@@ -191,7 +182,6 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
                             onEditStart={() => { setIsNewItem(false); setEditingId(item.id); }}
                             onSave={(name, url) => handleSave(item.id, name, url)}
                             onCancel={handleCancel}
-                            // 6. Pasar la nueva función que abre el modal al item de la lista.
                             onAddVersion={() => handleAddVersionRequest(item.id, item.name.replace(/\*$/, '').trim())}
                             onDeleteRequest={(id, name) => {
                                 setDeleteConfirmation({ isVisible: true, itemToDelete: { id, name } });
@@ -200,14 +190,14 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
                     ))}
                 </ul>
 
-                {/* 7. Renderizar el nuevo modal para añadir documentos o versiones. */}
+                {/* ===== CAMBIO 4: Pasar el handler actualizado al modal ===== */}
                 <AddVersionModal
                     isVisible={addModal.isVisible}
                     onClose={() => setAddModal({ isVisible: false, parentId: null, parentName: null })}
                     onConfirm={handleConfirmAdd}
                     parentName={addModal.parentName}
                 />
-                
+
                 <DeleteConfirmationModal
                     isVisible={deleteConfirmation.isVisible}
                     itemToDelete={deleteConfirmation.itemToDelete}
