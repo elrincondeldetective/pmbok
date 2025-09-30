@@ -74,7 +74,7 @@ interface ITTOListItemProps {
     isEditing: boolean;
     processType: 'pmbok' | 'scrum';
     onEditStart: () => void;
-    onSave: (name: string, url: string) => void;
+    onSave: (itemId: string, name: string, url: string) => void;
     onCancel: () => void;
     onAddVersion: () => void;
     onDeleteRequest: (id: string, name: string) => void;
@@ -88,12 +88,12 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
     const hasVersions = !!item.versions && item.versions.length > 0;
 
     const activeVersion = hasVersions ? item.versions?.find(v => v.isActive) : null;
-    
+
     // ===== CORRECCIÓN =====
     // Se usan las propiedades del documento visible (el activo o el padre) para la edición.
     const displayName = activeVersion ? activeVersion.name : cleanName;
     const displayUrl = activeVersion ? activeVersion.url : item.url;
-    
+
     const allSelectableVersions: ITTOItem[] = hasVersions ? [
         { ...item, name: `${cleanName}`, id: item.id, isActive: !activeVersion },
         ...item.versions
@@ -110,10 +110,13 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
             <div className="flex items-center w-full group">
                 {isEditing ? (
                     <EditItemForm
-                        // ===== CAMBIO: Usar displayName y displayUrl en lugar de las props del padre =====
                         initialName={displayName}
                         initialUrl={displayUrl}
-                        onSave={onSave}
+                        onSave={(name, url) => {
+                            // 👇 usar el id correcto según lo que realmente se está editando en pantalla
+                            const targetId = activeVersion ? activeVersion.id : item.id;
+                            onSave(targetId, name, url);
+                        }}
                         onCancel={onCancel}
                     />
                 ) : (

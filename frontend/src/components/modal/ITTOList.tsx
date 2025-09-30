@@ -217,7 +217,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
               isEditing={editingId === item.id}
               processType={process.type}
               onEditStart={() => { setIsNewItem(false); setEditingId(item.id); }}
-              onSave={(name, url) => handleSave(item.id, name, url)}
+              onSave={handleSave}
               onCancel={handleCancel}
               onAddVersion={() => handleAddVersionRequest(item.id, item.name.replace(/\*$/, '').trim())}
               onDeleteRequest={(id, name) => {
