@@ -11,7 +11,8 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
-    const { updateProcessInState, setSelectedCountry } = useContext(ProcessContext);
+    // Se elimina `setSelectedCountry` porque el modal ya no debe controlar el estado global.
+    const { updateProcessInState } = useContext(ProcessContext);
     const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
     const handleClose = () => navigate(-1);
@@ -23,6 +24,7 @@ const UnifiedProcessModal: React.FC = () => {
         const oldProcess = { ...process };
         const updatedProcessPreview = { ...process, kanban_status: newStatus };
 
+        // Actualización optimista
         setProcess(updatedProcessPreview);
         updateProcessInState(process.id, processType, updatedProcessPreview);
 
@@ -32,46 +34,45 @@ const UnifiedProcessModal: React.FC = () => {
             });
         } catch (err) {
             console.error('Error updating Kanban status:', err);
+            // Revertir en caso de error
             setProcess(oldProcess);
             updateProcessInState(process.id, processType, oldProcess);
             alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
         }
     };
 
-    // 👉 Al cambiar el país en el modal, se guarda en la BD y se sincroniza el país global.
+	// --- LÓGICA CORREGIDA ---
+	// Al cambiar el país en el modal, SÓLO se guarda la personalización
+	// para este proceso específico y se actualiza la UI localmente. NO afecta al estado global.
     const handleCountryChange = async (country: Country | null) => {
         if (!process) return;
 
         const oldProcess = { ...process };
         const oldCustomization = process.customization;
 
-        // Si se selecciona un país, creamos o actualizamos su objeto de personalización.
+        // Caso 1: Se selecciona un país.
         if (country) {
-            // 🔑 Mantén sincronizado el país global (contexto + localStorage)
-            setSelectedCountry(country);
-
             const updatedCustomization = {
-                id: oldCustomization?.id ?? -1, // -1 es un placeholder si es nuevo
+                id: oldCustomization?.id ?? -1, // -1 es un placeholder si es una nueva personalización
                 country_code: country.code,
-                // Usamos los ITTOs que están actualmente en el modal como la base para la personalización
+                // Se usan los ITTOs que están actualmente en el modal como base para la personalización
                 inputs: process.inputs,
                 tools_and_techniques: process.tools_and_techniques,
                 outputs: process.outputs,
             };
 
             const updatedProcessPreview: AnyProcess = { ...process, customization: updatedCustomization };
-            
-            // Actualización optimista de la UI
+
+            // Actualización optimista de la UI (tanto en el modal como en el estado global)
             setProcess(updatedProcessPreview);
             updateProcessInState(process.id, processType, updatedProcessPreview);
 
             try {
-                // Llamada al nuevo endpoint para crear/actualizar la personalización
+                // Llamada al endpoint para crear o actualizar la personalización en la BD
                 await apiClient.post('/customizations/', {
                     process_id: process.id,
                     process_type: processType,
                     country_code: country.code,
-                    // Enviamos los ITTOs actuales para guardarlos
                     inputs: process.inputs,
                     tools_and_techniques: process.tools_and_techniques,
                     outputs: process.outputs,
@@ -84,16 +85,14 @@ const UnifiedProcessModal: React.FC = () => {
                 alert('No se pudo guardar la selección del país. Inténtalo de nuevo.');
             }
         } else {
-            // Si se selecciona "Sin País" (country es null), eliminamos la personalización localmente
-            // y limpiamos el país global (así no se pedirá ?country=XX al recargar).
-            setSelectedCountry(null);
-
+            // Caso 2: Se selecciona "Sin País".
+            // Se elimina la personalización localmente, pero NO se toca el país global.
             const updatedProcessPreview: AnyProcess = { ...process, customization: null };
             setProcess(updatedProcessPreview);
             updateProcessInState(process.id, processType, updatedProcessPreview);
             
-            // TODO (Opcional): Implementar una llamada a un endpoint DELETE para
-            // eliminar el registro de personalización de la base de datos si es necesario.
+            // Nota: La implementación actual no borra la personalización de la BD, solo la
+            // quita de la vista. Si se volviera a seleccionar el país, los datos reaparecerían.
         }
     };
 
