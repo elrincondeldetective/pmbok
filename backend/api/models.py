@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
-# --- Manager para el Modelo de Usuario Personalizado ---
+# --- Manager para el Modelo de Usuario Personalizado (SIN CAMBIOS) ---
 class CustomUserManager(BaseUserManager):
     """
     Manager para nuestro modelo de usuario personalizado.
@@ -27,7 +27,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-# --- Modelo de Usuario Personalizado ---
+# --- Modelo de Usuario Personalizado (SIN CAMBIOS) ---
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
@@ -42,7 +42,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
-# --- Modelo para los ESTATUS ---
+# --- Modelos de Soporte (SIN CAMBIOS) ---
 class ProcessStatus(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
     description = models.TextField(blank=True)
@@ -52,7 +52,6 @@ class ProcessStatus(models.Model):
     def __str__(self):
         return self.name
 
-# --- Modelo para las ETAPAS (Áreas de Conocimiento) de PMBOK ---
 class ProcessStage(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Integración (Inicio), Alcance (Planeación)")
     tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-gray-200")
@@ -61,7 +60,6 @@ class ProcessStage(models.Model):
     def __str__(self):
         return self.name
 
-# --- Modelo para las FASES de los Procesos Scrum ---
 class ScrumPhase(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="Ej: Inicio, Planificación y Estimación")
     tailwind_bg_color = models.CharField(max_length=50, default='bg-gray-200', help_text="Clase de Tailwind para el fondo del footer. Ej: bg-sky-100")
@@ -74,7 +72,7 @@ class ScrumPhase(models.Model):
     def __str__(self):
         return self.name
 
-# --- Choices para el estado Kanban ---
+# --- Choices para Kanban (SIN CAMBIOS) ---
 KANBAN_STATUS_CHOICES = [
     ('unassigned', 'No Asignado'),
     ('backlog', 'Pendiente'),
@@ -84,27 +82,19 @@ KANBAN_STATUS_CHOICES = [
     ('done', 'Hecho'),
 ]
 
-# --- CAMBIO PRINCIPAL: Se usa JSONField para almacenar datos estructurados ---
+# --- Modelo PMBOKProcess (MODIFICADO) ---
 class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
-    
     status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='pmbok_processes')
     stage = models.ForeignKey(ProcessStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='pmbok_processes')
-    
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
         default='unassigned',
         help_text="El estado del proceso en el tablero Kanban."
     )
-    
-    # ===== INICIO: CAMBIO SOLICITADO =====
-    # Añadimos un campo para almacenar el código del país.
-    country_code = models.CharField(max_length=2, blank=True, null=True, help_text="Código de 2 letras del país (ej: CO, US).")
-    # ===== FIN: CAMBIO SOLICITADO =====
-    
-    # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
+    # ===== CAMBIO: Se elimina el campo 'country_code' de aquí =====
     inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
     outputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de salida, cada uno con 'name' y 'url'.")
@@ -115,36 +105,19 @@ class PMBOKProcess(models.Model):
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
-# --- Modelo de Tareas (existente) ---
-class Task(models.Model):
-    title = models.CharField(max_length=200)
-    completed = models.BooleanField(default=False, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.title
-
-# --- Modelo para los Procesos de SCRUM (ACTUALIZADO) ---
+# --- Modelo ScrumProcess (MODIFICADO) ---
 class ScrumProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
-    
     status = models.ForeignKey(ProcessStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_status')
     phase = models.ForeignKey(ScrumPhase, on_delete=models.SET_NULL, null=True, blank=True, related_name='scrum_processes_by_phase')
-    
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
         default='unassigned',
         help_text="El estado del proceso en el tablero Kanban."
     )
-    
-    # ===== INICIO: CAMBIO SOLICITADO =====
-    # Añadimos también aquí el campo para el código del país.
-    country_code = models.CharField(max_length=2, blank=True, null=True, help_text="Código de 2 letras del país (ej: CO, US).")
-    # ===== FIN: CAMBIO SOLICITADO =====
-    
-    # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
+    # ===== CAMBIO: Se elimina el campo 'country_code' de aquí =====
     inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
     outputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de salida, cada uno con 'name' y 'url'.")
@@ -157,3 +130,60 @@ class ScrumProcess(models.Model):
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
+# ===== INICIO: NUEVOS MODELOS PARA PERSONALIZACIONES (ENFOQUE MÁS SIMPLE) =====
+
+class PMBOKProcessCustomization(models.Model):
+    """
+    Almacena los ITTOs personalizados para un proceso PMBOK específico y un país.
+    """
+    process = models.ForeignKey(PMBOKProcess, on_delete=models.CASCADE, related_name="customizations")
+    country_code = models.CharField(max_length=2, help_text="Código de 2 letras del país (ej: CO, US).")
+    
+    # Campos que se pueden personalizar
+    inputs = models.JSONField(default=list, blank=True)
+    tools_and_techniques = models.JSONField(default=list, blank=True)
+    outputs = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('process', 'country_code')
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"PMBOK Customization for {self.process.name} in {self.country_code.upper()}"
+
+
+class ScrumProcessCustomization(models.Model):
+    """
+    Almacena los ITTOs personalizados para un proceso Scrum específico y un país.
+    """
+    process = models.ForeignKey(ScrumProcess, on_delete=models.CASCADE, related_name="customizations")
+    country_code = models.CharField(max_length=2, help_text="Código de 2 letras del país (ej: CO, US).")
+    
+    # Campos que se pueden personalizar
+    inputs = models.JSONField(default=list, blank=True)
+    tools_and_techniques = models.JSONField(default=list, blank=True)
+    outputs = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('process', 'country_code')
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Scrum Customization for {self.process.name} in {self.country_code.upper()}"
+
+# ===== FIN: NUEVOS MODELOS =====
+
+# --- Modelo de Tareas (SIN CAMBIOS) ---
+class Task(models.Model):
+    title = models.CharField(max_length=200)
+    completed = models.BooleanField(default=False, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title

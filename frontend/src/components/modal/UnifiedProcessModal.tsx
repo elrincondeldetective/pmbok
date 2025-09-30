@@ -2,10 +2,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
-// ===== INICIO: CAMBIO SOLICITADO =====
-// Importamos 'Country' para el tipado de la nueva función
-import type { KanbanStatus, Country } from '../../types/process';
-// ===================================
+import type { KanbanStatus, ITTOItem, AnyProcess } from '../../types/process';
 import { ProcessContext } from '../../context/ProcessContext';
 import { useProcessData } from '../../hooks/useProcessData';
 
@@ -14,11 +11,13 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
   const navigate = useNavigate();
-  const { updateProcessInState } = useContext(ProcessContext);
+  // Se obtiene el país seleccionado del contexto global.
+  const { updateProcessInState, selectedCountry } = useContext(ProcessContext);
   const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
   const handleClose = () => navigate(-1);
 
+  // La lógica para cambiar el estado de Kanban no cambia.
   const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value as KanbanStatus;
     if (!process) return;
@@ -26,48 +25,54 @@ const UnifiedProcessModal: React.FC = () => {
     const oldProcess = { ...process };
     const updatedProcessPreview = { ...process, kanban_status: newStatus };
 
-    // Optimistic UI Update
     setProcess(updatedProcessPreview);
     updateProcessInState(process.id, processType, updatedProcessPreview);
 
-    // API Call
     try {
       await apiClient.patch(`/${apiEndpoint}/${process.id}/update-kanban-status/`, {
         kanban_status: newStatus,
       });
     } catch (err) {
       console.error('Error updating Kanban status:', err);
-      // Rollback on failure
       setProcess(oldProcess);
       updateProcessInState(process.id, processType, oldProcess);
       alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
     }
   };
 
-  // ===== INICIO: NUEVA FUNCIÓN =====
-  const handleCountryChange = async (country: Country | null) => {
-    if (!process) return;
-
-    const newCode = country ? country.code : null;
+  // ===== INICIO: NUEVA FUNCIÓN PARA PERSISTIR CAMBIOS EN ITTOs POR PAÍS =====
+  // Esta función reemplaza la lógica anterior de 'update-ittos'.
+  const handlePersistITTOs = async (updatedITTOs: {
+    inputs: ITTOItem[];
+    tools_and_techniques: ITTOItem[];
+    outputs: ITTOItem[];
+  }) => {
+    if (!process || !selectedCountry) {
+      alert("Error: No hay un país seleccionado. No se pueden guardar los cambios.");
+      return;
+    }
 
     const oldProcess = { ...process };
-    const updatedProcessPreview = { ...process, country_code: newCode };
+    const updatedProcessPreview = { ...process, ...updatedITTOs };
 
-    // Actualización optimista de la UI
+    // Actualización optimista de la UI para que el cambio sea instantáneo
     setProcess(updatedProcessPreview);
     updateProcessInState(process.id, processType, updatedProcessPreview);
 
-    // Llamada a la API
     try {
-      await apiClient.patch(`/${apiEndpoint}/${process.id}/update-country/`, {
-        country_code: newCode,
+      // Llamada al nuevo endpoint para crear o actualizar una personalización
+      await apiClient.post('/customizations/', {
+        process_id: process.id,
+        process_type: processType,
+        country_code: selectedCountry.code,
+        ...updatedITTOs,
       });
     } catch (err) {
-      console.error('Error al actualizar el país:', err);
-      // Revertir en caso de fallo
+      console.error('Error guardando la personalización:', err);
+      // Revertir en caso de fallo en la API
       setProcess(oldProcess);
       updateProcessInState(process.id, processType, oldProcess);
-      alert('No se pudo guardar el país. Inténtalo de nuevo.');
+      alert('No se pudo guardar la personalización para este país. Inténtalo de nuevo.');
     }
   };
   // ===== FIN: NUEVA FUNCIÓN =====
@@ -96,11 +101,16 @@ const UnifiedProcessModal: React.FC = () => {
           process={process}
           onClose={handleClose}
           onKanbanStatusChange={handleKanbanStatusChange}
-          // Pasamos la nueva función al encabezado
-          onCountryChange={handleCountryChange}
+          // El selector de país en el modal ya no cambia el estado, solo lo muestra.
+          // El cambio real se hace desde la barra de navegación principal.
+          onCountryChange={() => {}}
         />
 
-        <ITTOSection process={process} setProcess={setProcess} apiEndpoint={apiEndpoint} />
+        {/* Se pasa la nueva función de guardado a ITTOSection */}
+        <ITTOSection
+          process={process}
+          onITTOsChange={handlePersistITTOs}
+        />
 
         <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
           <button

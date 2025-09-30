@@ -1,10 +1,9 @@
-// frontend/src/components/common/CountrySelector.tsx
+// frontend/src/components/common/GlobalCountrySelector.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { FaChevronDown } from 'react-icons/fa';
 import type { Country } from '../../types/process';
 
-// ===== INICIO: LISTA DE PAÍSES =====
-// Lista de países actualizada con todos los de habla hispana y Estados Unidos.
+// Lista de países
 const countries: Country[] = [
   { code: 'co', name: 'Colombia' },
   { code: 'ar', name: 'Argentina' },
@@ -29,35 +28,26 @@ const countries: Country[] = [
   { code: 'uy', name: 'Uruguay' },
   { code: 've', name: 'Venezuela' },
 ].sort((a, b) => a.name.localeCompare(b.name));
-// Se re-inserta Colombia al principio para que sea el default
 countries.unshift({ code: 'co', name: 'Colombia' });
 const uniqueCountries = [...new Map(countries.map(item => [item.code, item])).values()];
-// ===== FIN: LISTA DE PAÍSES =====
 
-interface CountrySelectorProps {
-  /** Código (lowercase) del país seleccionado, o null si no hay */
+interface GlobalCountrySelectorProps {
   value: string | null;
-  /** Notifica el país elegido (o null para limpiar) */
   onChange: (country: Country | null) => void;
-  /** Permite limpiar a “Sin país” (por defecto true) */
   allowClear?: boolean;
-  /** Define el tema visual para adaptarse a fondos claros u oscuros */
-  theme?: 'light' | 'dark';
 }
 
-const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allowClear = true, theme = 'dark' }) => {
+const GlobalCountrySelector: React.FC<GlobalCountrySelectorProps> = ({ value, onChange, allowClear = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(
     value ? uniqueCountries.find(c => c.code === value) ?? null : null
   );
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Sincroniza cuando cambia el valor desde el padre
   useEffect(() => {
     setSelectedCountry(value ? uniqueCountries.find(c => c.code === value) ?? null : null);
   }, [value]);
 
-  // Cierra el menú al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -74,15 +64,8 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allo
     onChange(country);
   };
 
-  // ===== INICIO: ESTILOS CONDICIONALES BASADOS EN EL TEMA =====
-  const buttonClasses = theme === 'light'
-    ? "inline-flex items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 transition-colors duration-200" // Estilo SUTIL para fondos claros
-    : "inline-flex items-center justify-center rounded-full bg-white/25 text-white/95 text-xs font-bold px-3 py-1 shadow-sm hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white transition-colors duration-200"; // Estilo SUTIL para fondos oscuros
-
-  const chevronClasses = theme === 'light'
-    ? "w-3 h-3 ml-2 text-gray-500"
-    : "w-3 h-3 ml-2 text-white/80";
-  // ===== FIN: ESTILOS CONDICIONALES =====
+  const buttonClasses = "inline-flex items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 transition-colors duration-200";
+  const chevronClasses = "w-3 h-3 ml-2 text-gray-500";
 
   return (
     <div ref={dropdownRef} className="relative inline-block text-left">
@@ -102,7 +85,6 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allo
                 alt={`Bandera de ${selectedCountry.name}`}
                 className="mr-2"
               />
-              {/* Se eliminan clases que forzaban el estiramiento */}
               <span>{selectedCountry.name}</span>
             </>
           ) : (
@@ -122,7 +104,6 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allo
           role="menu"
           aria-orientation="vertical"
         >
-          {/* Scroll interno para lista larga */}
           <div className="py-1 max-h-60 overflow-y-auto" role="none">
             {allowClear && (
               <a
@@ -160,7 +141,6 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allo
           </div>
         </div>
       )}
-      {/* Estilos para la animación del desplegable */}
       <style>{`
         @keyframes fade-in-down {
           from { opacity: 0; transform: scale(0.95) translateY(-10px); }
@@ -172,5 +152,4 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChange, allo
   );
 };
 
-export default CountrySelector;
-
+export default GlobalCountrySelector;

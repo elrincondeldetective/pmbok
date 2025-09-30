@@ -9,8 +9,13 @@ from rest_framework_simplejwt.views import (
 
 router = routers.DefaultRouter()
 router.register(r'tasks', views.TaskViewSet)
-router.register(r'pmbok-processes', views.PMBOKProcessViewSet) # AÑADIR ESTA LÍNEA
+router.register(r'pmbok-processes', views.PMBOKProcessViewSet)
 router.register(r'scrum-processes', views.ScrumProcessViewSet)
+
+# ===== INICIO: NUEVA RUTA PARA GESTIONAR PERSONALIZACIONES =====
+# Esta ruta manejará las peticiones para crear/actualizar los datos por país.
+router.register(r'customizations', views.CustomizationViewSet, basename='customization')
+# ===== FIN: NUEVA RUTA =====
 
 urlpatterns = [
     path('', include(router.urls)),

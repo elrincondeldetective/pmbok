@@ -2,32 +2,38 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem } from '../types/process';
-import { v4 as uuidv4 } from 'uuid'; // Importamos para generar IDs únicos
+import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country } from '../types/process';
+import { v4 as uuidv4 } from 'uuid';
 
-// --- FUNCIÓN HELPER ACTUALIZADA ---
-// Se asegura de que cada ITTOItem y sus versiones tengan un ID único y el campo `isActive`.
-// Esto es crucial para que React maneje correctamente el estado y las listas.
+// --- FUNCIÓN HELPER (SIN CAMBIOS) ---
+// Se asegura de que cada ITTOItem y sus versiones tengan un ID único.
 const ensureIds = (items: ITTOItem[]): ITTOItem[] => {
     return items.map(item => ({
         ...item,
         id: item.id || uuidv4(),
-        isActive: item.isActive ?? false, // Asegura que el campo isActive exista
+        isActive: item.isActive ?? false,
         versions: item.versions ? ensureIds(item.versions) : [],
     }));
 };
 
+// ===== INICIO: CAMBIO EN LA INTERFAZ DEL CONTEXTO =====
 interface ProcessContextType {
     processes: AnyProcess[];
     loading: boolean;
     error: string | null;
+    selectedCountry: Country | null; // Estado para el país seleccionado
+    setSelectedCountry: (country: Country | null) => void; // Función para cambiar el país
     updateProcessInState: (processId: number, processType: 'pmbok' | 'scrum', updatedProcessData: Partial<AnyProcess>) => void;
 }
+// ===== FIN: CAMBIO EN LA INTERFAZ DEL CONTEXTO =====
 
 export const ProcessContext = createContext<ProcessContextType>({
     processes: [],
     loading: true,
     error: null,
+    // Valores por defecto para el nuevo estado
+    selectedCountry: null,
+    setSelectedCountry: () => {},
     updateProcessInState: () => { },
 });
 
@@ -38,6 +44,25 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
+    // ===== INICIO: NUEVO ESTADO PARA GESTIONAR EL PAÍS SELECCIONADO =====
+    // Se inicializa desde localStorage para persistir la sesión. Si no hay nada, se usa Colombia por defecto.
+    const [selectedCountry, setSelectedCountryState] = useState<Country | null>(() => {
+        const savedCountry = localStorage.getItem('selectedCountry');
+        return savedCountry ? JSON.parse(savedCountry) : { code: 'co', name: 'Colombia' };
+    });
+
+    // Función wrapper para actualizar el estado y guardarlo en localStorage.
+    const setSelectedCountry = (country: Country | null) => {
+        setSelectedCountryState(country);
+        if (country) {
+            localStorage.setItem('selectedCountry', JSON.stringify(country));
+        } else {
+            localStorage.removeItem('selectedCountry');
+        }
+    };
+    // ===== FIN: NUEVO ESTADO PARA GESTIONAR EL PAÍS SELECCIONADO =====
+
+    // El useEffect ahora depende de `selectedCountry` para recargar los datos cuando este cambie.
     useEffect(() => {
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
@@ -56,12 +81,16 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
             setError(null);
 
             try {
+                // ===== CAMBIO: Añadir el país como parámetro en la petición a la API =====
+                const countryCode = selectedCountry ? selectedCountry.code : undefined;
+                const params = countryCode ? { country: countryCode } : {};
+
                 const [pmbokResponse, scrumResponse] = await Promise.all([
-                    apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
-                    apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
+                    apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal, params }),
+                    apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal, params })
                 ]);
 
-                // --- CAMBIO: Aplicamos la función ensureIds a los datos que llegan de la API ---
+                // El backend ya envía los datos fusionados. El frontend solo necesita procesarlos.
                 const pmbokData = pmbokResponse.data.map(p => ({
                     ...p,
                     type: 'pmbok' as const,
@@ -101,7 +130,7 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return () => {
             controller.abort();
         };
-    }, [location.pathname, navigate]);
+    }, [location.pathname, navigate, selectedCountry]); // <-- Se añade selectedCountry a las dependencias
 
     const updateProcessInState = (processId: number, processType: 'pmbok' | 'scrum', updatedProcessData: Partial<AnyProcess>) => {
         setProcesses(prevProcesses =>
@@ -112,7 +141,7 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     return (
-        <ProcessContext.Provider value={{ processes, loading, error, updateProcessInState }}>
+        <ProcessContext.Provider value={{ processes, loading, error, selectedCountry, setSelectedCountry, updateProcessInState }}>
             {children}
         </ProcessContext.Provider>
     );
