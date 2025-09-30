@@ -45,19 +45,18 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return savedCountry ? JSON.parse(savedCountry) : null;
     });
 
-    // Carga los datos base una sola vez al montar el componente
+    // --- INICIO: LÓGICA DE CARGA UNIFICADA ---
+    // Este useEffect se encarga de toda la carga inicial de datos.
     useEffect(() => {
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken && location.pathname !== '/login' && location.pathname !== '/register') return;
 
         const controller = new AbortController();
-        const fetchBaseData = async () => {
+        const fetchInitialData = async () => {
             setLoading(true);
             setError(null);
             try {
-                // Se obtienen los datos base de PMBOK y Scrum, incluyendo todas las personalizaciones existentes.
-                // La API ya fusiona la personalización relevante si se pasa el `country` param.
-                // Para la carga inicial, no pasamos país, obtenemos los datos "por defecto".
+                // 1. Cargar los datos base (sin personalizaciones)
                 const [pmbokResponse, scrumResponse] = await Promise.all([
                     apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
                     apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
@@ -66,24 +65,57 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
                 const pmbokData = pmbokResponse.data.map(p => ({ ...p, type: 'pmbok' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
                 const scrumData = scrumResponse.data.map(p => ({ ...p, type: 'scrum' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
 
-                setProcesses([...pmbokData, ...scrumData]);
+                const baseProcesses = [...pmbokData, ...scrumData];
+                const processesMap = new Map(baseProcesses.map(p => [`${p.type}-${p.id}`, p]));
+
+                // 2. Si hay un país guardado, cargar sus datos y fusionarlos
+                const savedCountryJson = localStorage.getItem('selectedCountry');
+                if (savedCountryJson) {
+                    const savedCountry = JSON.parse(savedCountryJson) as Country;
+                    const params = { country: savedCountry.code };
+
+                    const [countryPmbokRes, countryScrumRes] = await Promise.all([
+                        apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal, params }),
+                        apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal, params })
+                    ]);
+
+                    const countryProcesses = [
+                        ...countryPmbokRes.data.map(p => ({ ...p, type: 'pmbok' as const })),
+                        ...countryScrumRes.data.map(p => ({ ...p, type: 'scrum' as const }))
+                    ];
+
+                    countryProcesses.forEach(countryProcess => {
+                        if (countryProcess.customization) {
+                            const key = `${countryProcess.type}-${countryProcess.id}`;
+                            processesMap.set(key, {
+                                ...countryProcess,
+                                inputs: ensureIds(countryProcess.inputs),
+                                tools_and_techniques: ensureIds(countryProcess.tools_and_techniques),
+                                outputs: ensureIds(countryProcess.outputs),
+                            });
+                        }
+                    });
+                }
+                
+                setProcesses(Array.from(processesMap.values()));
                 setInitialLoadComplete(true);
+
             } catch (err: any) {
                 if (err.name !== 'CanceledError') {
-                    setError("Error al cargar datos base. Por favor, recarga la página.");
-                    console.error("Error fetching base processes:", err);
+                    setError("Error al cargar datos. Por favor, recarga la página.");
+                    console.error("Error fetching initial data:", err);
                 }
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchBaseData();
+        fetchInitialData();
         return () => { controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    // --- FIN: LÓGICA DE CARGA UNIFICADA ---
 
-    // Esta función se mantiene por si se necesita en el futuro, pero ya no se llama automáticamente.
     const fetchAndMergeCountryData = useCallback(async (country: Country) => {
         const controller = new AbortController();
         try {
@@ -123,14 +155,11 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return () => { controller.abort(); };
     }, []);
 
-    // ❌ BLOQUE ELIMINADO ❌
-    // Se elimina el efecto que reaccionaba al cambio de `selectedCountry`.
-    // Esto evita que el filtro global recargue y modifique los datos de toda la aplicación.
-    // useEffect(() => {
-    //     if (initialLoadComplete && selectedCountry) {
-    //         fetchAndMergeCountryData(selectedCountry);
-    //     }
-    // }, [selectedCountry, initialLoadComplete, fetchAndMergeCountryData]);
+    useEffect(() => {
+        if (initialLoadComplete && selectedCountry) {
+            fetchAndMergeCountryData(selectedCountry);
+        }
+    }, [selectedCountry, initialLoadComplete, fetchAndMergeCountryData]);
 
     const setSelectedCountry = (country: Country | null) => {
         setSelectedCountryState(country);
@@ -155,4 +184,3 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         </ProcessContext.Provider>
     );
 };
-

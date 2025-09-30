@@ -63,8 +63,7 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
             }
             for process in queryset:
                 customization = customizations.get(process.id)
-                process = merge_process_with_customization(
-                    process, customization)
+                process = merge_process_with_customization(process, customization)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -83,8 +82,7 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
                     process=instance,
                     country_code=country_code
                 )
-                instance = merge_process_with_customization(
-                    instance, customization)
+                instance = merge_process_with_customization(instance, customization)
             except ScrumProcessCustomization.DoesNotExist:
                 instance.customization = None
 
@@ -101,8 +99,7 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
         valid_statuses = [choice[0] for choice in KANBAN_STATUS_CHOICES]
         if new_status not in valid_statuses:
             return Response({'error': f'El estado "{new_status}" no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
-        updated_count = ScrumProcess.objects.filter(
-            id__in=process_ids).update(kanban_status=new_status)
+        updated_count = ScrumProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
         return Response({'message': f'{updated_count} procesos de Scrum actualizados a "{new_status}" exitosamente.'})
 
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
@@ -137,8 +134,7 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
             }
             for process in queryset:
                 customization = customizations.get(process.id)
-                process = merge_process_with_customization(
-                    process, customization)
+                process = merge_process_with_customization(process, customization)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -156,8 +152,7 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
                     process=instance,
                     country_code=country_code
                 )
-                instance = merge_process_with_customization(
-                    instance, customization)
+                instance = merge_process_with_customization(instance, customization)
             except PMBOKProcessCustomization.DoesNotExist:
                 instance.customization = None
 
@@ -174,8 +169,7 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
         valid_statuses = [choice[0] for choice in KANBAN_STATUS_CHOICES]
         if new_status not in valid_statuses:
             return Response({'error': f'El estado "{new_status}" no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
-        updated_count = PMBOKProcess.objects.filter(
-            id__in=process_ids).update(kanban_status=new_status)
+        updated_count = PMBOKProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
         return Response({'message': f'{updated_count} procesos de PMBOK actualizados a "{new_status}" exitosamente.'})
 
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
@@ -202,14 +196,23 @@ class CustomizationViewSet(viewsets.GenericViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """
+        Crea o actualiza la personalización y devuelve el objeto resultante.
+        Devolver los datos permite que el frontend reemplace el id placeholder (-1)
+        por el id real sin hacer otra petición.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
 
-        return Response(
-            {"message": f"Customization for process in country '{instance.country_code.upper()}' saved successfully."},
-            status=status.HTTP_201_CREATED
-        )
+        data = {
+            "id": instance.id,
+            "country_code": instance.country_code,
+            "inputs": instance.inputs,
+            "tools_and_techniques": instance.tools_and_techniques,
+            "outputs": instance.outputs,
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
 # ===== FIN: NUEVA VISTA =====
 
 # --- Vista de Tareas (SIN CAMBIOS) ---

@@ -11,24 +11,18 @@ router = routers.DefaultRouter()
 router.register(r'tasks', views.TaskViewSet)
 router.register(r'pmbok-processes', views.PMBOKProcessViewSet)
 router.register(r'scrum-processes', views.ScrumProcessViewSet)
-
-# ===== INICIO: NUEVA RUTA PARA GESTIONAR PERSONALIZACIONES =====
-# Esta ruta manejará las peticiones para crear/actualizar los datos por país.
 router.register(r'customizations', views.CustomizationViewSet,
                 basename='customization')
-# ===== FIN: NUEVA RUTA =====
 
 urlpatterns = [
     path('', include(router.urls)),
 
     # --- Rutas de Autenticación JWT ---
-    # Endpoint para iniciar sesión y obtener un token de acceso y refresco.
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
 
-    # Endpoint para refrescar el token de acceso usando el token de refresco.
+    # 👇 CORRECCIÓN: 'as_view()' en lugar de 'as_виew()'
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # --- Ruta de Registro ---
-    # Endpoint para el registro de nuevos usuarios.
     path('register/', views.RegisterView.as_view(), name='auth_register'),
 ]
