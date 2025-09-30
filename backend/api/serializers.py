@@ -50,7 +50,10 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PMBOKProcess
-        fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
+        # ===== INICIO: CAMBIO SOLICITADO =====
+        # Añadimos 'country_code' a los campos serializados.
+        fields = ('id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 'country_code', 'inputs', 'tools_and_techniques', 'outputs')
+        # ===== FIN: CAMBIO SOLICITADO =====
 
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
@@ -58,9 +61,13 @@ class ScrumProcessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ScrumProcess
-        fields = ('id', 'process_number', 'name', 'status', 'phase', 'kanban_status', 'inputs', 'tools_and_techniques', 'outputs')
+        # ===== INICIO: CAMBIO SOLICITADO =====
+        # Añadimos 'country_code' también aquí.
+        fields = ('id', 'process_number', 'name', 'status', 'phase', 'kanban_status', 'country_code', 'inputs', 'tools_and_techniques', 'outputs')
+        # ===== FIN: CAMBIO SOLICITADO =====
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
+

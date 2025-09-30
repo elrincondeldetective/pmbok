@@ -99,6 +99,11 @@ class PMBOKProcess(models.Model):
         help_text="El estado del proceso en el tablero Kanban."
     )
     
+    # ===== INICIO: CAMBIO SOLICITADO =====
+    # Añadimos un campo para almacenar el código del país.
+    country_code = models.CharField(max_length=2, blank=True, null=True, help_text="Código de 2 letras del país (ej: CO, US).")
+    # ===== FIN: CAMBIO SOLICITADO =====
+    
     # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
     inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
@@ -134,6 +139,11 @@ class ScrumProcess(models.Model):
         help_text="El estado del proceso en el tablero Kanban."
     )
     
+    # ===== INICIO: CAMBIO SOLICITADO =====
+    # Añadimos también aquí el campo para el código del país.
+    country_code = models.CharField(max_length=2, blank=True, null=True, help_text="Código de 2 letras del país (ej: CO, US).")
+    # ===== FIN: CAMBIO SOLICITADO =====
+    
     # --- CAMBIO: De TextField a JSONField para almacenar objetos {name, url} ---
     inputs = models.JSONField(default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(default=list, blank=True, help_text="Lista de objetos de herramientas, cada uno con 'name' y 'url'.")
@@ -146,3 +156,4 @@ class ScrumProcess(models.Model):
 
     def __str__(self):
         return f"{self.process_number}. {self.name}"
+

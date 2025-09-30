@@ -153,11 +153,23 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                                             <p className="text-sm font-bold leading-tight truncate" title={process.name}>
                                                 {process.process_number}. {process.name}
                                             </p>
-                                            {/* ===== INICIO: CAMBIO SOLICITADO ===== */}
-                                            {/* Se añade un indicador visual para diferenciar entre PMBOK y Scrum en el Kanban. */}
-                                            <span className="mt-1.5 inline-block bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                                {process.type === 'pmbok' ? 'PMBOK® 6' : 'SCRUM'}
-                                            </span>
+                                            {/* ===== INICIO: CAMBIO SOLICITADO (Mostrar País y Bandera) ===== */}
+                                            <div className="mt-1.5 flex justify-center items-center gap-2">
+                                                <span className="inline-block bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                    {process.type === 'pmbok' ? 'PMBOK® 6' : 'SCRUM'}
+                                                </span>
+                                                {process.country_code && (
+                                                    <div className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full" title={process.country_code.toUpperCase()}>
+                                                        <img
+                                                            src={`https://flagcdn.com/w20/${process.country_code}.png`}
+                                                            width="12"
+                                                            alt={`${process.country_code} flag`}
+                                                            className="mr-1.5"
+                                                        />
+                                                        {process.country_code.toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
                                             {/* ===== FIN: CAMBIO SOLICITADO ===== */}
                                         </div>
                                         <div className={`border-t px-3 py-2 rounded-b-lg text-center ${group ? `${group.tailwind_bg_color} ${group.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>
@@ -177,14 +189,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                                         &times;
                                     </button>
                                 </div>
-                            )})}
+                                )})}
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-};
-
-export default KanbanBoard;
+                    ))}
+                </div>
+            </section>
+        );
+    };
+    
+    export default KanbanBoard;
 

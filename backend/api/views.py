@@ -57,6 +57,28 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(process)
         return Response(serializer.data)
 
+    # ===== INICIO: NUEVA ACCIÓN =====
+    @action(detail=True, methods=['patch'], url_path='update-country')
+    def update_country(self, request, pk=None):
+        """
+        Actualiza el código de país para un proceso específico.
+        """
+        process = self.get_object()
+        country_code = request.data.get('country_code')
+
+        if country_code is not None and (not isinstance(country_code, str) or len(country_code) > 2):
+            return Response(
+                {'error': 'country_code debe ser un string de 2 caracteres o null.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        process.country_code = country_code
+        process.save(update_fields=['country_code'])
+        
+        serializer = self.get_serializer(process)
+        return Response(serializer.data)
+    # ===== FIN: NUEVA ACCIÓN =====
+
     @action(detail=True, methods=['patch'], url_path='update-ittos')
     def update_ittos(self, request, pk=None):
         process = self.get_object()
@@ -142,6 +164,28 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(process)
         return Response(serializer.data)
+    
+    # ===== INICIO: NUEVA ACCIÓN =====
+    @action(detail=True, methods=['patch'], url_path='update-country')
+    def update_country(self, request, pk=None):
+        """
+        Actualiza el código de país para un proceso PMBOK específico.
+        """
+        process = self.get_object()
+        country_code = request.data.get('country_code')
+
+        if country_code is not None and (not isinstance(country_code, str) or len(country_code) > 2):
+            return Response(
+                {'error': 'country_code debe ser un string de 2 caracteres o null.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        process.country_code = country_code
+        process.save(update_fields=['country_code'])
+        
+        serializer = self.get_serializer(process)
+        return Response(serializer.data)
+    # ===== FIN: NUEVA ACCIÓN =====
 
     @action(detail=True, methods=['patch'], url_path='update-ittos')
     def update_ittos(self, request, pk=None):

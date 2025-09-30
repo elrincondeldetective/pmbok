@@ -30,12 +30,24 @@ export interface IScrumPhase { // Para Scrum
     tailwind_text_color: string;
 }
 
+// ===== INICIO: NUEVO TIPO =====
+// Para el callback del selector de país
+export interface Country {
+    code: string;
+    name: string;
+}
+// ===== FIN: NUEVO TIPO =====
+
 interface IBaseProcess {
     id: number;
     process_number: number;
     name: string;
     status: IProcessStatus | null;
     kanban_status: KanbanStatus;
+    // ===== INICIO: CAMBIO SOLICITADO =====
+    // Añadimos el campo opcional para el código del país.
+    country_code: string | null;
+    // ===== FIN: CAMBIO SOLICITADO =====
     // --- USARÁN LA NUEVA ESTRUCTURA DE ITTOItem ---
     inputs: ITTOItem[];
     tools_and_techniques: ITTOItem[];
@@ -53,3 +65,4 @@ export interface IScrumProcess extends IBaseProcess {
 }
 
 export type AnyProcess = IPMBOKProcess | IScrumProcess;
+
