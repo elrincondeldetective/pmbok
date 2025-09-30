@@ -29,11 +29,32 @@ const Card: React.FC<CardProps> = ({ process }) => {
                     className={`p-4 rounded-t-lg ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}
                 >
                     <h2 className="font-bold text-lg leading-tight">{process.process_number}. {process.name}</h2>
-                    <div className="mt-2">
+                    {/* ===== INICIO: CAMBIO PARA MOSTRAR BANDERAS CON TEXTO ===== */}
+                    <div className="mt-2 flex items-center gap-3 flex-wrap">
                         <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
                             {isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE'}
                         </span>
+                        
+                        {process.customizations && process.customizations.length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap" title="Aplicado en estos países">
+                                {process.customizations.map(cust => (
+                                     <span
+                                        key={cust.country_code}
+                                        className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                    >
+                                        <img
+                                            src={`https://flagcdn.com/w20/${cust.country_code.toLowerCase()}.png`}
+                                            width="12"
+                                            alt={`${cust.country_code} flag`}
+                                            className="mr-1.5 rounded-sm"
+                                        />
+                                        {cust.country_code.toUpperCase()}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
+                    {/* ===== FIN: CAMBIO PARA MOSTRAR BANDERAS CON TEXTO ===== */}
                 </div>
 
                 {/* --- INICIO: CAMBIOS PARA MANEJAR DATOS JSON --- */}
@@ -78,3 +99,4 @@ const Card: React.FC<CardProps> = ({ process }) => {
 };
 
 export default Card;
+
