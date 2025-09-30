@@ -15,6 +15,30 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
     serializer_class = ScrumProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=False, methods=['post'], url_path='bulk-update-kanban-status')
+    def bulk_update_kanban_status(self, request):
+        process_ids = request.data.get('process_ids')
+        new_status = request.data.get('kanban_status')
+
+        if not isinstance(process_ids, list) or not new_status:
+            return Response(
+                {'error': 'Se requiere "process_ids" (una lista) y "kanban_status".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        valid_statuses = [choice[0] for choice in KANBAN_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'El estado "{new_status}" no es válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_count = ScrumProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
+
+        return Response({
+            'message': f'{updated_count} procesos de Scrum actualizados a "{new_status}" exitosamente.'
+        })
+
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
     def update_kanban_status(self, request, pk=None):
         process = self.get_object()
@@ -33,15 +57,10 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(process)
         return Response(serializer.data)
 
-    # --- NUEVA ACCIÓN: Para actualizar los campos ITTO (inputs, tools, outputs) ---
     @action(detail=True, methods=['patch'], url_path='update-ittos')
     def update_ittos(self, request, pk=None):
-        """
-        Actualiza los campos JSON de inputs, tools_and_techniques, o outputs.
-        """
         process = self.get_object()
         
-        # Obtenemos los campos que se van a actualizar del request
         data_to_update = {}
         fields_to_update = []
         
@@ -63,11 +82,9 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        # Actualizamos el objeto en memoria
         for key, value in data_to_update.items():
             setattr(process, key, value)
             
-        # Guardamos solo los campos modificados en la BD
         process.save(update_fields=fields_to_update)
         
         serializer = self.get_serializer(process)
@@ -78,6 +95,35 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
     queryset = PMBOKProcess.objects.select_related('status', 'stage').all()
     serializer_class = PMBOKProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    # --- INICIO: NUEVA ACCIÓN PARA ACTUALIZACIÓN MASIVA DE PMBOK ---
+    @action(detail=False, methods=['post'], url_path='bulk-update-kanban-status')
+    def bulk_update_kanban_status(self, request):
+        """
+        Actualiza el estado Kanban de múltiples procesos PMBOK a la vez.
+        """
+        process_ids = request.data.get('process_ids')
+        new_status = request.data.get('kanban_status')
+
+        if not isinstance(process_ids, list) or not new_status:
+            return Response(
+                {'error': 'Se requiere "process_ids" (una lista) y "kanban_status".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        valid_statuses = [choice[0] for choice in KANBAN_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'El estado "{new_status}" no es válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_count = PMBOKProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
+
+        return Response({
+            'message': f'{updated_count} procesos de PMBOK actualizados a "{new_status}" exitosamente.'
+        })
+    # --- FIN: NUEVA ACCIÓN ---
 
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
     def update_kanban_status(self, request, pk=None):
@@ -97,7 +143,6 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(process)
         return Response(serializer.data)
 
-    # --- NUEVA ACCIÓN: Reutilizamos la misma lógica para PMBOK ---
     @action(detail=True, methods=['patch'], url_path='update-ittos')
     def update_ittos(self, request, pk=None):
         process = self.get_object()
@@ -135,3 +180,4 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     queryset = Task.objects.all()
     permission_classes = [permissions.IsAuthenticated]
+

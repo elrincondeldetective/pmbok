@@ -8,26 +8,23 @@ import FilterLegend from './dashboard/FilterLegend.tsx';
 import KanbanBoard from './dashboard/KanbanBoard.tsx';
 import ScrumSection from './scrum/ScrumSection.tsx';
 import PMBOKSection from './pmbok/PMBOKSection.tsx';
+import SprintControlPanel from './dashboard/SprintControlPanel.tsx'; // <-- 1. IMPORTAR EL NUEVO COMPONENTE
 
 import { ProcessContext } from '../context/ProcessContext.tsx';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../types/process.ts';
+import type { IPMBOKProcess, IScrumProcess } from '../types/process.ts';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     
-    // Obtenemos la lista combinada de procesos desde el contexto unificado
     const { processes, loading, error } = useContext(ProcessContext);
     
-    // Filtros para PMBOK
     const [selectedPmbokStatus, setSelectedPmbokStatus] = useState<string | null>(null);
     const [selectedPmbokStage, setSelectedPmbokStage] = useState<string | null>(null);
 
-    // Procesos filtrados para el tablero Kanban (todos los que no están 'unassigned')
     const kanbanProcesses = useMemo(() => {
         return processes?.filter(p => p.kanban_status !== 'unassigned') || [];
     }, [processes]);
 
-    // Procesos filtrados para la cuadrícula de PMBOK
     const filteredPmbokProcesses = useMemo(() => {
         return (processes?.filter(p => p.type === 'pmbok') as IPMBOKProcess[]).filter(process => {
             const statusMatch = selectedPmbokStatus ? process.status?.name === selectedPmbokStatus : true;
@@ -36,7 +33,6 @@ const Dashboard: React.FC = () => {
         });
     }, [processes, selectedPmbokStatus, selectedPmbokStage]);
 
-    // Procesos filtrados para la sección de Scrum
     const scrumProcesses = useMemo(() => {
         return processes?.filter(p => p.type === 'scrum') as IScrumProcess[] || [];
     }, [processes]);
@@ -59,17 +55,19 @@ const Dashboard: React.FC = () => {
                     
                     {!loading && !error && (
                         <>
+                            {/* --- 2. AÑADIR EL PANEL DE CONTROL AQUÍ --- */}
+                            <SprintControlPanel />
+
                             <KanbanBoard initialProcesses={kanbanProcesses} />
                             
                             <hr className="border-t-2 border-gray-300 border-dashed" />
                             
-                            {/* ScrumSection ahora recibe los procesos de Scrum como prop */}
                             <ScrumSection processes={scrumProcesses} />
                     
                             <hr className="border-t-2 border-gray-300 border-dashed" />
 
                             <section>
-                                 <SectionHeader 
+                                <SectionHeader 
                                     title="Guía PMBOK 6ª Edición – 49 Procesos"
                                     subtitle="Una visión adaptada a un entorno de trabajo ágil."
                                 />
