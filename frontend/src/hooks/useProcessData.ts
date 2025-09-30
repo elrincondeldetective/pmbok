@@ -7,16 +7,13 @@ import { ProcessContext } from '../context/ProcessContext';
 
 /**
  * Hook personalizado para obtener los datos de un proceso específico.
- * Abstrae la lógica de determinar el tipo de proceso (PMBOK/Scrum),
- * buscarlo en el contexto global o hacer una llamada a la API si no se encuentra.
- * Utiliza el país seleccionado del contexto para obtener los datos correctos.
- * @returns {object} El estado del proceso, carga y error.
+ * Ahora siempre obtiene el proceso con todas sus personalizaciones y el modal
+ * se encarga de mostrar la información relevante.
  */
 export const useProcessData = () => {
     const { processId } = useParams<{ processId: string }>();
     const isPmbokRoute = useMatch("/process/:processId");
-    // Obtener el estado global, incluyendo el país seleccionado
-    const { processes, selectedCountry } = useContext(ProcessContext);
+    const { processes } = useContext(ProcessContext);
 
     const [process, setProcess] = useState<AnyProcess | null>(null);
     const [loading, setLoading] = useState(true);
@@ -32,21 +29,18 @@ export const useProcessData = () => {
             setLoading(true);
             setError(null);
             
-            // 1. Intentar encontrar el proceso en el estado global (que ya es consciente del país)
+            // 1. Intentar encontrar el proceso en el estado global.
             const existingProcess = processes.find(p => p.id === parseInt(processId) && p.type === processType);
 
             if (existingProcess) {
                 setProcess(existingProcess);
                 setLoading(false);
             } else {
-                // 2. Si no está en el estado global, obtenerlo de la API, pasando el país
+                // 2. Si no está, obtenerlo de la API. La API ahora devolverá el array de personalizaciones.
                 try {
-                    const countryCode = selectedCountry ? selectedCountry.code : undefined;
-                    const params = countryCode ? { country: countryCode } : {};
-
-                    const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`, { params });
+                    // La petición ya no necesita el parámetro `country`.
+                    const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`);
                     
-                    // El backend ya fusiona los datos, solo necesitamos añadir el tipo.
                     const finalProcessData = { ...response.data, type: processType };
                     
                     setProcess(finalProcessData);
@@ -61,7 +55,7 @@ export const useProcessData = () => {
 
         fetchProcess();
 
-    }, [processId, apiEndpoint, processType, processes, selectedCountry]); // Depender también de selectedCountry
+    }, [processId, apiEndpoint, processType, processes]);
 
     return { process, setProcess, loading, error, processType, apiEndpoint };
 };

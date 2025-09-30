@@ -33,9 +33,7 @@ export interface Country {
     name: string;
 }
 
-// ===== INICIO: NUEVA INTERFAZ PARA LA PERSONALIZACIÓN =====
-// Representa el objeto `customization` que ahora viene anidado en la respuesta de la API
-// cuando se selecciona un país.
+// Representa el objeto de personalización que viene anidado en la respuesta de la API.
 export interface IProcessCustomization {
     id: number;
     country_code: string;
@@ -43,11 +41,10 @@ export interface IProcessCustomization {
     tools_and_techniques: ITTOItem[];
     outputs: ITTOItem[];
 }
-// ===== FIN: NUEVA INTERFAZ =====
 
 
-// ===== INICIO: INTERFAZ BASE MODIFICADA =====
-// Se elimina `country_code` del nivel superior y se añade el objeto opcional `customization`.
+// --- INTERFAZ BASE MODIFICADA ---
+// Ahora contiene un array `customizations` en lugar de un único objeto opcional.
 interface IBaseProcess {
     id: number;
     process_number: number;
@@ -55,16 +52,14 @@ interface IBaseProcess {
     status: IProcessStatus | null;
     kanban_status: KanbanStatus;
 
-    // Estos son los ITTOs base, que pueden ser sobreescritos por los de la personalización.
+    // Estos son los ITTOs base.
     inputs: ITTOItem[];
     tools_and_techniques: ITTOItem[];
     outputs: ITTOItem[];
 
-    // El objeto de personalización es opcional. Solo existirá si se pide un país
-    // y hay una personalización guardada para ese proceso y país.
-    customization?: IProcessCustomization | null;
+    // Un proceso ahora puede tener múltiples personalizaciones, una para cada país.
+    customizations: IProcessCustomization[];
 }
-// ===== FIN: INTERFAZ BASE MODIFICADA =====
 
 export interface IPMBOKProcess extends IBaseProcess {
     type: 'pmbok';

@@ -53,9 +53,6 @@ class ScrumPhaseSerializer(serializers.ModelSerializer):
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
 
-# ===== INICIO: NUEVOS SERIALIZADORES PARA PERSONALIZACIONES (SOLO LECTURA) =====
-# Se usarán para anidar los datos personalizados dentro de la respuesta de un proceso.
-
 class PMBOKProcessCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = PMBOKProcessCustomization
@@ -69,45 +66,38 @@ class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
         fields = ('id', 'country_code', 'inputs',
                   'tools_and_techniques', 'outputs')
 
-# ===== FIN: NUEVOS SERIALIZADORES PARA PERSONALIZACIONES =====
-
 
 # --- SERIALIZADORES DE PROCESOS PRINCIPALES (MODIFICADOS) ---
 
 class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     stage = ProcessStageSerializer(read_only=True)
-    # Este campo se rellenará en la vista si existe una personalización para el país solicitado.
-    customization = PMBOKProcessCustomizationSerializer(
-        read_only=True, required=False)
+    # 👉 CAMBIO: Ahora se serializa un array de personalizaciones.
+    customizations = PMBOKProcessCustomizationSerializer(many=True, read_only=True)
 
     class Meta:
         model = PMBOKProcess
-        # Se elimina 'country_code' y se añade 'customization' para la data anidada.
+        # 👉 CAMBIO: El campo se llama `customizations` (plural).
         fields = (
             'id', 'process_number', 'name', 'status', 'stage', 'kanban_status',
-            'inputs', 'tools_and_techniques', 'outputs', 'customization'
+            'inputs', 'tools_and_techniques', 'outputs', 'customizations'
         )
 
 
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     phase = ScrumPhaseSerializer(read_only=True)
-    # Igual que en PMBOK, este campo es para la personalización por país.
-    customization = ScrumProcessCustomizationSerializer(
-        read_only=True, required=False)
+    # 👉 CAMBIO: Ahora se serializa un array de personalizaciones.
+    customizations = ScrumProcessCustomizationSerializer(many=True, read_only=True)
 
     class Meta:
         model = ScrumProcess
-        # Se elimina 'country_code' y se añade 'customization'.
+        # 👉 CAMBIO: El campo se llama `customizations` (plural).
         fields = (
             'id', 'process_number', 'name', 'status', 'phase', 'kanban_status',
-            'inputs', 'tools_and_techniques', 'outputs', 'customization'
+            'inputs', 'tools_and_techniques', 'outputs', 'customizations'
         )
 
-
-# ===== INICIO: NUEVO SERIALIZADOR PARA CREAR/ACTUALIZAR PERSONALIZACIONES =====
-# Este es el serializador que usará el nuevo endpoint para guardar los cambios del modal.
 
 class CustomizationWriteSerializer(serializers.Serializer):
     process_id = serializers.IntegerField(write_only=True)
@@ -137,8 +127,6 @@ class CustomizationWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "El proceso con el ID y tipo especificados no existe.")
 
-        # update_or_create: Si existe un objeto para este proceso y país, lo actualiza.
-        # Si no existe, lo crea. Justo lo que necesitamos.
         instance, created = customization_model.objects.update_or_create(
             process=process_instance,
             country_code=validated_data.get('country_code'),
@@ -150,10 +138,7 @@ class CustomizationWriteSerializer(serializers.Serializer):
         )
         return instance
 
-# ===== FIN: NUEVO SERIALIZADOR DE ESCRITURA =====
 
-
-# --- Serializador de Tareas (SIN CAMBIOS) ---
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task

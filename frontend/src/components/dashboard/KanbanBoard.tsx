@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/KanbanBoard.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { AnyProcess, KanbanStatus } from '../../types/process';
+import type { AnyProcess, KanbanStatus, IProcessCustomization } from '../../types/process';
 import apiClient from '../../api/apiClient';
 import SectionHeader from '../common/SectionHeader';
 import { ProcessContext } from '../../context/ProcessContext';
@@ -30,7 +30,7 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
     const location = useLocation();
-    const { updateProcessInState } = useContext(ProcessContext);
+    const { updateProcessInState, selectedCountry } = useContext(ProcessContext); // 👉 Se obtiene el país del filtro global
     const [columns, setColumns] = useState<Record<KanbanColumnStatus, AnyProcess[]>>({
         backlog: [], todo: [], in_progress: [], in_review: [], done: []
     });
@@ -121,10 +121,20 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                                 const group = process.type === 'pmbok' ? process.stage : process.phase;
                                 const linkTarget = process.type === 'pmbok' ? `/process/${process.id}` : `/scrum-process/${process.id}`;
                                 const borderColor = process.type === 'pmbok' ? 'border-l-blue-500' : 'border-l-green-500';
-                                // ===== LÓGICA PARA MOSTRAR LA BANDERA =====
-                                const countryCodeRaw = process.customization?.country_code || null;
-                                const countryCode = countryCodeRaw ? countryCodeRaw.toLowerCase() : null;
-                                // ==========================================
+                                
+                                // ===== INICIO: LÓGICA CORREGIDA PARA MOSTRAR LA BANDERA =====
+                                let displayCustomization: IProcessCustomization | null = null;
+                                
+                                if (selectedCountry) {
+                                    // Si hay un filtro global, mostramos la personalización de ese país.
+                                    displayCustomization = process.customizations.find(c => c.country_code === selectedCountry.code) || null;
+                                } else if (process.customizations.length > 0) {
+                                    // Si no hay filtro, mostramos la primera personalización disponible como default.
+                                    displayCustomization = process.customizations[0];
+                                }
+                                const countryCode = displayCustomization ? displayCustomization.country_code.toLowerCase() : null;
+                                // ==========================================================
+
                                 return (
                                     <div key={`${process.type}-${process.id}`} draggable onDragStart={e => handleDragStart(e, process, columnKey)} className="relative group">
                                         <Link to={linkTarget} state={{ background: location }} className={`bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-l-4 ${borderColor}`}>
@@ -132,14 +142,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
                                                 <p className="text-sm font-bold leading-tight truncate" title={process.name}>{process.process_number}. {process.name}</p>
                                                 <div className="mt-1.5 flex justify-center items-center gap-2">
                                                     <span className="inline-block bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full">{process.type === 'pmbok' ? 'PMBOK® 6' : 'SCRUM'}</span>
-                                                    {/* ===== INICIO: MOSTRAR BADGE DE PAÍS ===== */}
+                                                    {/* MOSTRAR BADGE DE PAÍS */}
                                                     {countryCode && (
                                                         <div className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full" title={countryCode.toUpperCase()}>
                                                             <img src={`https://flagcdn.com/w20/${countryCode}.png`} width="12" alt={`${countryCode} flag`} className="mr-1.5" />
                                                             {countryCode.toUpperCase()}
                                                         </div>
                                                     )}
-                                                    {/* ===== FIN: MOSTRAR BADGE DE PAÍS ===== */}
                                                 </div>
                                             </div>
                                             <div className={`border-t px-3 py-2 rounded-b-lg text-center ${group ? `${group.tailwind_bg_color} ${group.tailwind_text_color}` : 'bg-gray-200 text-gray-700'}`}>

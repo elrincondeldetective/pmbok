@@ -40,7 +40,6 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [processes, setProcesses] = useState<AnyProcess[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
     const location = useLocation();
 
     // El estado del país seleccionado se inicializa desde localStorage
@@ -50,22 +49,17 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
 
 	// --- FUNCIÓN DE CARGA DE DATOS UNIFICADA ---
-    // Esta función, envuelta en useCallback, es ahora la ÚNICA responsable de pedir datos al backend.
-    // Puede recibir un país para obtener los datos ya fusionados.
-	const loadAllData = useCallback(async (country: Country | null) => {
+    // Esta función ya no acepta un país. Siempre carga toda la información.
+	const loadAllData = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		const controller = new AbortController();
 
 		try {
-			// Si se proporciona un país, se añade como parámetro a la petición.
-			const params = country ? { country: country.code } : {};
-
-			// Se realizan ambas peticiones en paralelo. El backend se encarga de fusionar
-            // los datos base con la personalización del país si se le pasa el parámetro.
+			// Las peticiones ya no envían el parámetro 'country'. El backend devolverá todos los procesos con todas sus personalizaciones.
 			const [pmbokResponse, scrumResponse] = await Promise.all([
-				apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal, params }),
-				apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal, params })
+				apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
+				apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
 			]);
 
             // Se procesan los datos recibidos para añadirles el 'tipo' y asegurar los IDs.
@@ -81,7 +75,6 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
 			}
 		} finally {
 			setLoading(false);
-			setInitialLoadComplete(true);
 		}
 
 		return () => { controller.abort(); };
@@ -89,30 +82,20 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
 	// --- EFECTO PARA LA CARGA INICIAL ---
-	// Se ejecuta UNA SOLA VEZ al montar el componente.
-	// Carga los datos usando el país que esté guardado en localStorage (si existe).
+	// Se ejecuta UNA SOLA VEZ al montar el componente para cargar todos los datos.
     useEffect(() => {
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken && location.pathname !== '/login' && location.pathname !== '/register') return;
 
-		// El país guardado se lee desde el estado, que a su vez lo lee de localStorage.
-		loadAllData(selectedCountry);
-	// La dependencia `loadAllData` es estable. Las otras solo validan si la carga debe proceder.
+		// Llama a la función de carga sin parámetros.
+		loadAllData();
+	// La dependencia `loadAllData` es estable.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 	
-	// --- EFECTO PARA RECARGA GLOBAL (CUANDO CAMBIA EL PAÍS EN LA NAVBAR) ---
-	// Se activa SOLO cuando `selectedCountry` cambia DESPUÉS de la carga inicial.
-    useEffect(() => {
-		// Si la carga inicial no ha terminado, no hagas nada.
-		// Esto previene una doble petición al arrancar la aplicación.
- 		if (!initialLoadComplete) {
- 			return;
-        }
-		// Llama a la función de carga con el nuevo país seleccionado en la navbar.
-		loadAllData(selectedCountry);
-	}, [selectedCountry, initialLoadComplete, loadAllData]);
-
+	// --- SE ELIMINA EL EFECTO QUE RECARGABA DATOS ---
+	// Ya no es necesario recargar los datos cuando el país del filtro cambia.
+    // El filtrado ahora se hace en el lado del cliente en el Dashboard.
 
     // Función para actualizar el país global y guardarlo en localStorage
     const setSelectedCountry = (country: Country | null) => {
