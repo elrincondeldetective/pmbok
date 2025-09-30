@@ -33,7 +33,7 @@ export const ProcessContext = createContext<ProcessContextType>({
     error: null,
     // Valores por defecto para el nuevo estado
     selectedCountry: null,
-    setSelectedCountry: () => {},
+    setSelectedCountry: () => { },
     updateProcessInState: () => { },
 });
 

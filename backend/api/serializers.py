@@ -1,15 +1,17 @@
 # backend/api/serializers.py
 from rest_framework import serializers
 from .models import (
-    Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage, 
+    Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage,
     ScrumProcess, ScrumPhase, PMBOKProcessCustomization, ScrumProcessCustomization
 )
 from django.contrib.auth.password_validation import validate_password
 
 # --- Serializadores de autenticación y soporte (SIN CAMBIOS) ---
 
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -18,7 +20,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
+            raise serializers.ValidationError(
+                {"password": "Las contraseñas no coinciden."})
         return attrs
 
     def create(self, validated_data):
@@ -31,15 +34,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+
 class ProcessStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessStatus
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
+
 class ProcessStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessStage
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
+
 
 class ScrumPhaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,12 +59,15 @@ class ScrumPhaseSerializer(serializers.ModelSerializer):
 class PMBOKProcessCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = PMBOKProcessCustomization
-        fields = ('id', 'country_code', 'inputs', 'tools_and_techniques', 'outputs')
+        fields = ('id', 'country_code', 'inputs',
+                  'tools_and_techniques', 'outputs')
+
 
 class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScrumProcessCustomization
-        fields = ('id', 'country_code', 'inputs', 'tools_and_techniques', 'outputs')
+        fields = ('id', 'country_code', 'inputs',
+                  'tools_and_techniques', 'outputs')
 
 # ===== FIN: NUEVOS SERIALIZADORES PARA PERSONALIZACIONES =====
 
@@ -69,21 +78,24 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     stage = ProcessStageSerializer(read_only=True)
     # Este campo se rellenará en la vista si existe una personalización para el país solicitado.
-    customization = PMBOKProcessCustomizationSerializer(read_only=True, required=False)
+    customization = PMBOKProcessCustomizationSerializer(
+        read_only=True, required=False)
 
     class Meta:
         model = PMBOKProcess
         # Se elimina 'country_code' y se añade 'customization' para la data anidada.
         fields = (
-            'id', 'process_number', 'name', 'status', 'stage', 'kanban_status', 
+            'id', 'process_number', 'name', 'status', 'stage', 'kanban_status',
             'inputs', 'tools_and_techniques', 'outputs', 'customization'
         )
+
 
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     phase = ScrumPhaseSerializer(read_only=True)
     # Igual que en PMBOK, este campo es para la personalización por país.
-    customization = ScrumProcessCustomizationSerializer(read_only=True, required=False)
+    customization = ScrumProcessCustomizationSerializer(
+        read_only=True, required=False)
 
     class Meta:
         model = ScrumProcess
@@ -99,7 +111,8 @@ class ScrumProcessSerializer(serializers.ModelSerializer):
 
 class CustomizationWriteSerializer(serializers.Serializer):
     process_id = serializers.IntegerField(write_only=True)
-    process_type = serializers.ChoiceField(choices=['pmbok', 'scrum'], write_only=True)
+    process_type = serializers.ChoiceField(
+        choices=['pmbok', 'scrum'], write_only=True)
     country_code = serializers.CharField(max_length=2)
     inputs = serializers.JSONField()
     tools_and_techniques = serializers.JSONField()
@@ -108,7 +121,7 @@ class CustomizationWriteSerializer(serializers.Serializer):
     def create(self, validated_data):
         process_type_str = validated_data.pop('process_type')
         process_id = validated_data.pop('process_id')
-        
+
         if process_type_str == 'pmbok':
             model_class = PMBOKProcess
             customization_model = PMBOKProcessCustomization
@@ -121,8 +134,11 @@ class CustomizationWriteSerializer(serializers.Serializer):
         try:
             process_instance = model_class.objects.get(pk=process_id)
         except model_class.DoesNotExist:
-            raise serializers.ValidationError("El proceso con el ID y tipo especificados no existe.")
+            raise serializers.ValidationError(
+                "El proceso con el ID y tipo especificados no existe.")
 
+        # update_or_create: Si existe un objeto para este proceso y país, lo actualiza.
+        # Si no existe, lo crea. Justo lo que necesitamos.
         instance, created = customization_model.objects.update_or_create(
             process=process_instance,
             country_code=validated_data.get('country_code'),
