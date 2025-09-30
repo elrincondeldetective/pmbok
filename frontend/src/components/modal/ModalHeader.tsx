@@ -1,5 +1,5 @@
 // frontend/src/components/modal/ModalHeader.tsx
-import React, { useContext } from 'react';
+import React from 'react'; // Se elimina 'useContext' que ya no es necesario
 import type {
     AnyProcess,
     KanbanStatus,
@@ -8,7 +8,8 @@ import type {
     Country,
 } from '../../types/process';
 import CountrySelector from '../common/CountrySelector';
-import { ProcessContext } from '../../context/ProcessContext';
+// Se elimina la importación del contexto, ya que el modal no debe depender de él
+// import { ProcessContext } from '../../context/ProcessContext';
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'unassigned', label: 'No Asignado' },
@@ -32,7 +33,9 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     onKanbanStatusChange,
     onCountryChange,
 }) => {
-    const { selectedCountry } = useContext(ProcessContext);
+    // Se elimina la dependencia del contexto global para el país.
+    // El modal ahora es independiente del filtro de la barra de navegación.
+    // const { selectedCountry } = useContext(ProcessContext);
 
     const isPmbok = process.type === 'pmbok';
     const group = isPmbok
@@ -40,9 +43,10 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
         : (process as IScrumProcess).phase;
     const frameworkName = isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE';
     
-    // 👉 Preferir el país global; si no hay, caer en el de la personalización del proceso.
-    const selectedCountryCode =
-        selectedCountry?.code || process.customization?.country_code || null;
+    // 👉 FIX: El país mostrado en el modal DEBE depender únicamente de la personalización
+    //    del proceso actual (`process.customization`), ignorando por completo el filtro
+    //    global de la barra de navegación.
+    const selectedCountryCode = process.customization?.country_code || null;
 
     return (
         <div
@@ -61,7 +65,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                         </span>
                         {group && <p className="text-sm opacity-90">{group.name}</p>}
                         
-                        {/* El selector de país ahora usa país global si existe */}
+                        {/* El selector de país ahora muestra el valor correcto del proceso actual */}
                         <CountrySelector
                             value={selectedCountryCode}
                             onChange={onCountryChange}
