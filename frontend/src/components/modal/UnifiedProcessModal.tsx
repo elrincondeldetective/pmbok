@@ -2,7 +2,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
-import type { KanbanStatus, AnyProcess, Country } from '../../types/process';
+import type { KanbanStatus, AnyProcess, Country, IProcessCustomization } from '../../types/process';
 import { ProcessContext } from '../../context/ProcessContext';
 import { useProcessData } from '../../hooks/useProcessData';
 
@@ -11,7 +11,7 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
-    const { updateProcessInState, processes: allGlobalProcesses } = useContext(ProcessContext);
+    const { updateProcessInState, processes: allGlobalProcesses, addOrUpdateCustomization } = useContext(ProcessContext);
     const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
     const handleClose = () => navigate(-1);
@@ -104,7 +104,13 @@ const UnifiedProcessModal: React.FC = () => {
                     tools_and_techniques: updatedProcess.tools_and_techniques,
                     outputs: updatedProcess.outputs,
                 };
-                await apiClient.post('/customizations/', payload);
+                // Capturamos la respuesta de la API que contiene la personalización guardada
+                const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
+                const savedCustomization = response.data;
+
+                // Usamos la nueva función del contexto para sincronizar el estado global
+                addOrUpdateCustomization(process.id, process.type, savedCustomization);
+
             } catch (err) {
                 console.error('Error guardando la personalización del país:', err);
                 // Revertir UI en caso de error

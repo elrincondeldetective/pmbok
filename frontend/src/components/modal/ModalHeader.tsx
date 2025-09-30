@@ -1,5 +1,5 @@
 // frontend/src/components/modal/ModalHeader.tsx
-import React from 'react'; // Se elimina 'useContext' que ya no es necesario
+import React from 'react';
 import type {
     AnyProcess,
     KanbanStatus,
@@ -8,12 +8,9 @@ import type {
     Country,
 } from '../../types/process';
 import CountrySelector from '../common/CountrySelector';
-// Se elimina la importación del contexto, ya que el modal no debe depender de él
-// import { ProcessContext } from '../../context/ProcessContext';
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
-    { value: 'unassigned', label: 'No Asignado' },
-    { value: 'backlog', label: 'Pendiente' },
+    { value: 'unassigned', label: 'Pendiente' },
     { value: 'todo', label: 'Por Hacer' },
     { value: 'in_progress', label: 'En Progreso' },
     { value: 'in_review', label: 'En Revisión' },
@@ -33,19 +30,12 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     onKanbanStatusChange,
     onCountryChange,
 }) => {
-    // Se elimina la dependencia del contexto global para el país.
-    // El modal ahora es independiente del filtro de la barra de navegación.
-    // const { selectedCountry } = useContext(ProcessContext);
-
     const isPmbok = process.type === 'pmbok';
     const group = isPmbok
         ? (process as IPMBOKProcess).stage
         : (process as IScrumProcess).phase;
     const frameworkName = isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE';
-    
 
-    // El país mostrado en el selector se deriva de `activeCustomization`,
-    // que es establecido por el hook `useProcessData` al abrir el modal.
     const selectedCountryCode = process.activeCustomization?.country_code || null;
 
     return (
@@ -64,7 +54,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                             {frameworkName}
                         </span>
                         {group && <p className="text-sm opacity-90">{group.name}</p>}
-                        
+
                         {/* El selector de país ahora muestra el valor correcto del proceso actual */}
                         <CountrySelector
                             value={selectedCountryCode}
@@ -72,6 +62,32 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                             allowClear
                         />
                     </div>
+                    
+                    {/* ===== INICIO: NUEVA SECCIÓN PARA MOSTRAR PAÍSES APLICADOS ===== */}
+                    {process.customizations && process.customizations.length > 0 && (
+                        <div className="mt-4 flex items-center gap-3 flex-wrap">
+                            <p className="text-xs font-semibold opacity-80">✅ Aplicado en:</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {process.customizations.map((cust) => (
+                                    <span
+                                        key={cust.country_code}
+                                        className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                        title={`Este proceso tiene una versión para ${cust.country_code.toUpperCase()}`}
+                                    >
+                                        <img
+                                            src={`https://flagcdn.com/w20/${cust.country_code.toLowerCase()}.png`}
+                                            width="12"
+                                            alt={`${cust.country_code} flag`}
+                                            className="mr-1.5"
+                                        />
+                                        {cust.country_code.toUpperCase()}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {/* ===== FIN: NUEVA SECCIÓN ===== */}
+
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-4">
                     <select

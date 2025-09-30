@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country } from '../types/process';
+import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country, IProcessCustomization } from '../types/process';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper para asegurar que todos los ITTOs y sus versiones tengan un ID único para React.
@@ -23,6 +23,9 @@ interface ProcessContextType {
     selectedCountry: Country | null;
     setSelectedCountry: (country: Country | null) => void;
     updateProcessInState: (processId: number, processType: 'pmbok' | 'scrum', updatedProcessData: Partial<AnyProcess>) => void;
+    // ===== INICIO: NUEVA FUNCIÓN AÑADIDA =====
+    addOrUpdateCustomization: (processId: number, processType: 'pmbok' | 'scrum', customization: IProcessCustomization) => void;
+    // ===== FIN: NUEVA FUNCIÓN AÑADIDA =====
 }
 
 // Creación del contexto con valores por defecto
@@ -33,6 +36,9 @@ export const ProcessContext = createContext<ProcessContextType>({
     selectedCountry: null,
     setSelectedCountry: () => {},
     updateProcessInState: () => {},
+    // ===== INICIO: VALOR POR DEFECTO PARA LA NUEVA FUNCIÓN =====
+    addOrUpdateCustomization: () => {},
+    // ===== FIN: VALOR POR DEFECTO =====
 });
 
 // Proveedor del contexto que envolverá la aplicación
@@ -48,55 +54,45 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return savedCountry ? JSON.parse(savedCountry) : null;
     });
 
-	// --- FUNCIÓN DE CARGA DE DATOS UNIFICADA ---
-    // Esta función ya no acepta un país. Siempre carga toda la información.
-	const loadAllData = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		const controller = new AbortController();
+    // --- FUNCIÓN DE CARGA DE DATOS UNIFICADA ---
+    const loadAllData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        const controller = new AbortController();
 
-		try {
-			// Las peticiones ya no envían el parámetro 'country'. El backend devolverá todos los procesos con todas sus personalizaciones.
-			const [pmbokResponse, scrumResponse] = await Promise.all([
-				apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
-				apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
-			]);
+        try {
+            const [pmbokResponse, scrumResponse] = await Promise.all([
+                apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
+                apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
+            ]);
 
-            // Se procesan los datos recibidos para añadirles el 'tipo' y asegurar los IDs.
-			const pmbokData = pmbokResponse.data.map(p => ({ ...p, type: 'pmbok' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
-			const scrumData = scrumResponse.data.map(p => ({ ...p, type: 'scrum' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
+            const pmbokData = pmbokResponse.data.map(p => ({ ...p, type: 'pmbok' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
+            const scrumData = scrumResponse.data.map(p => ({ ...p, type: 'scrum' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
 
-			setProcesses([...pmbokData, ...scrumData]);
+            setProcesses([...pmbokData, ...scrumData]);
 
-		} catch (err: any) {
-			if (err.name !== 'CanceledError') {
-				setError("Error al cargar datos. Por favor, recarga la página.");
-				console.error("Error fetching data:", err);
-			}
-		} finally {
-			setLoading(false);
-		}
+        } catch (err: any) {
+            if (err.name !== 'CanceledError') {
+                setError("Error al cargar datos. Por favor, recarga la página.");
+                console.error("Error fetching data:", err);
+            }
+        } finally {
+            setLoading(false);
+        }
 
-		return () => { controller.abort(); };
-	}, []);
+        return () => { controller.abort(); };
+    }, []);
 
 
-	// --- EFECTO PARA LA CARGA INICIAL ---
-	// Se ejecuta UNA SOLA VEZ al montar el componente para cargar todos los datos.
+    // --- EFECTO PARA LA CARGA INICIAL ---
     useEffect(() => {
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken && location.pathname !== '/login' && location.pathname !== '/register') return;
 
-		// Llama a la función de carga sin parámetros.
-		loadAllData();
-	// La dependencia `loadAllData` es estable.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+        loadAllData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-	
-	// --- SE ELIMINA EL EFECTO QUE RECARGABA DATOS ---
-	// Ya no es necesario recargar los datos cuando el país del filtro cambia.
-    // El filtrado ahora se hace en el lado del cliente en el Dashboard.
-
+    
     // Función para actualizar el país global y guardarlo en localStorage
     const setSelectedCountry = (country: Country | null) => {
         setSelectedCountryState(country);
@@ -115,9 +111,40 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
             )
         );
     };
+    
+    // ===== INICIO: IMPLEMENTACIÓN DE LA NUEVA FUNCIÓN =====
+    /**
+     * Busca un proceso por su ID y tipo, y actualiza o añade una personalización a su lista.
+     * Esto mantiene el estado global sincronizado con el backend sin necesidad de un refetch.
+     */
+    const addOrUpdateCustomization = (processId: number, processType: 'pmbok' | 'scrum', customization: IProcessCustomization) => {
+        setProcesses(prevProcesses =>
+            prevProcesses.map(p => {
+                if (p.id === processId && p.type === processType) {
+                    // Clonamos el proceso para evitar mutaciones directas
+                    const updatedProcess = { ...p, customizations: [...p.customizations] };
+                    
+                    const existingIndex = updatedProcess.customizations.findIndex(
+                        c => c.country_code === customization.country_code
+                    );
+
+                    if (existingIndex !== -1) {
+                        // Si ya existe una personalización para ese país, la reemplazamos
+                        updatedProcess.customizations[existingIndex] = customization;
+                    } else {
+                        // Si es nueva, la añadimos a la lista
+                        updatedProcess.customizations.push(customization);
+                    }
+                    return updatedProcess;
+                }
+                return p;
+            })
+        );
+    };
+    // ===== FIN: IMPLEMENTACIÓN DE LA NUEVA FUNCIÓN =====
 
     return (
-        <ProcessContext.Provider value={{ processes, loading, error, selectedCountry, setSelectedCountry, updateProcessInState }}>
+        <ProcessContext.Provider value={{ processes, loading, error, selectedCountry, setSelectedCountry, updateProcessInState, addOrUpdateCustomization }}>
             {children}
         </ProcessContext.Provider>
     );
