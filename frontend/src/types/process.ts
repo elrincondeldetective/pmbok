@@ -59,6 +59,9 @@ interface IBaseProcess {
 
     // Un proceso ahora puede tener múltiples personalizaciones, una para cada país.
     customizations: IProcessCustomization[];
+    
+    // Propiedad del lado del cliente para rastrear la personalización activa en el modal.
+    activeCustomization?: IProcessCustomization;
 }
 
 export interface IPMBOKProcess extends IBaseProcess {

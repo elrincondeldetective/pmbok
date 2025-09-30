@@ -11,7 +11,7 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
-    const { updateProcessInState } = useContext(ProcessContext);
+    const { updateProcessInState, processes: allGlobalProcesses } = useContext(ProcessContext);
     const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
     const handleClose = () => navigate(-1);
@@ -38,54 +38,82 @@ const UnifiedProcessModal: React.FC = () => {
         }
     };
 
-	// --- LÓGICA DE GUARDADO DE PAÍS AJUSTADA ---
+    // --- LÓGICA DE GUARDADO DE PAÍS REFACTORIZADA ---
     const handleCountryChange = async (country: Country | null) => {
         if (!process) return;
 
-        const oldProcess = { ...process };
-
-        // Prepara los datos para la API. Se envían los ITTOs actuales del modal.
-        const customizationPayload = {
-            process_id: process.id,
-            process_type: processType,
-            country_code: country?.code, // será undefined si country es null
-            inputs: process.inputs,
-            tools_and_techniques: process.tools_and_techniques,
-            outputs: process.outputs,
-        };
-
-        // Actualización optimista de la UI
-        let updatedProcessPreview: AnyProcess;
-        if (country) {
-            // Si se selecciona un país, se crea o actualiza su personalización en el array.
-            const otherCustomizations = process.customizations.filter(c => c.country_code !== country.code);
-            const newCustomization = {
-                id: process.customizations.find(c => c.country_code === country.code)?.id ?? -1,
-                ...customizationPayload
-            };
-            updatedProcessPreview = { ...process, customizations: [newCustomization, ...otherCustomizations] };
-        } else {
-            // Si se selecciona "Sin País", el array de personalizaciones se vacía.
-            // NOTA: Esto eliminará TODAS las personalizaciones de país para este proceso.
-            updatedProcessPreview = { ...process, customizations: [] };
+        // 1. Encuentra el proceso original/base desde el contexto global para tener la fuente de verdad.
+        const originalProcess = allGlobalProcesses.find(p => p.id === process.id && p.type === process.type);
+        if (!originalProcess) {
+            console.error("No se pudo encontrar el proceso original en el contexto global.");
+            return;
         }
 
-        setProcess(updatedProcessPreview);
-        updateProcessInState(process.id, processType, updatedProcessPreview);
+        let updatedProcess: AnyProcess;
 
-        try {
-            if (country) {
-                // Endpoint para crear o actualizar una personalización
-                await apiClient.post('/customizations/', customizationPayload);
+        if (country) {
+            // 2. Si se selecciona un país...
+            const newCustomization = originalProcess.customizations.find(c => c.country_code === country.code);
+            
+            if (newCustomization) {
+                // ...y ya existe una personalización, la aplicamos.
+                updatedProcess = {
+                    ...originalProcess,
+                    inputs: newCustomization.inputs,
+                    tools_and_techniques: newCustomization.tools_and_techniques,
+                    outputs: newCustomization.outputs,
+                    activeCustomization: newCustomization,
+                    kanban_status: process.kanban_status, // Mantener el estado kanban actual del modal
+                };
             } else {
-                // Aquí iría la lógica para borrar la personalización si se implementa en el backend.
-                // Por ahora, solo se actualiza la UI.
+                // ...y no existe, mantenemos los ITTOs base pero marcamos el país como activo para la UI.
+                // La API creará la nueva personalización usando los ITTOs base.
+                updatedProcess = {
+                    ...originalProcess,
+                    activeCustomization: {
+                        id: -1, // ID temporal
+                        country_code: country.code,
+                        inputs: originalProcess.inputs,
+                        tools_and_techniques: originalProcess.tools_and_techniques,
+                        outputs: originalProcess.outputs,
+                    },
+                    kanban_status: process.kanban_status,
+                };
             }
-        } catch (err) {
-            console.error('Error guardando la personalización del país:', err);
-            setProcess(oldProcess);
-            updateProcessInState(process.id, processType, oldProcess);
-            alert('No se pudo guardar la selección del país. Inténtalo de nuevo.');
+        } else {
+            // 3. Si se selecciona "Sin país", volvemos a los datos base.
+            updatedProcess = {
+                ...originalProcess,
+                activeCustomization: undefined, // Sin personalización activa
+                kanban_status: process.kanban_status,
+            };
+        }
+
+        // 4. Actualización optimista de la UI
+        setProcess(updatedProcess);
+        updateProcessInState(process.id, process.type, updatedProcess);
+
+        // 5. Persistir en el backend (solo si se selecciona un país)
+        if (country) {
+            try {
+                const payload = {
+                    process_id: process.id,
+                    process_type: process.type,
+                    country_code: country.code,
+                    inputs: updatedProcess.inputs,
+                    tools_and_techniques: updatedProcess.tools_and_techniques,
+                    outputs: updatedProcess.outputs,
+                };
+                await apiClient.post('/customizations/', payload);
+            } catch (err) {
+                console.error('Error guardando la personalización del país:', err);
+                // Revertir UI en caso de error
+                setProcess(process);
+                updateProcessInState(process.id, process.type, { ...process });
+                alert('No se pudo guardar la selección del país.');
+            }
+        } else {
+            // Aquí iría la lógica para BORRAR la personalización si el backend lo soporta.
         }
     };
 

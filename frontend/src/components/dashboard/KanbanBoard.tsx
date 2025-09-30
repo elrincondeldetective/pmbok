@@ -137,7 +137,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ initialProcesses }) => {
 
                                 return (
                                     <div key={`${process.type}-${process.id}`} draggable onDragStart={e => handleDragStart(e, process, columnKey)} className="relative group">
-                                        <Link to={linkTarget} state={{ background: location }} className={`bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-l-4 ${borderColor}`}>
+                                        <Link to={linkTarget} state={{ background: location, countryCode: countryCode }} className={`bg-white rounded-lg shadow flex flex-col cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-l-4 ${borderColor}`}>
                                             <div className={`p-3 rounded-t-lg text-center ${process.status ? `${process.status.tailwind_bg_color} ${process.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
                                                 <p className="text-sm font-bold leading-tight truncate" title={process.name}>{process.process_number}. {process.name}</p>
                                                 <div className="mt-1.5 flex justify-center items-center gap-2">

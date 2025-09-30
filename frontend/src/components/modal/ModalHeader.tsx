@@ -43,10 +43,10 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
         : (process as IScrumProcess).phase;
     const frameworkName = isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE';
     
-    // 👉 FIX: El país mostrado en el modal DEBE depender únicamente de la personalización
-    //    del proceso actual (`process.customization`), ignorando por completo el filtro
-    //    global de la barra de navegación.
-    const selectedCountryCode = process.customization?.country_code || null;
+
+    // El país mostrado en el selector se deriva de `activeCustomization`,
+    // que es establecido por el hook `useProcessData` al abrir el modal.
+    const selectedCountryCode = process.activeCustomization?.country_code || null;
 
     return (
         <div
