@@ -2,7 +2,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
-import type { KanbanStatus, ITTOItem, AnyProcess, Country } from '../../types/process';
+import type { KanbanStatus, AnyProcess, Country } from '../../types/process';
 import { ProcessContext } from '../../context/ProcessContext';
 import { useProcessData } from '../../hooks/useProcessData';
 
@@ -11,8 +11,8 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
   const navigate = useNavigate();
-  // Se obtiene el país seleccionado y su 'setter' del contexto global.
-  const { updateProcessInState, selectedCountry, setSelectedCountry } = useContext(ProcessContext);
+  // Se elimina `setSelectedCountry` ya que no se usará para modificar el filtro global desde aquí.
+  const { updateProcessInState } = useContext(ProcessContext);
   const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
   const handleClose = () => navigate(-1);
@@ -39,83 +39,57 @@ const UnifiedProcessModal: React.FC = () => {
     }
   };
 
-  // Al cambiar el país desde el modal: actualiza el contexto, previsualiza la bandera en la tarjeta
-  // y persiste/actualiza la personalización en backend con update_or_create.
+  // Al cambiar el país en el modal, solo se afecta la personalización de esta tarjeta.
   const handleCountryChange = async (country: Country | null) => {
-    setSelectedCountry(country);
-    if (!process || !country) return;
+    if (!process) return;
 
     const oldProcess = { ...process };
-    const updatedProcessPreview: AnyProcess = {
-      ...process,
-      customization: {
-        id: process.customization?.id ?? -1, // placeholder local si aún no existe
-        country_code: country.code,
-        inputs: process.inputs,
-        tools_and_techniques: process.tools_and_techniques,
-        outputs: process.outputs,
-      },
-    } as AnyProcess;
 
-    setProcess(updatedProcessPreview);
-    updateProcessInState(process.id, processType, updatedProcessPreview);
+    // Si se selecciona un país, se crea o actualiza su objeto de personalización.
+    if (country) {
+        const updatedProcessPreview: AnyProcess = {
+          ...process,
+          customization: {
+            id: process.customization?.id ?? -1, // Placeholder si es nuevo
+            country_code: country.code,
+            inputs: process.inputs,
+            tools_and_techniques: process.tools_and_techniques,
+            outputs: process.outputs,
+          },
+        } as AnyProcess;
 
-    try {
-      await apiClient.post('/customizations/', {
-        process_id: process.id,
-        process_type: processType,
-        country_code: country.code,
-        inputs: process.inputs,
-        tools_and_techniques: process.tools_and_techniques,
-        outputs: process.outputs,
-      });
-    } catch (err) {
-      console.error('Error guardando la selección de país:', err);
-      setProcess(oldProcess);
-      updateProcessInState(process.id, processType, oldProcess);
-      alert('No se pudo guardar el país. Inténtalo de nuevo.');
+        setProcess(updatedProcessPreview);
+        updateProcessInState(process.id, processType, updatedProcessPreview);
+
+        try {
+          // Esta llamada crea o actualiza la personalización en el backend.
+          await apiClient.post('/customizations/', {
+            process_id: process.id,
+            process_type: processType,
+            country_code: country.code,
+            inputs: process.inputs,
+            tools_and_techniques: process.tools_and_techniques,
+            outputs: process.outputs,
+          });
+        } catch (err) {
+          console.error('Error guardando la selección de país:', err);
+          setProcess(oldProcess);
+          updateProcessInState(process.id, processType, oldProcess);
+          alert('No se pudo guardar el país. Inténtalo de nuevo.');
+        }
+    } else {
+        // Si se selecciona "Sin País" (country es null), eliminamos la personalización localmente.
+        const updatedProcessPreview: AnyProcess = { ...process, customization: null };
+        setProcess(updatedProcessPreview);
+        updateProcessInState(process.id, processType, updatedProcessPreview);
+        
+        // NOTA: Para una persistencia completa, aquí se debería hacer una llamada a un endpoint
+        // para eliminar el registro de personalización de la base de datos.
     }
   };
 
-  const handlePersistITTOs = async (updatedITTOs: {
-    inputs: ITTOItem[];
-    tools_and_techniques: ITTOItem[];
-    outputs: ITTOItem[];
-  }) => {
-    if (!process || !selectedCountry) {
-      alert("Error: No hay un país seleccionado. No se pueden guardar los cambios.");
-      return;
-    }
-
-    const oldProcess = { ...process };
-    // Previsualiza el cambio en la UI con los nuevos ITTOs y el objeto de personalización.
-    const updatedProcessPreview = {
-      ...process,
-      ...updatedITTOs,
-      customization: {
-        ...(process.customization || { id: -1 }), // Mantén id si existe
-        country_code: selectedCountry.code,
-        ...updatedITTOs,
-      }
-    };
-
-    setProcess(updatedProcessPreview as AnyProcess);
-    updateProcessInState(process.id, processType, updatedProcessPreview);
-
-    try {
-      await apiClient.post('/customizations/', {
-        process_id: process.id,
-        process_type: processType,
-        country_code: selectedCountry.code,
-        ...updatedITTOs,
-      });
-    } catch (err) {
-      console.error('Error guardando la personalización:', err);
-      setProcess(oldProcess);
-      updateProcessInState(process.id, processType, oldProcess);
-      alert('No se pudo guardar la personalización. Inténtalo de nuevo.');
-    }
-  };
+  // La lógica para persistir cambios en ITTOs se maneja dentro de los componentes hijos (ITTOList).
+  // La función `handlePersistITTOs` y la prop `onITTOsChange` se eliminaron para evitar errores.
 
   const renderContent = () => {
     if (loading) return <div className="p-8 text-center text-gray-600">Cargando detalles...</div>;
@@ -128,14 +102,12 @@ const UnifiedProcessModal: React.FC = () => {
           process={process}
           onClose={handleClose}
           onKanbanStatusChange={handleKanbanStatusChange}
-          // Cambiar país: actualiza contexto, previsualiza en tarjeta y persiste en BD.
           onCountryChange={handleCountryChange}
         />
         <ITTOSection
           process={process}
           setProcess={setProcess as React.Dispatch<React.SetStateAction<AnyProcess | null>>}
-          // Pasa la función de persistencia al componente hijo
-          onITTOsChange={handlePersistITTOs}
+          apiEndpoint={apiEndpoint}
         />
         <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
           <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700">
