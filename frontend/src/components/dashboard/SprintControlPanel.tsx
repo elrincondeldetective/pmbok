@@ -5,7 +5,7 @@ import { ProcessContext } from '../../context/ProcessContext';
 import apiClient from '../../api/apiClient';
 import type { AnyProcess } from '../../types/process';
 
-// --- NUEVA LÓGICA DE FLUJO HÍBRIDO ---
+// --- LÓGICA DE FLUJO HÍBRIDO ---
 const workflowStages = [
     { 
         name: "Estrategia (PMBOK)", 
@@ -52,14 +52,14 @@ const SprintControlPanel: React.FC = () => {
     const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
     const prerequisiteMet = useMemo(() => {
-        if (currentStageIndex === 0) return true; // El primer paso no tiene prerequisitos
+        if (currentStageIndex === 0) return true;
 
         const prevStage = workflowStages[currentStageIndex - 1];
         if (!prevStage) return true;
 
         const prereqProcesses = processes.filter(p => p.status?.name === prevStage.statusToActivate);
         
-        if (prereqProcesses.length === 0) return true; // Si no habían tareas en la etapa anterior, se puede proceder.
+        if (prereqProcesses.length === 0) return true;
         
         return prereqProcesses.every(p => p.kanban_status === 'done');
     }, [currentStageIndex, processes]);
@@ -68,6 +68,13 @@ const SprintControlPanel: React.FC = () => {
         const stage = workflowStages[currentStageIndex];
         setIsLoading(true);
         setFeedback(null);
+
+        // ===== CAMBIO 2 de 2: LÓGICA CONDICIONAL PARA EL ESTADO KANBAN =====
+        // El primer paso (índice 0) mueve a 'backlog' (Pendiente).
+        // Los pasos siguientes mueven a 'todo' (Por Hacer).
+        const targetKanbanStatus = currentStageIndex === 0 ? 'backlog' : 'todo';
+        const targetKanbanLabel = targetKanbanStatus === 'backlog' ? 'Pendiente' : 'Por Hacer';
+        // ===================================================================
 
         if (!prerequisiteMet) {
             setFeedback({ message: `Completa todas las tareas de la etapa anterior ("${workflowStages[currentStageIndex-1].name}") para continuar.`, type: 'error' });
@@ -93,21 +100,21 @@ const SprintControlPanel: React.FC = () => {
         
         // Optimistic UI update
         processesToActivate.forEach(proc => {
-            updateProcessInState(proc.id, proc.type, { ...proc, kanban_status: 'todo' });
+            updateProcessInState(proc.id, proc.type, { ...proc, kanban_status: targetKanbanStatus });
         });
 
         try {
             const apiCalls = [];
             if (pmbokIds.length > 0) {
-                apiCalls.push(apiClient.post('/pmbok-processes/bulk-update-kanban-status/', { process_ids: pmbokIds, kanban_status: 'todo' }));
+                apiCalls.push(apiClient.post('/pmbok-processes/bulk-update-kanban-status/', { process_ids: pmbokIds, kanban_status: targetKanbanStatus }));
             }
             if (scrumIds.length > 0) {
-                apiCalls.push(apiClient.post('/scrum-processes/bulk-update-kanban-status/', { process_ids: scrumIds, kanban_status: 'todo' }));
+                apiCalls.push(apiClient.post('/scrum-processes/bulk-update-kanban-status/', { process_ids: scrumIds, kanban_status: targetKanbanStatus }));
             }
             
             await Promise.all(apiCalls);
 
-            setFeedback({ message: `${processesToActivate.length} tarea(s) movida(s) a "Por Hacer".`, type: 'success' });
+            setFeedback({ message: `${processesToActivate.length} tarea(s) movida(s) a "${targetKanbanLabel}".`, type: 'success' });
             setCurrentStageIndex((prev) => prev + 1);
 
         } catch (error) {
@@ -174,4 +181,3 @@ const SprintControlPanel: React.FC = () => {
 };
 
 export default SprintControlPanel;
-
