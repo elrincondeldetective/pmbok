@@ -8,6 +8,7 @@ import DeleteConfirmationModal from './DeleteConfirmationModal';
 import AddVersionModal from './AddVersionModal';
 import { v4 as uuidv4 } from 'uuid';
 
+
 type ListTitle = 'Entradas' | 'Herramientas y Técnicas' | 'Salidas';
 
 const propertyMap: Record<ListTitle, keyof Pick<AnyProcess, 'inputs' | 'tools_and_techniques' | 'outputs'>> = {
@@ -30,7 +31,10 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isNewItem, setIsNewItem] = useState<boolean>(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isVisible: boolean; itemToDelete: { id: string; name: string } | null; }>({ isVisible: false, itemToDelete: null });
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isVisible: boolean;
+    itemToDelete: { id: string; name: string; parentId?: string } | null;
+  }>({ isVisible: false, itemToDelete: null });
 
   const [addModal, setAddModal] = useState<{ isVisible: boolean; parentId: string | null; parentName: string | null }>({ isVisible: false, parentId: null, parentName: null });
 
@@ -174,22 +178,77 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
   const handleConfirmDelete = async () => {
     if (!deleteConfirmation.itemToDelete) return;
 
-    const itemIdToDelete = deleteConfirmation.itemToDelete.id;
-    let updatedItems = JSON.parse(JSON.stringify(items));
+    const targetId = deleteConfirmation.itemToDelete.id;
+    const parentId = deleteConfirmation.itemToDelete.parentId;
+    const updatedItems: ITTOItem[] = JSON.parse(JSON.stringify(items));
 
-    const filterOutItem = (items: ITTOItem[]): ITTOItem[] => {
-      return items.filter(item => {
-        if (item.id === itemIdToDelete) {
-          return false;
+    if (parentId) {
+      // Borrando una VERSIÓN específica dentro de un padre
+      const walk = (arr: ITTOItem[]): boolean => {
+        for (const it of arr) {
+          if (it.id === parentId && it.versions && it.versions.length) {
+            const idx = it.versions.findIndex(v => v.id === targetId);
+            if (idx >= 0) {
+              const wasActive = !!it.versions[idx].isActive;
+              // elimina la versión seleccionada
+              it.versions.splice(idx, 1);
+              // si borré la activa, promuevo la versión anterior (si existe)
+              if (wasActive) {
+                if (it.versions.length > 0) {
+                  const promoteIndex = Math.max(0, idx - 1);
+                  it.versions.forEach(v => (v.isActive = false));
+                  it.versions[promoteIndex].isActive = true;
+                } else {
+                  // ya no hay versiones: el “original” queda visible, sin activa
+                }
+              }
+              return true;
+            }
+          }
+          if (it.versions && walk(it.versions)) return true;
         }
-        if (item.versions) {
-          item.versions = filterOutItem(item.versions);
-        }
-        return true;
-      });
-    };
+        return false;
+      };
+      walk(updatedItems);
+        } else {
+      // === BORRAR EL PADRE PERO PROMOVIENDO UNA VERSIÓN A NUEVO PADRE ===
+      const promoteChildToParent = (arr: ITTOItem[]): boolean => {
+        for (const it of arr) {
+          if (it.id === targetId) {
+            const children = it.versions ?? [];
 
-    updatedItems = filterOutItem(updatedItems);
+            if (children.length === 0) {
+              // Sin hijos → eliminar de plano
+              const i = arr.findIndex(x => x.id === targetId);
+              if (i >= 0) arr.splice(i, 1);
+              return true;
+            }
+
+            // Elegir el hijo a promover (activo si existe, si no el último)
+            let promoteIdx = children.findIndex(v => v.isActive);
+            if (promoteIdx < 0) promoteIdx = children.length - 1;
+
+            const promote = children[promoteIdx];
+            const remaining = children.filter((_, j) => j !== promoteIdx);
+
+            // Copiamos datos del hijo al padre (manteniendo el mismo id del padre)
+            it.name = promote.name;
+            it.url = promote.url;
+
+            // Reiniciamos las versiones restantes (todas inactivas)
+            remaining.forEach(v => (v.isActive = false));
+            it.isActive = false;
+            it.versions = remaining;
+
+            return true;
+          }
+          if (it.versions && promoteChildToParent(it.versions)) return true;
+        }
+        return false;
+      };
+
+      promoteChildToParent(updatedItems);
+    }
 
     await handlePersistChanges(updatedItems);
     setDeleteConfirmation({ isVisible: false, itemToDelete: null });
@@ -220,8 +279,8 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
               onSave={handleSave}
               onCancel={handleCancel}
               onAddVersion={() => handleAddVersionRequest(item.id, item.name.replace(/\*$/, '').trim())}
-              onDeleteRequest={(id, name) => {
-                setDeleteConfirmation({ isVisible: true, itemToDelete: { id, name } });
+              onDeleteRequest={(id, name, parentId) => {
+                setDeleteConfirmation({ isVisible: true, itemToDelete: { id, name, parentId } });
               }}
               onSelectVersion={handleSelectVersion}
             />

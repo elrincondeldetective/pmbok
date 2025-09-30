@@ -9,13 +9,24 @@ interface ActionIconsProps {
     onDelete: () => void;
     onView: () => void;
     hasVersions: boolean;
+    hasActiveVersion: boolean; // nuevo
 }
-
-const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAddVersion, onDelete, onView, hasVersions }) => (
+const ActionIcons: React.FC<ActionIconsProps> = ({
+    onEdit,
+    onAddVersion,
+    onDelete,
+    onView,
+    hasVersions,
+    hasActiveVersion,
+}) => (
     <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-80 transition-opacity duration-300">
         <FaPencilAlt onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-3.5 h-3.5 text-yellow-600 cursor-pointer hover:text-yellow-500" title="Editar" />
         <FaPlus onClick={(e) => { e.stopPropagation(); onAddVersion(); }} className="w-3.5 h-3.5 text-green-600 cursor-pointer hover:text-green-500" title="Añadir Versión" />
-        <FaTimes onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500" title="Eliminar" />
+        <FaTimes
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="w-3.5 h-3.5 text-red-600 cursor-pointer hover:text-red-500"
+            title={hasActiveVersion ? "Eliminar versión visible" : "Eliminar original y promover una versión"}
+        />
         <FaEye
             onClick={(e) => { e.stopPropagation(); if (hasVersions) onView(); }}
             className={`w-3.5 h-3.5 ${hasVersions ? 'text-blue-600 cursor-pointer hover:text-blue-500' : 'text-gray-400 cursor-not-allowed'}`}
@@ -23,7 +34,6 @@ const ActionIcons: React.FC<ActionIconsProps> = ({ onEdit, onAddVersion, onDelet
         />
     </div>
 );
-
 interface EditItemFormProps {
     initialName: string;
     initialUrl: string;
@@ -77,7 +87,7 @@ interface ITTOListItemProps {
     onSave: (itemId: string, name: string, url: string) => void;
     onCancel: () => void;
     onAddVersion: () => void;
-    onDeleteRequest: (id: string, name: string) => void;
+    onDeleteRequest: (id: string, name: string, parentId?: string) => void;
     onSelectVersion: (parentId: string, versionId: string) => void;
 }
 
@@ -136,9 +146,16 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({ item, isEditing, processTyp
                             <ActionIcons
                                 onEdit={onEditStart}
                                 onAddVersion={onAddVersion}
-                                onDelete={() => onDeleteRequest(item.id, cleanName)}
+                                onDelete={() => {
+                                    if (activeVersion) {
+                                        onDeleteRequest(activeVersion.id, cleanName, item.id); // borrar versión activa
+                                    } else {
+                                        onDeleteRequest(item.id, cleanName); // borrar “original” (con promoción automática en ITTOList.tsx)
+                                    }
+                                }}
                                 onView={handleViewClick}
                                 hasVersions={hasVersions}
+                                hasActiveVersion={Boolean(activeVersion)}
                             />
                         </div>
                     </>
