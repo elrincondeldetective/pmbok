@@ -44,11 +44,14 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
   const currentKanbanStatus =
     process.activeCustomization?.kanban_status ?? process.kanban_status;
 
-  // 🔒 estado bloqueado
-  const isInProgress = currentKanbanStatus === 'in_progress';
-  const countryName = selectedCountryCode
-    ? countryMap.get(selectedCountryCode) ?? selectedCountryCode.toUpperCase()
-    : null;
+  // 🔒 Bloqueo para TODA tarjeta ya en el tablero Kanban (excepto "Pendiente")
+  const isLockedOnBoard = ['todo', 'in_progress', 'in_review', 'done'].includes(
+    currentKanbanStatus
+  );
+  const countryName =
+    selectedCountryCode
+      ? countryMap.get(selectedCountryCode) ?? selectedCountryCode.toUpperCase()
+      : null;
 
   return (
     <div
@@ -63,10 +66,10 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
           </h2>
 
           <div className="mt-2 flex items-center gap-4 flex-wrap">
-            {/* Botón de guía base -> en progreso: NO clickeable */}
-            {isInProgress ? (
+            {/* Guía base -> en el tablero: NO clickeable */}
+            {isLockedOnBoard ? (
               <span
-                title="No disponible durante En Progreso"
+                title="No disponible en el tablero Kanban"
                 className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm cursor-not-allowed"
                 aria-disabled
               >
@@ -84,8 +87,12 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
 
             {group && <p className="text-sm opacity-90">{group.name}</p>}
 
-            {/* País actual -> en progreso: sólo chip informativo */}
-            {isInProgress && countryName && selectedCountryCode ? (
+            {/* País actual:
+                - En el tablero: si HAY país asignado -> chip informativo
+                - En el tablero: si NO hay país -> mostramos selector para que no quede bloqueado
+                - En backlog: selector normal
+            */}
+            {isLockedOnBoard && selectedCountryCode && countryName ? (
               <div className="inline-flex items-center rounded-full bg-white/25 text-white/95 text-xs font-bold px-3 py-1 shadow-sm cursor-not-allowed">
                 <img
                   src={`https://flagcdn.com/w20/${selectedCountryCode}.png`}
@@ -108,14 +115,13 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
           {process.customizations && process.customizations.length > 0 && (
             <div className="mt-4 flex items-center gap-3 flex-wrap">
               <p className="text-xs font-semibold opacity-80">✅ Aplicado en:</p>
-
               <div className="flex items-center gap-2 flex-wrap">
-                {isInProgress ? (
-                  // 🔒 En progreso: muestra SOLO el país asignado y NO clickeable
+                {isLockedOnBoard ? (
+                  // En el tablero: solo el país activo, sin interacción
                   selectedCountryCode && (
                     <div
                       className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full cursor-not-allowed"
-                      title="No editable durante En Progreso"
+                      title="No editable en el tablero"
                       aria-disabled
                     >
                       <img
@@ -128,7 +134,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                     </div>
                   )
                 ) : (
-                  // Normal: lista de botones clickeables para navegar entre países
+                  // En backlog: se puede navegar entre países
                   process.customizations.map((cust) => (
                     <button
                       key={cust.country_code}
@@ -155,7 +161,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
           <select
             value={currentKanbanStatus}
             onChange={onKanbanStatusChange}
-            disabled={isInProgress} // 🔒 bloqueado
+            disabled={isLockedOnBoard}
             className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
             onClick={(e) => e.stopPropagation()}
           >
@@ -180,3 +186,5 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
 };
 
 export default ModalHeader;
+
+
