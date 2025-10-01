@@ -10,7 +10,8 @@ import type {
 import CountrySelector from '../common/CountrySelector';
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
-    { value: 'unassigned', label: 'Pendiente' },
+    { value: 'unassigned', label: 'No Asignado' },
+    { value: 'backlog', label: 'Pendiente' },
     { value: 'todo', label: 'Por Hacer' },
     { value: 'in_progress', label: 'En Progreso' },
     { value: 'in_review', label: 'En Revisión' },
@@ -22,6 +23,7 @@ interface ModalHeaderProps {
     onClose: () => void;
     onKanbanStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     onCountryChange: (country: Country | null) => void;
+    onSelectCustomization: (countryCode: string | null) => void;
 }
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({
@@ -29,6 +31,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     onClose,
     onKanbanStatusChange,
     onCountryChange,
+    onSelectCustomization,
 }) => {
     const isPmbok = process.type === 'pmbok';
     const group = isPmbok
@@ -37,6 +40,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     const frameworkName = isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE';
 
     const selectedCountryCode = process.activeCustomization?.country_code || null;
+    const currentKanbanStatus = process.activeCustomization?.kanban_status ?? process.kanban_status;
 
     return (
         <div
@@ -50,12 +54,15 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                         {process.process_number}. {process.name}
                     </h2>
                     <div className="mt-2 flex items-center gap-4 flex-wrap">
-                        <span className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                        <button
+                            onClick={() => onSelectCustomization(null)}
+                            title="Ver versión original de la guía"
+                            className="inline-block bg-white/25 text-white/95 text-xs font-bold px-3 py-1 rounded-full shadow-sm hover:bg-white/40 transition-colors"
+                        >
                             {frameworkName}
-                        </span>
+                        </button>
                         {group && <p className="text-sm opacity-90">{group.name}</p>}
 
-                        {/* El selector de país ahora muestra el valor correcto del proceso actual */}
                         <CountrySelector
                             value={selectedCountryCode}
                             onChange={onCountryChange}
@@ -63,16 +70,16 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                         />
                     </div>
                     
-                    {/* ===== INICIO: NUEVA SECCIÓN PARA MOSTRAR PAÍSES APLICADOS ===== */}
                     {process.customizations && process.customizations.length > 0 && (
                         <div className="mt-4 flex items-center gap-3 flex-wrap">
                             <p className="text-xs font-semibold opacity-80">✅ Aplicado en:</p>
                             <div className="flex items-center gap-2 flex-wrap">
                                 {process.customizations.map((cust) => (
-                                    <span
+                                    <button
                                         key={cust.country_code}
-                                        className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                                        title={`Este proceso tiene una versión para ${cust.country_code.toUpperCase()}`}
+                                        onClick={() => onSelectCustomization(cust.country_code)}
+                                        title={`Ver versión para ${cust.country_code.toUpperCase()}`}
+                                        className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full hover:bg-white/40 hover:scale-110 transition-all"
                                     >
                                         <img
                                             src={`https://flagcdn.com/w20/${cust.country_code.toLowerCase()}.png`}
@@ -81,17 +88,16 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                                             className="mr-1.5"
                                         />
                                         {cust.country_code.toUpperCase()}
-                                    </span>
+                                    </button>
                                 ))}
                             </div>
                         </div>
                     )}
-                    {/* ===== FIN: NUEVA SECCIÓN ===== */}
 
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-4">
                     <select
-                        value={process.kanban_status}
+                        value={currentKanbanStatus}
                         onChange={onKanbanStatusChange}
                         className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
                         onClick={(e) => e.stopPropagation()}

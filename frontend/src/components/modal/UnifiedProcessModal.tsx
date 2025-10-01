@@ -11,7 +11,7 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
-    const { updateProcessInState, processes: allGlobalProcesses, addOrUpdateCustomization } = useContext(ProcessContext);
+    const { updateProcessInState, processes: allGlobalProcesses, addOrUpdateCustomization, updateCustomizationStatus } = useContext(ProcessContext);
     const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
 
     const handleClose = () => navigate(-1);
@@ -20,29 +20,49 @@ const UnifiedProcessModal: React.FC = () => {
         const newStatus = e.target.value as KanbanStatus;
         if (!process) return;
 
-        const oldProcess = { ...process };
-        const updatedProcessPreview = { ...process, kanban_status: newStatus };
-
-        setProcess(updatedProcessPreview);
-        updateProcessInState(process.id, processType, updatedProcessPreview);
-
-        try {
-            await apiClient.patch(`/${apiEndpoint}/${process.id}/update-kanban-status/`, {
-                kanban_status: newStatus,
-            });
-        } catch (err) {
-            console.error('Error updating Kanban status:', err);
-            setProcess(oldProcess);
-            updateProcessInState(process.id, processType, oldProcess);
-            alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
+        // Si hay una personalización activa, actualizamos su estado específico.
+        if (process.activeCustomization) {
+            const customizationId = process.activeCustomization.id;
+            
+            // Actualización optimista de UI
+            const updatedCustomization = { ...process.activeCustomization, kanban_status: newStatus };
+            setProcess({ ...process, activeCustomization: updatedCustomization });
+            updateCustomizationStatus(process.id, process.type, customizationId, newStatus);
+            
+            try {
+                await apiClient.patch(`/customizations/${customizationId}/update-kanban-status/`, {
+                    kanban_status: newStatus,
+                });
+            } catch (err) {
+                console.error('Error updating customization Kanban status:', err);
+                // Revertir
+                updateCustomizationStatus(process.id, process.type, customizationId, process.activeCustomization.kanban_status);
+                alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
+            }
+        } else {
+            // Si no hay personalización, se actualiza el estado del proceso base (comportamiento anterior).
+             const oldProcess = { ...process };
+             const updatedProcessPreview = { ...process, kanban_status: newStatus };
+     
+             setProcess(updatedProcessPreview);
+             updateProcessInState(process.id, processType, updatedProcessPreview);
+     
+             try {
+                 await apiClient.patch(`/${apiEndpoint}/${process.id}/update-kanban-status/`, {
+                     kanban_status: newStatus,
+                 });
+             } catch (err) {
+                 console.error('Error updating Kanban status:', err);
+                 setProcess(oldProcess);
+                 updateProcessInState(process.id, processType, oldProcess);
+                 alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
+             }
         }
     };
 
-    // --- LÓGICA DE GUARDADO DE PAÍS REFACTORIZADA ---
     const handleCountryChange = async (country: Country | null) => {
         if (!process) return;
 
-        // 1. Encuentra el proceso original/base desde el contexto global para tener la fuente de verdad.
         const originalProcess = allGlobalProcesses.find(p => p.id === process.id && p.type === process.type);
         if (!originalProcess) {
             console.error("No se pudo encontrar el proceso original en el contexto global.");
@@ -52,22 +72,17 @@ const UnifiedProcessModal: React.FC = () => {
         let updatedProcess: AnyProcess;
 
         if (country) {
-            // 2. Si se selecciona un país...
-            const newCustomization = originalProcess.customizations.find(c => c.country_code === country.code);
+            const existingCustomization = originalProcess.customizations.find(c => c.country_code === country.code);
             
-            if (newCustomization) {
-                // ...y ya existe una personalización, la aplicamos.
+            if (existingCustomization) {
                 updatedProcess = {
                     ...originalProcess,
-                    inputs: newCustomization.inputs,
-                    tools_and_techniques: newCustomization.tools_and_techniques,
-                    outputs: newCustomization.outputs,
-                    activeCustomization: newCustomization,
-                    kanban_status: process.kanban_status, // Mantener el estado kanban actual del modal
+                    inputs: existingCustomization.inputs,
+                    tools_and_techniques: existingCustomization.tools_and_techniques,
+                    outputs: existingCustomization.outputs,
+                    activeCustomization: existingCustomization,
                 };
             } else {
-                // ...y no existe, mantenemos los ITTOs base pero marcamos el país como activo para la UI.
-                // La API creará la nueva personalización usando los ITTOs base.
                 updatedProcess = {
                     ...originalProcess,
                     activeCustomization: {
@@ -76,24 +91,19 @@ const UnifiedProcessModal: React.FC = () => {
                         inputs: originalProcess.inputs,
                         tools_and_techniques: originalProcess.tools_and_techniques,
                         outputs: originalProcess.outputs,
+                        kanban_status: 'backlog', // Estado inicial para nuevas personalizaciones
                     },
-                    kanban_status: process.kanban_status,
                 };
             }
         } else {
-            // 3. Si se selecciona "Sin país", volvemos a los datos base.
             updatedProcess = {
                 ...originalProcess,
-                activeCustomization: undefined, // Sin personalización activa
-                kanban_status: process.kanban_status,
+                activeCustomization: undefined,
             };
         }
 
-        // 4. Actualización optimista de la UI
         setProcess(updatedProcess);
-        updateProcessInState(process.id, process.type, updatedProcess);
 
-        // 5. Persistir en el backend (solo si se selecciona un país)
         if (country) {
             try {
                 const payload = {
@@ -104,23 +114,46 @@ const UnifiedProcessModal: React.FC = () => {
                     tools_and_techniques: updatedProcess.tools_and_techniques,
                     outputs: updatedProcess.outputs,
                 };
-                // Capturamos la respuesta de la API que contiene la personalización guardada
                 const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
                 const savedCustomization = response.data;
-
-                // Usamos la nueva función del contexto para sincronizar el estado global
                 addOrUpdateCustomization(process.id, process.type, savedCustomization);
+                
+                // Actualiza el modal para reflejar la personalización guardada (con el ID correcto)
+                setProcess(prev => prev ? {...prev, activeCustomization: savedCustomization} : null);
 
             } catch (err) {
                 console.error('Error guardando la personalización del país:', err);
-                // Revertir UI en caso de error
-                setProcess(process);
-                updateProcessInState(process.id, process.type, { ...process });
+                setProcess(process); // Revertir
                 alert('No se pudo guardar la selección del país.');
             }
-        } else {
-            // Aquí iría la lógica para BORRAR la personalización si el backend lo soporta.
         }
+    };
+
+    const handleSelectCustomization = (countryCode: string | null) => {
+        if (!process) return;
+
+        const originalProcess = allGlobalProcesses.find(p => p.id === process.id && p.type === process.type);
+        if (!originalProcess) return;
+
+        let processToShow: AnyProcess;
+
+        if (countryCode) {
+            const customization = originalProcess.customizations.find(c => c.country_code === countryCode);
+            if (customization) {
+                processToShow = {
+                    ...originalProcess,
+                    inputs: customization.inputs,
+                    tools_and_techniques: customization.tools_and_techniques,
+                    outputs: customization.outputs,
+                    activeCustomization: customization,
+                };
+            } else {
+                processToShow = { ...originalProcess, activeCustomization: undefined };
+            }
+        } else {
+            processToShow = { ...originalProcess, activeCustomization: undefined };
+        }
+        setProcess(processToShow);
     };
 
     const renderContent = () => {
@@ -135,6 +168,7 @@ const UnifiedProcessModal: React.FC = () => {
                     onClose={handleClose}
                     onKanbanStatusChange={handleKanbanStatusChange}
                     onCountryChange={handleCountryChange}
+                    onSelectCustomization={handleSelectCustomization}
                 />
                 <ITTOSection
                     process={process}

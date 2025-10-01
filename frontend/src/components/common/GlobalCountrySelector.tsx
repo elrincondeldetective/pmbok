@@ -2,33 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaChevronDown } from 'react-icons/fa';
 import type { Country } from '../../types/process';
-
-// Lista de países (sin cambios)
-const countries: Country[] = [
-    { code: 'co', name: 'Colombia' },
-    { code: 'ar', name: 'Argentina' },
-    { code: 'bo', name: 'Bolivia' },
-    { code: 'cl', name: 'Chile' },
-    { code: 'cr', name: 'Costa Rica' },
-    { code: 'cu', name: 'Cuba' },
-    { code: 'do', name: 'República Dominicana' },
-    { code: 'ec', name: 'Ecuador' },
-    { code: 'sv', name: 'El Salvador' },
-    { code: 'es', name: 'España' },
-    { code: 'us', name: 'United States' },
-    { code: 'gt', name: 'Guatemala' },
-    { code: 'gq', name: 'Guinea Ecuatorial' },
-    { code: 'hn', name: 'Honduras' },
-    { code: 'mx', name: 'México' },
-    { code: 'ni', name: 'Nicaragua' },
-    { code: 'pa', name: 'Panamá' },
-    { code: 'py', name: 'Paraguay' },
-    { code: 'pe', name: 'Perú' },
-    { code: 'pr', name: 'Puerto Rico' },
-    { code: 'uy', name: 'Uruguay' },
-    { code: 've', name: 'Venezuela' },
-].sort((a, b) => a.name.localeCompare(b.name));
-const uniqueCountries = [...new Map(countries.map(item => [item.code, item])).values()];
+import { uniqueCountries } from '../../data/countries'; // 👈 Se importa la lista centralizada
 
 interface GlobalCountrySelectorProps {
     value: string | null;
@@ -104,7 +78,6 @@ const GlobalCountrySelector: React.FC<GlobalCountrySelectorProps> = ({ value, on
                     aria-orientation="vertical"
                 >
                     <div className="py-1 max-h-60 overflow-y-auto" role="none">
-                        {/* ===== INICIO: AÑADIR OPCIÓN PARA "MOSTRAR TODOS" ===== */}
                         <a
                             href="#"
                             className="text-gray-700 flex items-center px-4 py-2 text-sm hover:bg-gray-100"
@@ -117,7 +90,6 @@ const GlobalCountrySelector: React.FC<GlobalCountrySelectorProps> = ({ value, on
                            <span className="w-5 mr-3 text-center">🌐</span>
                            Todos los países
                         </a>
-                        {/* ===== FIN: AÑADIR OPCIÓN ===== */}
                         
                         {uniqueCountries.map((country) => (
                             <a
