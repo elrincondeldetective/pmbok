@@ -12,6 +12,7 @@ import SprintControlPanel from './dashboard/SprintControlPanel.tsx';
 
 import { ProcessContext } from '../context/ProcessContext.tsx';
 import type { IPMBOKProcess, IScrumProcess } from '../types/process.ts';
+import FloatingNav from './common/FloatingNav.tsx';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -48,6 +49,7 @@ const Dashboard: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100">
             <DashboardNav onLogout={handleLogout} />
+            <FloatingNav />
             <main>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
                     
@@ -56,17 +58,24 @@ const Dashboard: React.FC = () => {
                     
                     {!loading && !error && (
                         <>
-                            <SprintControlPanel />
-                            {/* ===== CAMBIO: KanbanBoard ya no necesita props ===== */}
-                            <KanbanBoard />
+                            {/* 👇 INICIO DE LA CORRECCIÓN: Se añaden las etiquetas <section> con su 'id' */}
+                            <section id="control-panel">
+                                <SprintControlPanel />
+                            </section>
+                            
+                            <section id="kanban-board">
+                                <KanbanBoard />
+                            </section>
                             
                             <hr className="border-t-2 border-gray-300 border-dashed" />
                             
-                            <ScrumSection processes={scrumProcessesForGrid} />
+                            <section id="scrum-guide">
+                                <ScrumSection processes={scrumProcessesForGrid} />
+                            </section>
                     
                             <hr className="border-t-2 border-gray-300 border-dashed" />
 
-                            <section>
+                            <section id="pmbok-guide">
                                 <SectionHeader 
                                     title="Guía PMBOK 6ª Edición – 49 Procesos"
                                     subtitle="Una visión adaptada a un entorno de trabajo ágil."
@@ -80,6 +89,7 @@ const Dashboard: React.FC = () => {
                                 />
                                 <PMBOKSection processes={filteredPmbokProcesses} />
                             </section>
+                             {/* 👆 FIN DE LA CORRECCIÓN */}
                         </>
                     )}
 
