@@ -6,10 +6,10 @@ import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../types/process'
 import { ProcessContext } from '../context/ProcessContext';
 
 /**
- * Hook personalizado para obtener los datos de un proceso específico.
- * Ahora siempre obtiene el proceso con todas sus personalizaciones y el modal
- * se encarga de mostrar la información relevante.
- */
+* Hook personalizado para obtener los datos de un proceso específico.
+* Ahora siempre obtiene el proceso con todas sus personalizaciones y el modal
+* se encarga de mostrar la información relevante.
+*/
 export const useProcessData = () => {
     const { processId } = useParams<{ processId: string }>();
     const isPmbokRoute = useMatch("/process/:processId");
@@ -26,21 +26,21 @@ export const useProcessData = () => {
     useEffect(() => {
         if (!processId) return;
 
-        const fetchProcess = async () => {
-            setLoading(true);
-            setError(null);
-            
-            // --- INICIO: Lógica para aplicar la personalización de país ---
-            const applyCountryCustomization = (baseProcess: AnyProcess): AnyProcess => {
-                // Obtiene el countryCode pasado en el estado de la navegación desde el tablero Kanban.
-                const countryCode = location.state?.countryCode;
+        const processLogic = async () => {
+            // Encuentra la versión más reciente de los datos del proceso desde el contexto global
+            const baseProcessFromContext = processes.find(p => p.id === parseInt(processId) && p.type === processType);
 
-                if (countryCode && baseProcess.customizations) {
-                    const customization = baseProcess.customizations.find(c => c.country_code.toLowerCase() === countryCode.toLowerCase());
+            // ===== CAMBIO CLAVE: MANTENER EL PAÍS SELECCIONADO =====
+            // Prioridad 1: El país que ya está activo en el estado del modal.
+            // Prioridad 2: El país con el que se abrió el modal (desde location.state).
+            const activeCountryCode = process?.activeCustomization?.country_code || location.state?.countryCode;
 
+            // Función para aplicar la vista correcta (base o por país)
+            const applyCustomization = (baseProcess: AnyProcess): AnyProcess => {
+                if (activeCountryCode && baseProcess.customizations) {
+                    const customization = baseProcess.customizations.find(c => c.country_code.toLowerCase() === activeCountryCode.toLowerCase());
                     if (customization) {
-                        // Si se encuentra una personalización, se sobreescriben los ITTOs base
-                        // con los del país y se marca cuál es la personalización activa.
+                        // Si se encuentra la personalización, la aplicamos.
                         return {
                             ...baseProcess,
                             inputs: customization.inputs,
@@ -50,29 +50,25 @@ export const useProcessData = () => {
                         };
                     }
                 }
-                // Si no hay countryCode o no se encuentra personalización, devuelve el proceso base.
-                return baseProcess;
+                // Si no hay país o no se encuentra, mostramos la versión base.
+                return { ...baseProcess, activeCustomization: undefined };
             };
-            // --- FIN: Lógica para aplicar la personalización de país ---
 
-            // 1. Intentar encontrar el proceso en el estado global del contexto.
-            const existingProcess = processes.find(p => p.id === parseInt(processId) && p.type === processType);
-
-            if (existingProcess) {
-                // Si se encuentra, aplicar la personalización según el país del Kanban.
-                const processWithCountry = applyCountryCustomization(existingProcess);
-                setProcess(processWithCountry);
+            if (baseProcessFromContext) {
+                // Si los datos ya existen en el contexto, simplemente sincronizamos la vista.
+                // Esto evita el parpadeo de "Cargando...".
+                const processToShow = applyCustomization(baseProcessFromContext);
+                setProcess(processToShow);
                 setLoading(false);
             } else {
-                // 2. Si no está, obtenerlo de la API. La API devolverá el array de personalizaciones.
+                // Si es la primera vez que se abre el modal, buscamos los datos en la API.
+                setLoading(true);
+                setError(null);
                 try {
-                    // La petición ya no necesita el parámetro `country`.
                     const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`);
-                    
-                    // Aplicar la personalización al proceso recién obtenido de la API.
                     const baseProcessData = { ...response.data, type: processType };
-                    const processWithCountry = applyCountryCustomization(baseProcessData);
-                    setProcess(processWithCountry);
+                    const processToShow = applyCustomization(baseProcessData);
+                    setProcess(processToShow);
                 } catch (err: any) {
                     console.error("Failed to fetch process details:", err);
                     setError('No se pudo cargar el detalle del proceso. Inténtalo de nuevo.');
@@ -82,9 +78,10 @@ export const useProcessData = () => {
             }
         };
 
-        fetchProcess();
-
+        processLogic();
+        // Dependemos de `processes` para que este efecto se ejecute de nuevo cuando los datos globales cambien.
     }, [processId, apiEndpoint, processType, processes, location.state]);
 
     return { process, setProcess, loading, error, processType, apiEndpoint };
 };
+
