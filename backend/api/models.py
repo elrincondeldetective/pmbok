@@ -2,9 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
-# --- Manager para el Modelo de Usuario Personalizado (SIN CAMBIOS) ---
-
-
+# --- Manager para el Modelo de Usuario Personalizado ---
 class CustomUserManager(BaseUserManager):
     """
     Manager para nuestro modelo de usuario personalizado.
@@ -30,7 +28,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-# --- Modelo de Usuario Personalizado (SIN CAMBIOS) ---
+# --- Modelo de Usuario Personalizado ---
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
@@ -45,9 +43,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
-# --- Modelos de Soporte (SIN CAMBIOS) ---
-
-
+# --- Modelos de Soporte ---
 class ProcessStatus(models.Model):
     name = models.CharField(max_length=100, unique=True,
                             help_text="Ej: Base Estratégica, Ritmo Diario, etc.")
@@ -88,8 +84,35 @@ class ScrumPhase(models.Model):
     def __str__(self):
         return self.name
 
+# ===== INICIO: NUEVO MODELO DE DEPARTAMENTOS JERÁRQUICO =====
+class Department(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="Ej: Finanzas, Marketing Digital, TI")
+    description = models.TextField(blank=True)
+    tailwind_border_color = models.CharField(
+        max_length=50, default='border-gray-500', help_text="Ej: border-blue-500"
+    )
+    # Campo para la relación jerárquica (padre-hijo)
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='sub_departments',
+        help_text="Departamento padre al que pertenece (si es una subdirección)."
+    )
 
-# --- Choices para Kanban (SIN CAMBIOS) ---
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        # Muestra la ruta completa, ej: "Marketing -> Marketing Digital"
+        if self.parent:
+            return f"{self.parent} -> {self.name}"
+        return self.name
+# ===== FIN: NUEVO MODELO DE DEPARTAMENTOS JERÁRQUICO =====
+
+
+# --- Choices para Kanban ---
 KANBAN_STATUS_CHOICES = [
     ('unassigned', 'No Asignado'),
     ('backlog', 'Pendiente'),
@@ -99,9 +122,7 @@ KANBAN_STATUS_CHOICES = [
     ('done', 'Hecho'),
 ]
 
-# --- Modelo PMBOKProcess (SIN CAMBIOS EN ESTE ARCHIVO) ---
-
-
+# --- Modelo PMBOKProcess ---
 class PMBOKProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
@@ -128,9 +149,7 @@ class PMBOKProcess(models.Model):
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
-# --- Modelo ScrumProcess (SIN CAMBIOS EN ESTE ARCHIVO) ---
-
-
+# --- Modelo ScrumProcess ---
 class ScrumProcess(models.Model):
     process_number = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
@@ -160,8 +179,6 @@ class ScrumProcess(models.Model):
         return f"{self.process_number}. {self.name}"
 
 # ===== MODELOS DE PERSONALIZACIÓN (MODIFICADOS) =====
-
-
 class PMBOKProcessCustomization(models.Model):
     """
     Almacena los ITTOs personalizados para un proceso PMBOK específico y un país.
@@ -176,15 +193,17 @@ class PMBOKProcessCustomization(models.Model):
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
 
-    # ===== CAMBIO: El estado por defecto ahora es 'unassigned' =====
+    # ===== INICIO: CAMBIO - AÑADIR RELACIÓN CON DEPARTAMENTO =====
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="pmbok_customizations")
+    # ===== FIN: CAMBIO =====
+
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
         default='unassigned',
         help_text="El estado de esta personalización en el tablero Kanban."
     )
-    # ======================================================
-
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -210,15 +229,17 @@ class ScrumProcessCustomization(models.Model):
     inputs = models.JSONField(default=list, blank=True)
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
+    
+    # ===== INICIO: CAMBIO - AÑADIR RELACIÓN CON DEPARTAMENTO =====
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="scrum_customizations")
+    # ===== FIN: CAMBIO =====
 
-    # ===== CAMBIO: El estado por defecto ahora es 'unassigned' =====
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
         default='unassigned',
         help_text="El estado de esta personalización en el tablero Kanban."
     )
-    # ======================================================
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -232,8 +253,6 @@ class ScrumProcessCustomization(models.Model):
         return f"Scrum Customization for {self.process.name} in {self.country_code.upper()}"
 
 # --- Modelo de Tareas (SIN CAMBIOS) ---
-
-
 class Task(models.Model):
     title = models.CharField(max_length=200)
     completed = models.BooleanField(default=False, blank=True, null=True)

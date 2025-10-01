@@ -13,6 +13,9 @@ router.register(r'pmbok-processes', views.PMBOKProcessViewSet)
 router.register(r'scrum-processes', views.ScrumProcessViewSet)
 router.register(r'customizations', views.CustomizationViewSet,
                 basename='customization')
+# ===== INICIO: CAMBIO - REGISTRAR LA NUEVA RUTA DE DEPARTAMENTOS =====
+router.register(r'departments', views.DepartmentViewSet)
+# ===== FIN: CAMBIO =====
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -20,7 +23,6 @@ urlpatterns = [
     # --- Rutas de Autenticación JWT ---
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
 
-    # 👇 CORRECCIÓN: 'as_view()' en lugar de 'as_виew()'
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # --- Ruta de Registro ---

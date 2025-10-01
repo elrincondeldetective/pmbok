@@ -2,7 +2,18 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country, IProcessCustomization, KanbanStatus } from '../types/process';
+// ===== INICIO: CAMBIO - IMPORTAR NUEVOS TIPOS =====
+import type {
+    AnyProcess,
+    IPMBOKProcess,
+    IScrumProcess,
+    ITTOItem,
+    Country,
+    IProcessCustomization,
+    KanbanStatus,
+    IDepartment // <-- Añadido
+} from '../types/process';
+// ===== FIN: CAMBIO =====
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper para asegurar que todos los ITTOs y sus versiones tengan un ID único para React.
@@ -18,32 +29,39 @@ const ensureIds = (items: ITTOItem[]): ITTOItem[] => {
 // Definición de la estructura del contexto
 interface ProcessContextType {
     processes: AnyProcess[];
+    // ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTOS AL CONTEXTO =====
+    departments: IDepartment[];
+    // ===== FIN: CAMBIO =====
     loading: boolean;
     error: string | null;
     selectedCountry: Country | null;
     setSelectedCountry: (country: Country | null) => void;
     updateProcessInState: (processId: number, processType: 'pmbok' | 'scrum', updatedProcessData: Partial<AnyProcess>) => void;
     addOrUpdateCustomization: (processId: number, processType: 'pmbok' | 'scrum', customization: IProcessCustomization) => void;
-    // ===== CAMBIO 1: AÑADIR NUEVA FUNCIÓN A LA INTERFAZ =====
     updateCustomizationStatus: (processId: number, processType: 'pmbok' | 'scrum', customizationId: number, newStatus: KanbanStatus) => void;
 }
 
 // Creación del contexto con valores por defecto
 export const ProcessContext = createContext<ProcessContextType>({
     processes: [],
+    // ===== INICIO: CAMBIO - VALOR POR DEFECTO PARA DEPARTAMENTOS =====
+    departments: [],
+    // ===== FIN: CAMBIO =====
     loading: true,
     error: null,
     selectedCountry: null,
     setSelectedCountry: () => {},
     updateProcessInState: () => {},
     addOrUpdateCustomization: () => {},
-    // ===== CAMBIO 2: AÑADIR VALOR POR DEFECTO =====
     updateCustomizationStatus: () => {},
 });
 
 // Proveedor del contexto que envolverá la aplicación
 export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [processes, setProcesses] = useState<AnyProcess[]>([]);
+    // ===== INICIO: CAMBIO - AÑADIR ESTADO PARA DEPARTAMENTOS =====
+    const [departments, setDepartments] = useState<IDepartment[]>([]);
+    // ===== FIN: CAMBIO =====
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const location = useLocation();
@@ -61,15 +79,21 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         const controller = new AbortController();
 
         try {
-            const [pmbokResponse, scrumResponse] = await Promise.all([
+            // ===== INICIO: CAMBIO - AÑADIR PETICIÓN PARA OBTENER DEPARTAMENTOS =====
+            const [pmbokResponse, scrumResponse, departmentsResponse] = await Promise.all([
                 apiClient.get<IPMBOKProcess[]>('/pmbok-processes/', { signal: controller.signal }),
-                apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal })
+                apiClient.get<IScrumProcess[]>('/scrum-processes/', { signal: controller.signal }),
+                apiClient.get<IDepartment[]>('/departments/', { signal: controller.signal })
             ]);
+            // ===== FIN: CAMBIO =====
 
             const pmbokData = pmbokResponse.data.map(p => ({ ...p, type: 'pmbok' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
             const scrumData = scrumResponse.data.map(p => ({ ...p, type: 'scrum' as const, inputs: ensureIds(p.inputs), tools_and_techniques: ensureIds(p.tools_and_techniques), outputs: ensureIds(p.outputs) }));
 
             setProcesses([...pmbokData, ...scrumData]);
+            // ===== INICIO: CAMBIO - GUARDAR DEPARTAMENTOS EN EL ESTADO =====
+            setDepartments(departmentsResponse.data);
+            // ===== FIN: CAMBIO =====
 
         } catch (err: any) {
             if (err.name !== 'CanceledError') {
@@ -134,7 +158,6 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
     };
 
-    // ===== CAMBIO 3: IMPLEMENTAR LA NUEVA FUNCIÓN DE ACTUALIZACIÓN =====
     const updateCustomizationStatus = (processId: number, processType: 'pmbok' | 'scrum', customizationId: number, newStatus: KanbanStatus) => {
         setProcesses(prevProcesses =>
             prevProcesses.map(p => {
@@ -152,13 +175,15 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
     return (
         <ProcessContext.Provider value={{
             processes,
+            // ===== INICIO: CAMBIO - PROVEER DEPARTAMENTOS AL CONTEXTO =====
+            departments,
+            // ===== FIN: CAMBIO =====
             loading,
             error,
             selectedCountry,
             setSelectedCountry,
             updateProcessInState,
             addOrUpdateCustomization,
-            // ===== CAMBIO 4: PROVEER LA NUEVA FUNCIÓN =====
             updateCustomizationStatus
         }}>
             {children}

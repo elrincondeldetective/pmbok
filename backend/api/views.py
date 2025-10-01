@@ -5,32 +5,41 @@ from rest_framework.response import Response
 from .serializers import (
     TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer,
     ScrumProcessSerializer, CustomizationWriteSerializer,
-    # ===== CAMBIO 1: Importar los serializers de personalización =====
-    PMBOKProcessCustomizationSerializer, ScrumProcessCustomizationSerializer
+    PMBOKProcessCustomizationSerializer, ScrumProcessCustomizationSerializer,
+    # ===== INICIO: CAMBIO - IMPORTAR NUEVOS SERIALIZERS Y MODELOS =====
+    DepartmentSerializer
 )
 from .models import (
     Task, CustomUser, PMBOKProcess, ScrumProcess, KANBAN_STATUS_CHOICES,
-    PMBOKProcessCustomization, ScrumProcessCustomization
+    PMBOKProcessCustomization, ScrumProcessCustomization,
+    Department
+    # ===== FIN: CAMBIO =====
 )
 
 # --- Vista de Registro (SIN CAMBIOS) ---
-
-
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = (permissions.AllowAny,)
     serializer_class = UserRegistrationSerializer
 
 
-# --- VISTAS DE PROCESOS (MODIFICADAS) ---
+# ===== INICIO: CAMBIO - AÑADIR LA VISTA PARA DEPARTAMENTOS =====
+class DepartmentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows departments to be viewed or edited.
+    """
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+# ===== FIN: CAMBIO =====
 
 
+# --- VISTAS DE PROCESOS (SIN CAMBIOS EN ESTA ACTUALIZACIÓN) ---
 class ScrumProcessViewSet(viewsets.ModelViewSet):
-    queryset = ScrumProcess.objects.select_related('status', 'phase').prefetch_related('customizations').all()
+    queryset = ScrumProcess.objects.select_related('status', 'phase').prefetch_related('customizations__department').all()
     serializer_class = ScrumProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # La acción de actualización masiva se mantiene para el SprintControlPanel
     @action(detail=False, methods=['post'], url_path='bulk-update-kanban-status')
     def bulk_update_kanban_status(self, request):
         process_ids = request.data.get('process_ids')
@@ -41,26 +50,20 @@ class ScrumProcessViewSet(viewsets.ModelViewSet):
         if new_status not in valid_statuses:
             return Response({'error': f'El estado "{new_status}" no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Este endpoint ahora actualiza el estado de las personalizaciones, no del proceso padre.
         ScrumProcessCustomization.objects.filter(
             process_id__in=process_ids
         ).update(kanban_status=new_status)
         
-        # También actualizamos el proceso padre para coherencia inicial.
         updated_count = ScrumProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
         
         return Response({'message': f'{updated_count} procesos de Scrum y sus personalizaciones actualizados a "{new_status}" exitosamente.'})
 
-    # ===== CAMBIO 2: ELIMINAR LA ACCIÓN 'update-kanban-status' INDIVIDUAL =====
-    # Esta lógica ahora se manejará en CustomizationViewSet.
-
 
 class PMBOKProcessViewSet(viewsets.ModelViewSet):
-    queryset = PMBOKProcess.objects.select_related('status', 'stage').prefetch_related('customizations').all()
+    queryset = PMBOKProcess.objects.select_related('status', 'stage').prefetch_related('customizations__department').all()
     serializer_class = PMBOKProcessSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # La acción de actualización masiva se mantiene
     @action(detail=False, methods=['post'], url_path='bulk-update-kanban-status')
     def bulk_update_kanban_status(self, request):
         process_ids = request.data.get('process_ids')
@@ -71,17 +74,13 @@ class PMBOKProcessViewSet(viewsets.ModelViewSet):
         if new_status not in valid_statuses:
             return Response({'error': f'El estado "{new_status}" no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Actualiza personalizaciones
         PMBOKProcessCustomization.objects.filter(
             process_id__in=process_ids
         ).update(kanban_status=new_status)
         
-        # Actualiza proceso padre
         updated_count = PMBOKProcess.objects.filter(id__in=process_ids).update(kanban_status=new_status)
         
         return Response({'message': f'{updated_count} procesos de PMBOK y sus personalizaciones actualizados a "{new_status}" exitosamente.'})
-
-    # ===== CAMBIO 3: ELIMINAR LA ACCIÓN 'update-kanban-status' INDIVIDUAL =====
 
 
 class CustomizationViewSet(viewsets.GenericViewSet):
@@ -93,7 +92,6 @@ class CustomizationViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
 
-        # Al crear una nueva personalización, devolvemos el objeto completo incluyendo el nuevo kanban_status
         if isinstance(instance, PMBOKProcessCustomization):
             response_serializer = PMBOKProcessCustomizationSerializer(instance)
         else:
@@ -101,18 +99,15 @@ class CustomizationViewSet(viewsets.GenericViewSet):
             
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-    # ===== CAMBIO 4: AÑADIR NUEVA ACCIÓN PARA ACTUALIZAR ESTADO DE TARJETAS INDIVIDUALES =====
     @action(detail=True, methods=['patch'], url_path='update-kanban-status')
     def update_kanban_status(self, request, pk=None):
         instance = None
         model_type = None
         try:
-            # Primero intenta buscar en un modelo
             instance = PMBOKProcessCustomization.objects.get(pk=pk)
             model_type = 'pmbok'
         except PMBOKProcessCustomization.DoesNotExist:
             try:
-                # Si no lo encuentra, busca en el otro
                 instance = ScrumProcessCustomization.objects.get(pk=pk)
                 model_type = 'scrum'
             except ScrumProcessCustomization.DoesNotExist:

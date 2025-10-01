@@ -33,6 +33,24 @@ export interface Country {
     name: string;
 }
 
+// ===== INICIO: NUEVAS INTERFACES PARA DEPARTAMENTOS =====
+
+// Representa la vista simplificada de un departamento (usada para anidamiento y en tarjetas)
+export interface ISubDepartment {
+    id: number;
+    name: string;
+    tailwind_border_color: string;
+}
+
+// Representa la estructura completa de un departamento con su jerarquía
+export interface IDepartment extends ISubDepartment {
+    description: string;
+    parent: number | null; // ID del departamento padre
+    sub_departments: ISubDepartment[]; // Lista de subdepartamentos
+}
+// ===== FIN: NUEVAS INTERFACES =====
+
+
 // Representa el objeto de personalización que viene anidado en la respuesta de la API.
 export interface IProcessCustomization {
     id: number;
@@ -40,8 +58,10 @@ export interface IProcessCustomization {
     inputs: ITTOItem[];
     tools_and_techniques: ITTOItem[];
     outputs: ITTOItem[];
-    // ===== CAMBIO: AÑADIR EL ESTADO KANBAN =====
     kanban_status: KanbanStatus;
+    // ===== INICIO: CAMBIO - AÑADIR RELACIÓN CON DEPARTAMENTO =====
+    department: ISubDepartment | null;
+    // ===== FIN: CAMBIO =====
 }
 
 

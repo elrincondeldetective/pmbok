@@ -1,10 +1,11 @@
 # backend/api/admin.py
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils.html import format_html
-import json
-
-from .models import CustomUser, Task, ProcessStatus, ProcessStage, PMBOKProcess, ScrumProcess, ScrumPhase
+from .models import (
+    CustomUser, Task, ProcessStatus, ProcessStage, PMBOKProcess, 
+    ScrumProcess, ScrumPhase, Department, PMBOKProcessCustomization, 
+    ScrumProcessCustomization
+)
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -34,7 +35,6 @@ class ScrumPhaseAdmin(admin.ModelAdmin):
     list_display = ('name', 'tailwind_bg_color', 'tailwind_text_color')
     search_fields = ('name',)
 
-# --- CAMBIO: Admin para PMBOKProcess actualizado para manejar JSON ---
 @admin.register(PMBOKProcess)
 class PMBOKProcessAdmin(admin.ModelAdmin):
     list_display = ('process_number', 'name', 'status', 'stage', 'kanban_status')
@@ -42,7 +42,6 @@ class PMBOKProcessAdmin(admin.ModelAdmin):
     search_fields = ('name', 'process_number')
     list_editable = ('status', 'stage', 'kanban_status')
     
-    # --- NUEVO: Campos para mostrar en el formulario de edición ---
     fieldsets = (
         ('Información Principal', {
             'fields': ('process_number', 'name', 'status', 'stage', 'kanban_status')
@@ -53,7 +52,6 @@ class PMBOKProcessAdmin(admin.ModelAdmin):
         }),
     )
 
-# --- CAMBIO: Admin para ScrumProcess actualizado para manejar JSON ---
 @admin.register(ScrumProcess)
 class ScrumProcessAdmin(admin.ModelAdmin):
     list_display = ('process_number', 'name', 'status', 'phase')
@@ -61,7 +59,6 @@ class ScrumProcessAdmin(admin.ModelAdmin):
     search_fields = ('name', 'process_number')
     list_editable = ('status', 'phase',)
 
-    # --- NUEVO: Campos para mostrar en el formulario de edición ---
     fieldsets = (
         ('Información Principal', {
             'fields': ('process_number', 'name', 'status', 'phase', 'kanban_status')
@@ -72,5 +69,24 @@ class ScrumProcessAdmin(admin.ModelAdmin):
         }),
     )
 
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'parent', 'tailwind_border_color')
+    search_fields = ('name',)
+    list_filter = ('parent',)
+    list_editable = ('parent', 'tailwind_border_color')
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Task)
+
+# Registrar los modelos de personalización para depuración
+@admin.register(PMBOKProcessCustomization)
+class PMBOKProcessCustomizationAdmin(admin.ModelAdmin):
+    list_display = ('process', 'country_code', 'department', 'kanban_status')
+    list_filter = ('country_code', 'department', 'kanban_status')
+
+@admin.register(ScrumProcessCustomization)
+class ScrumProcessCustomizationAdmin(admin.ModelAdmin):
+    list_display = ('process', 'country_code', 'department', 'kanban_status')
+    list_filter = ('country_code', 'department', 'kanban_status')
+

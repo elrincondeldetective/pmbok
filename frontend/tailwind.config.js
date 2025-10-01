@@ -53,6 +53,15 @@ export default {
     'text-violet-800',
     'bg-pink-100', // Añadido para Lanzamiento
     'text-pink-800', // Añadido para Lanzamiento
+
+    // --- Colores para BORDES DE DEPARTAMENTO ---
+    'border-blue-500',
+    'border-green-500',
+    'border-purple-500',
+    'border-red-500',
+    'border-gray-500',
+    'border-yellow-500',
+    'border-pink-500',
   ],
 
   theme: {

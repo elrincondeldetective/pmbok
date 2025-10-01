@@ -2,11 +2,12 @@
 from rest_framework import serializers
 from .models import (
     Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage,
-    ScrumProcess, ScrumPhase, PMBOKProcessCustomization, ScrumProcessCustomization
+    ScrumProcess, ScrumPhase, PMBOKProcessCustomization, ScrumProcessCustomization,
+    Department
 )
 from django.contrib.auth.password_validation import validate_password
 
-# --- Serializadores de autenticación y soporte (SIN CAMBIOS) ---
+# --- Serializadores de autenticación y soporte ---
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -53,23 +54,62 @@ class ScrumPhaseSerializer(serializers.ModelSerializer):
         fields = ('name', 'tailwind_bg_color', 'tailwind_text_color')
 
 
+# ===== INICIO: NUEVOS SERIALIZADORES PARA DEPARTAMENTOS JERÁRQUICOS =====
+class SubDepartmentSerializer(serializers.ModelSerializer):
+    """Un serializer simple solo para mostrar subdepartamentos anidados."""
+    class Meta:
+        model = Department
+        fields = ('id', 'name', 'tailwind_border_color')
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    """Serializer completo para Departamentos, maneja la jerarquía."""
+    sub_departments = SubDepartmentSerializer(many=True, read_only=True)
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        allow_null=True,
+        required=False
+    )
+
+    class Meta:
+        model = Department
+        fields = (
+            'id',
+            'name',
+            'description',
+            'tailwind_border_color',
+            'parent',
+            'sub_departments'
+        )
+# ===== FIN: NUEVOS SERIALIZADORES =====
+
+
 class PMBOKProcessCustomizationSerializer(serializers.ModelSerializer):
+    # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO =====
+    department = SubDepartmentSerializer(read_only=True)
+    # ===== FIN: CAMBIO =====
+
     class Meta:
         model = PMBOKProcessCustomization
-        # ===== CAMBIO: AÑADIR 'kanban_status' A LOS CAMPOS =====
+        # ===== INICIO: CAMBIO - AÑADIR 'department' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
-                  'tools_and_techniques', 'outputs', 'kanban_status')
+                  'tools_and_techniques', 'outputs', 'kanban_status', 'department')
+        # ===== FIN: CAMBIO =====
 
 
 class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
+    # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO =====
+    department = SubDepartmentSerializer(read_only=True)
+    # ===== FIN: CAMBIO =====
+
     class Meta:
         model = ScrumProcessCustomization
-        # ===== CAMBIO: AÑADIR 'kanban_status' A LOS CAMPOS =====
+        # ===== INICIO: CAMBIO - AÑADIR 'department' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
-                  'tools_and_techniques', 'outputs', 'kanban_status')
+                  'tools_and_techniques', 'outputs', 'kanban_status', 'department')
+        # ===== FIN: CAMBIO =====
 
 
-# --- SERIALIZADORES DE PROCESOS PRINCIPALES (MODIFICADOS) ---
+# --- SERIALIZADORES DE PROCESOS PRINCIPALES ---
 
 class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
@@ -105,10 +145,16 @@ class CustomizationWriteSerializer(serializers.Serializer):
     inputs = serializers.JSONField()
     tools_and_techniques = serializers.JSONField()
     outputs = serializers.JSONField()
+    # ===== INICIO: CAMBIO - AÑADIR CAMPO PARA ASIGNAR DEPARTAMENTO =====
+    department_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    # ===== FIN: CAMBIO =====
 
     def create(self, validated_data):
         process_type_str = validated_data.pop('process_type')
         process_id = validated_data.pop('process_id')
+        # ===== INICIO: CAMBIO - OBTENER EL ID DEL DEPARTAMENTO =====
+        department_id = validated_data.pop('department_id', None)
+        # ===== FIN: CAMBIO =====
 
         if process_type_str == 'pmbok':
             model_class = PMBOKProcess
@@ -132,6 +178,9 @@ class CustomizationWriteSerializer(serializers.Serializer):
                 'inputs': validated_data.get('inputs'),
                 'tools_and_techniques': validated_data.get('tools_and_techniques'),
                 'outputs': validated_data.get('outputs'),
+                # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO AL GUARDAR/ACTUALIZAR =====
+                'department_id': department_id
+                # ===== FIN: CAMBIO =====
             }
         )
         return instance

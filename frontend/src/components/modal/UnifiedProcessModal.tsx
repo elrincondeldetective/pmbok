@@ -11,51 +11,82 @@ import ITTOSection from './ITTOSection';
 
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
-    const { updateProcessInState, processes: allGlobalProcesses, addOrUpdateCustomization, updateCustomizationStatus } = useContext(ProcessContext);
-    const { process, setProcess, loading, error, apiEndpoint, processType } = useProcessData();
+    const { processes: allGlobalProcesses, addOrUpdateCustomization, updateCustomizationStatus, departments } = useContext(ProcessContext);
+    const { process, setProcess, loading, error, apiEndpoint } = useProcessData();
 
     const handleClose = () => navigate(-1);
 
     const handleKanbanStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as KanbanStatus;
-        if (!process) return;
-
-        // --- INICIO DE LA CORRECCIÓN ---
-
-        // 1. Verificamos si hay una personalización activa. Si no la hay, no podemos cambiar el estado.
-        if (!process.activeCustomization) {
-            alert("Por favor, selecciona una versión específica (un país) para poder cambiar su estado en el tablero Kanban.");
-            // Revertimos el cambio visual en el dropdown al valor original.
-            e.target.value = process.kanban_status;
-            return; // Detenemos la ejecución aquí.
+        if (!process || !process.activeCustomization) {
+            alert("Por favor, selecciona una versión específica (un país) para poder cambiar su estado.");
+            e.target.value = process?.kanban_status || 'unassigned';
+            return;
         }
 
         const customizationId = process.activeCustomization.id;
         const oldStatus = process.activeCustomization.kanban_status;
 
-        // 2. Actualización optimista de la UI (para que el cambio se vea instantáneo)
         const updatedCustomization = { ...process.activeCustomization, kanban_status: newStatus };
         setProcess({ ...process, activeCustomization: updatedCustomization });
         updateCustomizationStatus(process.id, process.type, customizationId, newStatus);
 
-        // 3. Llamada a la API correcta
         try {
             await apiClient.patch(`/customizations/${customizationId}/update-kanban-status/`, {
                 kanban_status: newStatus,
             });
         } catch (err) {
             console.error('Error updating customization Kanban status:', err);
-
-            // 4. Si la API falla, revertimos los cambios en la UI
             const revertedCustomization = { ...process.activeCustomization, kanban_status: oldStatus };
             setProcess({ ...process, activeCustomization: revertedCustomization });
             updateCustomizationStatus(process.id, process.type, customizationId, oldStatus);
-
             alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
         }
-
-        // --- FIN DE LA CORRECCIÓN ---
     };
+    
+    // ===== INICIO: CAMBIO - NUEVA FUNCIÓN PARA MANEJAR EL CAMBIO DE DEPARTAMENTO =====
+    const handleDepartmentChange = async (departmentId: number | null) => {
+        if (!process || !process.activeCustomization) {
+            alert("Por favor, selecciona una versión de país antes de asignar un departamento.");
+            return;
+        }
+
+        const oldCustomization = { ...process.activeCustomization };
+        const newDepartment = departments.find(d => d.id === departmentId) || null;
+
+        // 1. Actualización optimista
+        const updatedCustomization = { ...process.activeCustomization, department: newDepartment };
+        setProcess({ ...process, activeCustomization: updatedCustomization });
+        addOrUpdateCustomization(process.id, process.type, updatedCustomization);
+
+        // 2. Llamada a la API
+        try {
+            const payload = {
+                process_id: process.id,
+                process_type: process.type,
+                country_code: process.activeCustomization.country_code,
+                inputs: process.activeCustomization.inputs,
+                tools_and_techniques: process.activeCustomization.tools_and_techniques,
+                outputs: process.activeCustomization.outputs,
+                department_id: departmentId, // Enviar el nuevo ID
+            };
+            
+            // Usamos el endpoint de creación/actualización que ya existe
+            const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
+            
+            // 3. Sincronizar el estado con la respuesta de la API
+            addOrUpdateCustomization(process.id, process.type, response.data);
+            setProcess(prev => prev ? { ...prev, activeCustomization: response.data } : null);
+
+        } catch (error) {
+            console.error("Error al actualizar el departamento:", error);
+            // 4. Revertir en caso de error
+            setProcess(prev => prev ? { ...prev, activeCustomization: oldCustomization } : null);
+            addOrUpdateCustomization(process.id, process.type, oldCustomization);
+            alert("No se pudo guardar el cambio de departamento.");
+        }
+    };
+    // ===== FIN: CAMBIO =====
 
     const handleCountryChange = async (country: Country | null) => {
         if (!process) return;
@@ -83,13 +114,13 @@ const UnifiedProcessModal: React.FC = () => {
                 updatedProcess = {
                     ...originalProcess,
                     activeCustomization: {
-                        id: -1, // ID temporal
+                        id: -1,
                         country_code: country.code,
                         inputs: originalProcess.inputs,
                         tools_and_techniques: originalProcess.tools_and_techniques,
                         outputs: originalProcess.outputs,
-                        // ===== CAMBIO: El estado inicial ahora es 'unassigned' =====
                         kanban_status: 'unassigned',
+                        department: null, // Un nuevo país empieza sin departamento
                     },
                 };
             }
@@ -111,17 +142,17 @@ const UnifiedProcessModal: React.FC = () => {
                     inputs: updatedProcess.inputs,
                     tools_and_techniques: updatedProcess.tools_and_techniques,
                     outputs: updatedProcess.outputs,
+                    department_id: updatedProcess.activeCustomization?.department?.id || null,
                 };
                 const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
                 const savedCustomization = response.data;
                 addOrUpdateCustomization(process.id, process.type, savedCustomization);
 
-                // Actualiza el modal para reflejar la personalización guardada (con el ID correcto)
                 setProcess(prev => prev ? { ...prev, activeCustomization: savedCustomization } : null);
 
             } catch (err) {
                 console.error('Error guardando la personalización del país:', err);
-                setProcess(process); // Revertir
+                setProcess(process);
                 alert('No se pudo guardar la selección del país.');
             }
         }
@@ -167,6 +198,9 @@ const UnifiedProcessModal: React.FC = () => {
                     onKanbanStatusChange={handleKanbanStatusChange}
                     onCountryChange={handleCountryChange}
                     onSelectCustomization={handleSelectCustomization}
+                    // ===== INICIO: CAMBIO - PASAR LA NUEVA FUNCIÓN AL HEADER =====
+                    onDepartmentChange={handleDepartmentChange}
+                    // ===== FIN: CAMBIO =====
                 />
                 <ITTOSection
                     process={process}

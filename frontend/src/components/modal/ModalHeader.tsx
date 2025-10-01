@@ -1,5 +1,5 @@
 // frontend/src/components/modal/ModalHeader.tsx
-import React from 'react';
+import React, { useContext } from 'react';
 import type {
     AnyProcess,
     KanbanStatus,
@@ -9,6 +9,8 @@ import type {
 } from '../../types/process';
 import { countryMap } from '../../data/countries';
 import CountrySelector from '../common/CountrySelector';
+import DepartmentSelector from '../common/DepartmentSelector'; // Importar el nuevo componente
+import { ProcessContext } from '../../context/ProcessContext'; // Importar el contexto
 
 const kanbanStatusOptions: { value: KanbanStatus; label: string }[] = [
     { value: 'unassigned', label: 'No Asignado' },
@@ -25,6 +27,9 @@ interface ModalHeaderProps {
     onKanbanStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     onCountryChange: (country: Country | null) => void;
     onSelectCustomization: (countryCode: string | null) => void;
+    // ===== INICIO: CAMBIO - AÑADIR NUEVO PROP =====
+    onDepartmentChange: (departmentId: number | null) => void;
+    // ===== FIN: CAMBIO =====
 }
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({
@@ -33,7 +38,14 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     onKanbanStatusChange,
     onCountryChange,
     onSelectCustomization,
+    // ===== INICIO: CAMBIO - DESTRUCTURAR NUEVO PROP =====
+    onDepartmentChange,
+    // ===== FIN: CAMBIO =====
 }) => {
+    // ===== INICIO: CAMBIO - OBTENER DEPARTAMENTOS DEL CONTEXTO =====
+    const { departments } = useContext(ProcessContext);
+    // ===== FIN: CAMBIO =====
+
     const isPmbok = process.type === 'pmbok';
     const group = isPmbok
         ? (process as IPMBOKProcess).stage
@@ -44,16 +56,17 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
     const currentKanbanStatus =
         process.activeCustomization?.kanban_status ?? process.kanban_status;
 
-    // ===== INICIO DE LA CORRECCIÓN =====
-    // 🔒 Se añade 'backlog' para que cualquier tarjeta en el tablero se considere "bloqueada" y muestre solo su país.
     const isLockedOnBoard = ['backlog', 'todo', 'in_progress', 'in_review', 'done'].includes(
         currentKanbanStatus
     );
-    // ===== FIN DE LA CORRECCIÓN =====
     const countryName =
         selectedCountryCode
             ? countryMap.get(selectedCountryCode) ?? selectedCountryCode.toUpperCase()
             : null;
+    
+    // ===== INICIO: CAMBIO - OBTENER ID DEL DEPARTAMENTO ACTUAL =====
+    const currentDepartmentId = process.activeCustomization?.department?.id || null;
+    // ===== FIN: CAMBIO =====
 
     return (
         <div
@@ -67,7 +80,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                     </h2>
 
                     <div className="mt-2 flex items-center gap-4 flex-wrap">
-                        {/* Guía base -> en el tablero: NO clickeable */}
                         {isLockedOnBoard ? (
                             <span
                                 title="No disponible en el tablero Kanban"
@@ -88,11 +100,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
 
                         {group && <p className="text-sm opacity-90">{group.name}</p>}
 
-                        {/* País actual:
-        - En el tablero: si HAY país asignado -> chip informativo
-        - En el tablero: si NO hay país -> mostramos selector para que no quede bloqueado
-        - En backlog: selector normal
-      */}
                         {isLockedOnBoard && selectedCountryCode && countryName ? (
                             <div className="inline-flex items-center rounded-full bg-white/25 text-white/95 text-xs font-bold px-3 py-1 shadow-sm cursor-not-allowed">
                                 <img
@@ -112,13 +119,11 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                         )}
                     </div>
 
-                    {/* Chips de países aplicados */}
                     {process.customizations && process.customizations.length > 0 && (
                         <div className="mt-4 flex items-center gap-3 flex-wrap">
                             <p className="text-xs font-semibold opacity-80">✅ Aplicado en:</p>
                             <div className="flex items-center gap-2 flex-wrap">
                                 {isLockedOnBoard ? (
-                                    // En el tablero: solo el país activo, sin interacción
                                     selectedCountryCode && (
                                         <div
                                             className="flex items-center bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full cursor-not-allowed"
@@ -135,7 +140,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                                         </div>
                                     )
                                 ) : (
-                                    // En backlog: se puede navegar entre países
                                     process.customizations.map((cust) => (
                                         <button
                                             key={cust.country_code}
@@ -158,29 +162,42 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
                     )}
                 </div>
 
-                <div className="flex-shrink-0 flex items-center gap-4">
-                    <select
-                        value={currentKanbanStatus}
-                        onChange={onKanbanStatusChange}
-                        disabled={isLockedOnBoard}
-                        className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {kanbanStatusOptions.map((option) => (
-                            <option key={option.value} value={option.value} className="text-black">
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                {/* ===== INICIO: CAMBIO - REESTRUCTURAR CONTROLES DERECHOS ===== */}
+                <div className="flex-shrink-0 flex flex-col items-end gap-4">
+                    <div className="flex items-center gap-4">
+                        <select
+                            value={currentKanbanStatus}
+                            onChange={onKanbanStatusChange}
+                            disabled={!process.activeCustomization}
+                            className="bg-white/20 text-white text-sm font-semibold rounded-md p-2 border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                            onClick={(e) => e.stopPropagation()}
+                            title={!process.activeCustomization ? "Selecciona una versión de país para cambiar el estado" : "Cambiar estado Kanban"}
+                        >
+                            {kanbanStatusOptions.map((option) => (
+                                <option key={option.value} value={option.value} className="text-black">
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
 
-                    <button
-                        onClick={onClose}
-                        className="text-2xl font-bold hover:opacity-75 transition-opacity"
-                        aria-label="Cerrar modal"
-                    >
-                        &times;
-                    </button>
+                        <button
+                            onClick={onClose}
+                            className="text-2xl font-bold hover:opacity-75 transition-opacity"
+                            aria-label="Cerrar modal"
+                        >
+                            &times;
+                        </button>
+                    </div>
+
+                    <DepartmentSelector
+                        value={currentDepartmentId}
+                        onChange={onDepartmentChange}
+                        departments={departments}
+                        disabled={!process.activeCustomization}
+                    />
                 </div>
+                {/* ===== FIN: CAMBIO ===== */}
+
             </div>
         </div>
     );
