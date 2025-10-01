@@ -43,7 +43,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
   const processKey = propertyMap[title];
 
   const currentKanbanStatus = process.activeCustomization?.kanban_status ?? process.kanban_status;
-  const isLocked = currentKanbanStatus === 'in_progress';
+  const isLocked = ['todo', 'in_progress', 'in_review', 'done'].includes(currentKanbanStatus);
   // const isLocked = ['in_progress', 'in_review'].includes(currentKanbanStatus); // si quieres bloquear también revisión
 
   // ⚠️ Saneamos el array proveniente de props (evita undefined en map/handlers)
