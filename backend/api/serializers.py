@@ -56,15 +56,17 @@ class ScrumPhaseSerializer(serializers.ModelSerializer):
 class PMBOKProcessCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = PMBOKProcessCustomization
+        # ===== CAMBIO: AÑADIR 'kanban_status' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
-                  'tools_and_techniques', 'outputs')
+                  'tools_and_techniques', 'outputs', 'kanban_status')
 
 
 class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScrumProcessCustomization
+        # ===== CAMBIO: AÑADIR 'kanban_status' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
-                  'tools_and_techniques', 'outputs')
+                  'tools_and_techniques', 'outputs', 'kanban_status')
 
 
 # --- SERIALIZADORES DE PROCESOS PRINCIPALES (MODIFICADOS) ---
@@ -72,12 +74,10 @@ class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
 class PMBOKProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     stage = ProcessStageSerializer(read_only=True)
-    # 👉 CAMBIO: Ahora se serializa un array de personalizaciones.
     customizations = PMBOKProcessCustomizationSerializer(many=True, read_only=True)
 
     class Meta:
         model = PMBOKProcess
-        # 👉 CAMBIO: El campo se llama `customizations` (plural).
         fields = (
             'id', 'process_number', 'name', 'status', 'stage', 'kanban_status',
             'inputs', 'tools_and_techniques', 'outputs', 'customizations'
@@ -87,12 +87,10 @@ class PMBOKProcessSerializer(serializers.ModelSerializer):
 class ScrumProcessSerializer(serializers.ModelSerializer):
     status = ProcessStatusSerializer(read_only=True)
     phase = ScrumPhaseSerializer(read_only=True)
-    # 👉 CAMBIO: Ahora se serializa un array de personalizaciones.
     customizations = ScrumProcessCustomizationSerializer(many=True, read_only=True)
 
     class Meta:
         model = ScrumProcess
-        # 👉 CAMBIO: El campo se llama `customizations` (plural).
         fields = (
             'id', 'process_number', 'name', 'status', 'phase', 'kanban_status',
             'inputs', 'tools_and_techniques', 'outputs', 'customizations'

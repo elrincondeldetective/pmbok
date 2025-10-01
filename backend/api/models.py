@@ -99,7 +99,7 @@ KANBAN_STATUS_CHOICES = [
     ('done', 'Hecho'),
 ]
 
-# --- Modelo PMBOKProcess (MODIFICADO) ---
+# --- Modelo PMBOKProcess (SIN CAMBIOS EN ESTE ARCHIVO) ---
 
 
 class PMBOKProcess(models.Model):
@@ -115,7 +115,6 @@ class PMBOKProcess(models.Model):
         default='unassigned',
         help_text="El estado del proceso en el tablero Kanban."
     )
-    # ===== CAMBIO: Se elimina el campo 'country_code' de aquí =====
     inputs = models.JSONField(
         default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(
@@ -129,7 +128,7 @@ class PMBOKProcess(models.Model):
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
-# --- Modelo ScrumProcess (MODIFICADO) ---
+# --- Modelo ScrumProcess (SIN CAMBIOS EN ESTE ARCHIVO) ---
 
 
 class ScrumProcess(models.Model):
@@ -145,7 +144,6 @@ class ScrumProcess(models.Model):
         default='unassigned',
         help_text="El estado del proceso en el tablero Kanban."
     )
-    # ===== CAMBIO: Se elimina el campo 'country_code' de aquí =====
     inputs = models.JSONField(
         default=list, blank=True, help_text="Lista de objetos de entrada, cada uno con 'name' y 'url'.")
     tools_and_techniques = models.JSONField(
@@ -161,7 +159,7 @@ class ScrumProcess(models.Model):
     def __str__(self):
         return f"{self.process_number}. {self.name}"
 
-# ===== INICIO: NUEVOS MODELOS PARA PERSONALIZACIONES POR PAÍS =====
+# ===== MODELOS DE PERSONALIZACIÓN (MODIFICADOS) =====
 
 
 class PMBOKProcessCustomization(models.Model):
@@ -177,6 +175,15 @@ class PMBOKProcessCustomization(models.Model):
     inputs = models.JSONField(default=list, blank=True)
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
+
+    # ===== CAMBIO: AÑADIR ESTADO KANBAN INDIVIDUAL =====
+    kanban_status = models.CharField(
+        max_length=20,
+        choices=KANBAN_STATUS_CHOICES,
+        default='backlog',
+        help_text="El estado de esta personalización en el tablero Kanban."
+    )
+    # ======================================================
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -204,6 +211,15 @@ class ScrumProcessCustomization(models.Model):
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
 
+    # ===== CAMBIO: AÑADIR ESTADO KANBAN INDIVIDUAL =====
+    kanban_status = models.CharField(
+        max_length=20,
+        choices=KANBAN_STATUS_CHOICES,
+        default='backlog',
+        help_text="El estado de esta personalización en el tablero Kanban."
+    )
+    # ======================================================
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -214,8 +230,6 @@ class ScrumProcessCustomization(models.Model):
 
     def __str__(self):
         return f"Scrum Customization for {self.process.name} in {self.country_code.upper()}"
-
-# ===== FIN: NUEVOS MODELOS =====
 
 # --- Modelo de Tareas (SIN CAMBIOS) ---
 

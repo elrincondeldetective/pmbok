@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country, IProcessCustomization } from '../types/process';
+import type { AnyProcess, IPMBOKProcess, IScrumProcess, ITTOItem, Country, IProcessCustomization, KanbanStatus } from '../types/process';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper para asegurar que todos los ITTOs y sus versiones tengan un ID único para React.
@@ -23,9 +23,9 @@ interface ProcessContextType {
     selectedCountry: Country | null;
     setSelectedCountry: (country: Country | null) => void;
     updateProcessInState: (processId: number, processType: 'pmbok' | 'scrum', updatedProcessData: Partial<AnyProcess>) => void;
-    // ===== INICIO: NUEVA FUNCIÓN AÑADIDA =====
     addOrUpdateCustomization: (processId: number, processType: 'pmbok' | 'scrum', customization: IProcessCustomization) => void;
-    // ===== FIN: NUEVA FUNCIÓN AÑADIDA =====
+    // ===== CAMBIO 1: AÑADIR NUEVA FUNCIÓN A LA INTERFAZ =====
+    updateCustomizationStatus: (processId: number, processType: 'pmbok' | 'scrum', customizationId: number, newStatus: KanbanStatus) => void;
 }
 
 // Creación del contexto con valores por defecto
@@ -36,9 +36,9 @@ export const ProcessContext = createContext<ProcessContextType>({
     selectedCountry: null,
     setSelectedCountry: () => {},
     updateProcessInState: () => {},
-    // ===== INICIO: VALOR POR DEFECTO PARA LA NUEVA FUNCIÓN =====
     addOrUpdateCustomization: () => {},
-    // ===== FIN: VALOR POR DEFECTO =====
+    // ===== CAMBIO 2: AÑADIR VALOR POR DEFECTO =====
+    updateCustomizationStatus: () => {},
 });
 
 // Proveedor del contexto que envolverá la aplicación
@@ -112,16 +112,10 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
     };
     
-    // ===== INICIO: IMPLEMENTACIÓN DE LA NUEVA FUNCIÓN =====
-    /**
-     * Busca un proceso por su ID y tipo, y actualiza o añade una personalización a su lista.
-     * Esto mantiene el estado global sincronizado con el backend sin necesidad de un refetch.
-     */
     const addOrUpdateCustomization = (processId: number, processType: 'pmbok' | 'scrum', customization: IProcessCustomization) => {
         setProcesses(prevProcesses =>
             prevProcesses.map(p => {
                 if (p.id === processId && p.type === processType) {
-                    // Clonamos el proceso para evitar mutaciones directas
                     const updatedProcess = { ...p, customizations: [...p.customizations] };
                     
                     const existingIndex = updatedProcess.customizations.findIndex(
@@ -129,10 +123,8 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
                     );
 
                     if (existingIndex !== -1) {
-                        // Si ya existe una personalización para ese país, la reemplazamos
                         updatedProcess.customizations[existingIndex] = customization;
                     } else {
-                        // Si es nueva, la añadimos a la lista
                         updatedProcess.customizations.push(customization);
                     }
                     return updatedProcess;
@@ -141,10 +133,34 @@ export const ProcessProvider: React.FC<{ children: ReactNode }> = ({ children })
             })
         );
     };
-    // ===== FIN: IMPLEMENTACIÓN DE LA NUEVA FUNCIÓN =====
+
+    // ===== CAMBIO 3: IMPLEMENTAR LA NUEVA FUNCIÓN DE ACTUALIZACIÓN =====
+    const updateCustomizationStatus = (processId: number, processType: 'pmbok' | 'scrum', customizationId: number, newStatus: KanbanStatus) => {
+        setProcesses(prevProcesses =>
+            prevProcesses.map(p => {
+                if (p.id === processId && p.type === processType) {
+                    const updatedCustomizations = p.customizations.map(cust =>
+                        cust.id === customizationId ? { ...cust, kanban_status: newStatus } : cust
+                    );
+                    return { ...p, customizations: updatedCustomizations };
+                }
+                return p;
+            })
+        );
+    };
 
     return (
-        <ProcessContext.Provider value={{ processes, loading, error, selectedCountry, setSelectedCountry, updateProcessInState, addOrUpdateCustomization }}>
+        <ProcessContext.Provider value={{
+            processes,
+            loading,
+            error,
+            selectedCountry,
+            setSelectedCountry,
+            updateProcessInState,
+            addOrUpdateCustomization,
+            // ===== CAMBIO 4: PROVEER LA NUEVA FUNCIÓN =====
+            updateCustomizationStatus
+        }}>
             {children}
         </ProcessContext.Provider>
     );

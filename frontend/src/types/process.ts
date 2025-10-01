@@ -40,6 +40,8 @@ export interface IProcessCustomization {
     inputs: ITTOItem[];
     tools_and_techniques: ITTOItem[];
     outputs: ITTOItem[];
+    // ===== CAMBIO: AÑADIR EL ESTADO KANBAN =====
+    kanban_status: KanbanStatus;
 }
 
 
