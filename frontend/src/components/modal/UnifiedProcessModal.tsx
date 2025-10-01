@@ -26,7 +26,7 @@ const UnifiedProcessModal: React.FC = () => {
         if (!process.activeCustomization) {
             alert("Por favor, selecciona una versión específica (un país) para poder cambiar su estado en el tablero Kanban.");
             // Revertimos el cambio visual en el dropdown al valor original.
-            e.target.value = process.kanban_status; 
+            e.target.value = process.kanban_status;
             return; // Detenemos la ejecución aquí.
         }
 
@@ -37,7 +37,7 @@ const UnifiedProcessModal: React.FC = () => {
         const updatedCustomization = { ...process.activeCustomization, kanban_status: newStatus };
         setProcess({ ...process, activeCustomization: updatedCustomization });
         updateCustomizationStatus(process.id, process.type, customizationId, newStatus);
-        
+
         // 3. Llamada a la API correcta
         try {
             await apiClient.patch(`/customizations/${customizationId}/update-kanban-status/`, {
@@ -45,15 +45,15 @@ const UnifiedProcessModal: React.FC = () => {
             });
         } catch (err) {
             console.error('Error updating customization Kanban status:', err);
-            
+
             // 4. Si la API falla, revertimos los cambios en la UI
             const revertedCustomization = { ...process.activeCustomization, kanban_status: oldStatus };
             setProcess({ ...process, activeCustomization: revertedCustomization });
             updateCustomizationStatus(process.id, process.type, customizationId, oldStatus);
-            
+
             alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
         }
-        
+
         // --- FIN DE LA CORRECCIÓN ---
     };
 
@@ -70,7 +70,7 @@ const UnifiedProcessModal: React.FC = () => {
 
         if (country) {
             const existingCustomization = originalProcess.customizations.find(c => c.country_code === country.code);
-            
+
             if (existingCustomization) {
                 updatedProcess = {
                     ...originalProcess,
@@ -88,7 +88,8 @@ const UnifiedProcessModal: React.FC = () => {
                         inputs: originalProcess.inputs,
                         tools_and_techniques: originalProcess.tools_and_techniques,
                         outputs: originalProcess.outputs,
-                        kanban_status: 'backlog', // Estado inicial para nuevas personalizaciones
+                        // ===== CAMBIO: El estado inicial ahora es 'unassigned' =====
+                        kanban_status: 'unassigned',
                     },
                 };
             }
@@ -114,9 +115,9 @@ const UnifiedProcessModal: React.FC = () => {
                 const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
                 const savedCustomization = response.data;
                 addOrUpdateCustomization(process.id, process.type, savedCustomization);
-                
+
                 // Actualiza el modal para reflejar la personalización guardada (con el ID correcto)
-                setProcess(prev => prev ? {...prev, activeCustomization: savedCustomization} : null);
+                setProcess(prev => prev ? { ...prev, activeCustomization: savedCustomization } : null);
 
             } catch (err) {
                 console.error('Error guardando la personalización del país:', err);

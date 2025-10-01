@@ -176,11 +176,11 @@ class PMBOKProcessCustomization(models.Model):
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
 
-    # ===== CAMBIO: AÑADIR ESTADO KANBAN INDIVIDUAL =====
+    # ===== CAMBIO: El estado por defecto ahora es 'unassigned' =====
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
-        default='backlog',
+        default='unassigned',
         help_text="El estado de esta personalización en el tablero Kanban."
     )
     # ======================================================
@@ -211,11 +211,11 @@ class ScrumProcessCustomization(models.Model):
     tools_and_techniques = models.JSONField(default=list, blank=True)
     outputs = models.JSONField(default=list, blank=True)
 
-    # ===== CAMBIO: AÑADIR ESTADO KANBAN INDIVIDUAL =====
+    # ===== CAMBIO: El estado por defecto ahora es 'unassigned' =====
     kanban_status = models.CharField(
         max_length=20,
         choices=KANBAN_STATUS_CHOICES,
-        default='backlog',
+        default='unassigned',
         help_text="El estado de esta personalización en el tablero Kanban."
     )
     # ======================================================
