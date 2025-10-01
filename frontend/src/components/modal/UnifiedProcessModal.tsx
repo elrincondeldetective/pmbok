@@ -20,44 +20,41 @@ const UnifiedProcessModal: React.FC = () => {
         const newStatus = e.target.value as KanbanStatus;
         if (!process) return;
 
-        // Si hay una personalización activa, actualizamos su estado específico.
-        if (process.activeCustomization) {
-            const customizationId = process.activeCustomization.id;
-            
-            // Actualización optimista de UI
-            const updatedCustomization = { ...process.activeCustomization, kanban_status: newStatus };
-            setProcess({ ...process, activeCustomization: updatedCustomization });
-            updateCustomizationStatus(process.id, process.type, customizationId, newStatus);
-            
-            try {
-                await apiClient.patch(`/customizations/${customizationId}/update-kanban-status/`, {
-                    kanban_status: newStatus,
-                });
-            } catch (err) {
-                console.error('Error updating customization Kanban status:', err);
-                // Revertir
-                updateCustomizationStatus(process.id, process.type, customizationId, process.activeCustomization.kanban_status);
-                alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
-            }
-        } else {
-            // Si no hay personalización, se actualiza el estado del proceso base (comportamiento anterior).
-             const oldProcess = { ...process };
-             const updatedProcessPreview = { ...process, kanban_status: newStatus };
-     
-             setProcess(updatedProcessPreview);
-             updateProcessInState(process.id, processType, updatedProcessPreview);
-     
-             try {
-                 await apiClient.patch(`/${apiEndpoint}/${process.id}/update-kanban-status/`, {
-                     kanban_status: newStatus,
-                 });
-             } catch (err) {
-                 console.error('Error updating Kanban status:', err);
-                 setProcess(oldProcess);
-                 updateProcessInState(process.id, processType, oldProcess);
-                 alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
-             }
+        // --- INICIO DE LA CORRECCIÓN ---
+
+        // 1. Verificamos si hay una personalización activa. Si no la hay, no podemos cambiar el estado.
+        if (!process.activeCustomization) {
+            alert("Por favor, selecciona una versión específica (un país) para poder cambiar su estado en el tablero Kanban.");
+            // Revertimos el cambio visual en el dropdown al valor original.
+            e.target.value = process.kanban_status; 
+            return; // Detenemos la ejecución aquí.
         }
+
+        const customizationId = process.activeCustomization.id;
+        const oldStatus = process.activeCustomization.kanban_status;
+
+        // 2. Actualización optimista de la UI (para que el cambio se vea instantáneo)
+        const updatedCustomization = { ...process.activeCustomization, kanban_status: newStatus };
+        setProcess({ ...process, activeCustomization: updatedCustomization });
+        updateCustomizationStatus(process.id, process.type, customizationId, newStatus);
+        
+        // 3. Llamada a la API correcta
+        try {
+            await apiClient.patch(`/customizations/${customizationId}/update-kanban-status/`, {
+                kanban_status: newStatus,
+            });
+        } catch (err) {
+            console.error('Error updating customization Kanban status:', err);
+            
+            // 4. Si la API falla, revertimos los cambios en la UI
+            const revertedCustomization = { ...process.activeCustomization, kanban_status: oldStatus };
+            setProcess({ ...process, activeCustomization: revertedCustomization });
+            updateCustomizationStatus(process.id, process.type, customizationId, oldStatus);
+            
+            alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
+        }
+        
+        // --- FIN DE LA CORRECCIÓN ---
     };
 
     const handleCountryChange = async (country: Country | null) => {
