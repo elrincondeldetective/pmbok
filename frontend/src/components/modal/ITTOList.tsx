@@ -2,33 +2,30 @@
 import React, { useState, useContext } from 'react';
 import apiClient from '../../api/apiClient';
 import type { AnyProcess, ITTOItem, IProcessCustomization } from '../../types/process';
-// 👇 CAMBIO 1: Importar `addOrUpdateCustomization`
 import { ProcessContext } from '../../context/ProcessContext';
 import ITTOListItem from './ITTOListItem';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import AddVersionModal from './AddVersionModal';
 import { v4 as uuidv4 } from 'uuid';
 
-
 type ListTitle = 'Entradas' | 'Herramientas y Técnicas' | 'Salidas';
 
 const propertyMap: Record<ListTitle, keyof Pick<AnyProcess, 'inputs' | 'tools_and_techniques' | 'outputs'>> = {
   'Entradas': 'inputs',
   'Herramientas y Técnicas': 'tools_and_techniques',
-  'Salidas': 'outputs'
+  'Salidas': 'outputs',
 };
 
 interface ITTOListProps {
   title: ListTitle;
-  items: ITTOItem[];
+  items: ITTOItem[];                     // puede venir con huecos -> lo saneamos abajo
   icon: React.ReactNode;
   process: AnyProcess;
   setProcess: React.Dispatch<React.SetStateAction<AnyProcess | null>>;
 }
 
 const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setProcess }) => {
-  // 👇 CAMBIO 2: Obtener la nueva función del contexto
-  const { updateProcessInState, addOrUpdateCustomization } = useContext(ProcessContext);
+  const { addOrUpdateCustomization } = useContext(ProcessContext);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isNewItem, setIsNewItem] = useState<boolean>(false);
@@ -37,22 +34,31 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
     itemToDelete: { id: string; name: string; parentId?: string } | null;
   }>({ isVisible: false, itemToDelete: null });
 
-  const [addModal, setAddModal] = useState<{ isVisible: boolean; parentId: string | null; parentName: string | null }>({ isVisible: false, parentId: null, parentName: null });
+  const [addModal, setAddModal] = useState<{ isVisible: boolean; parentId: string | null; parentName: string | null }>({
+    isVisible: false,
+    parentId: null,
+    parentName: null,
+  });
 
   const processKey = propertyMap[title];
 
-  // 👇 CAMBIO 3: Reescribir la función de persistencia
+  const currentKanbanStatus = process.activeCustomization?.kanban_status ?? process.kanban_status;
+  const isLocked = currentKanbanStatus === 'in_progress';
+  // const isLocked = ['in_progress', 'in_review'].includes(currentKanbanStatus); // si quieres bloquear también revisión
+
+  // ⚠️ Saneamos el array proveniente de props (evita undefined en map/handlers)
+  const safeItems: ITTOItem[] = Array.isArray(items) ? (items as (ITTOItem | undefined)[]).filter(Boolean) as ITTOItem[] : [];
+
+  // ---------------- Persistencia (optimista) ----------------
   const handlePersistChanges = async (updatedItems: ITTOItem[]) => {
     if (!process) return;
+    if (isLocked) return; // defensa dura
 
-    // Preparamos los datos para la actualización optimista de la UI
     const oldProcessState = { ...process };
     const newProcessState = { ...process, [processKey]: updatedItems };
-    setProcess(newProcessState); // Actualiza la UI del modal inmediatamente
+    setProcess(newProcessState);
 
-    // Si estamos editando una versión de un país (hay una 'activeCustomization')
     if (process.activeCustomization) {
-      // Actualizamos la personalización en el estado global
       const updatedCustomization = {
         ...process.activeCustomization,
         [processKey]: updatedItems,
@@ -60,7 +66,6 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
       addOrUpdateCustomization(process.id, process.type, updatedCustomization);
 
       try {
-        // Preparamos el payload completo para el endpoint de personalizaciones
         const payload = {
           process_id: process.id,
           process_type: process.type,
@@ -70,55 +75,43 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
           outputs: processKey === 'outputs' ? updatedItems : process.outputs,
         };
 
-        // Usamos POST a /customizations/. El backend hará un 'update_or_create'
         const response = await apiClient.post<IProcessCustomization>('/customizations/', payload);
-
-        // Una vez guardado, actualizamos el estado global con los datos del servidor (incluyendo el ID correcto)
         addOrUpdateCustomization(process.id, process.type, response.data);
-        // Y actualizamos el modal también para tener el ID correcto
-        setProcess(prev => prev ? { ...prev, activeCustomization: response.data } : null);
-
+        setProcess(prev => (prev ? { ...prev, activeCustomization: response.data } : null));
       } catch (error) {
         console.error(`Error saving customization for ${processKey}:`, error);
-        // Si falla, revertimos los cambios en la UI
         setProcess(oldProcessState);
-        addOrUpdateCustomization(process.id, process.type, oldProcessState.activeCustomization!);
-        alert(`No se pudieron guardar los cambios para ${title} en ${process.activeCustomization.country_code.toUpperCase()}.`);
+        if (oldProcessState.activeCustomization) {
+          addOrUpdateCustomization(process.id, process.type, oldProcessState.activeCustomization);
+        }
+        alert(
+          `No se pudieron guardar los cambios para ${title} en ${process.activeCustomization.country_code.toUpperCase()}.`
+        );
       }
-
     } else {
-      // Este bloque se ejecutaría si se edita la versión "base" (sin país seleccionado).
-      // Por ahora, solo mostraremos un aviso, ya que la funcionalidad pedida es para países.
-      console.warn("Se intentó editar la versión base. Esta funcionalidad no está implementada para guardar en el proceso original.");
-      // Aquí iría la lógica para guardar en el proceso base si se quisiera.
-      // Por seguridad, revertimos el cambio para no dar una falsa impresión de que se guardó.
+      console.warn('Se intentó editar la versión base.');
       setProcess(oldProcessState);
-      alert("La edición de la guía original no está permitida desde esta interfaz.");
+      alert('La edición de la guía original no está permitida desde esta interfaz.');
     }
   };
 
+  // ---------------- Handlers ----------------
   const handleSelectVersion = (parentId: string, versionId: string) => {
-    const updatedItems = JSON.parse(JSON.stringify(items));
+    if (isLocked) return;
+    const updatedItems = JSON.parse(JSON.stringify(safeItems));
 
     const findAndProcessParent = (currentItems: ITTOItem[]): boolean => {
       for (const item of currentItems) {
+        if (!item) continue;
         if (item.id === parentId) {
           if (parentId === versionId) {
-            if (item.versions) {
-              item.versions.forEach(v => v.isActive = false);
-            }
+            item.versions?.forEach(v => (v.isActive = false));
           } else {
-            if (item.versions) {
-              item.versions.forEach(v => {
-                v.isActive = v.id === versionId;
-              });
-            }
+            item.versions?.forEach(v => (v.isActive = v.id === versionId));
           }
           return true;
         }
-        if (item.versions && findAndProcessParent(item.versions)) {
-          return true;
-        }
+        if (item.versions && findAndProcessParent(item.versions)) return true;
       }
       return false;
     };
@@ -128,42 +121,48 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
   };
 
   const handleAddParentItemRequest = () => {
+    if (isLocked) return;
     setAddModal({ isVisible: true, parentId: null, parentName: null });
   };
 
   const handleAddVersionRequest = (parentId: string, parentName: string) => {
-    setAddModal({ isVisible: true, parentId: parentId, parentName: parentName });
+    if (isLocked) return;
+    setAddModal({ isVisible: true, parentId, parentName });
   };
 
   const handleConfirmAdd = (newName: string, newUrl: string) => {
+    if (isLocked) return;
     const parentId = addModal.parentId;
 
     if (parentId) {
-      const updatedItems = JSON.parse(JSON.stringify(items));
+      const updatedItems = JSON.parse(JSON.stringify(safeItems));
       let itemFound = false;
 
       const findAndAddVersion = (item: ITTOItem) => {
-        if (itemFound) return;
+        if (itemFound || !item) return;
         if (item.id === parentId) {
-          const newVersion: ITTOItem = { id: uuidv4(), name: newName, url: newUrl, versions: [], isActive: false };
+          const newVersion: ITTOItem = {
+            id: uuidv4(),
+            name: newName,
+            url: newUrl,
+            versions: [],
+            isActive: false,
+          };
           if (!item.versions) item.versions = [];
-          item.versions.forEach(v => v.isActive = false);
+          item.versions.forEach(v => (v.isActive = false));
           newVersion.isActive = true;
           item.versions.push(newVersion);
           itemFound = true;
-        } else if (item.versions && item.versions.length > 0) {
+        } else if (item.versions?.length) {
           item.versions.forEach(findAndAddVersion);
         }
       };
 
       updatedItems.forEach(findAndAddVersion);
-
-      if (itemFound) {
-        handlePersistChanges(updatedItems);
-      }
+      if (itemFound) handlePersistChanges(updatedItems);
     } else {
       const newItem: ITTOItem = { id: uuidv4(), name: newName, url: newUrl, versions: [], isActive: false };
-      const updatedItems = [...items, newItem];
+      const updatedItems = [...safeItems, newItem];
       handlePersistChanges(updatedItems);
     }
 
@@ -171,26 +170,24 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
   };
 
   const handleSave = (itemId: string, newName: string, newUrl: string) => {
-    const updatedItems = JSON.parse(JSON.stringify(items));
+    if (isLocked) return;
+    const updatedItems = JSON.parse(JSON.stringify(safeItems));
 
     let itemFound = false;
     const findAndUpdate = (item: ITTOItem) => {
-      if (itemFound) return;
+      if (itemFound || !item) return;
       if (item.id === itemId) {
-        const isKeyElement = process.type === 'scrum' && item.name.trim().endsWith('*');
+        const isKeyElement = process.type === 'scrum' && (item.name ?? '').trim().endsWith('*');
         item.name = isKeyElement ? `${newName.trim()}*` : newName.trim();
         item.url = newUrl;
         itemFound = true;
-      } else if (item.versions) {
+      } else if (item.versions?.length) {
         item.versions.forEach(findAndUpdate);
       }
     };
 
     updatedItems.forEach(findAndUpdate);
-
-    if (itemFound) {
-      handlePersistChanges(updatedItems);
-    }
+    if (itemFound) handlePersistChanges(updatedItems);
 
     setEditingId(null);
     setIsNewItem(false);
@@ -198,7 +195,7 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
 
   const handleCancel = () => {
     if (isNewItem) {
-      const updatedItems = items.filter(item => item.id !== editingId);
+      const updatedItems = safeItems.filter(it => it?.id !== editingId);
       const updatedProcess = { ...process, [processKey]: updatedItems };
       setProcess(updatedProcess);
     }
@@ -207,25 +204,26 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
   };
 
   const handleConfirmDelete = async () => {
+    if (isLocked) return;
     if (!deleteConfirmation.itemToDelete) return;
+
     const targetId = deleteConfirmation.itemToDelete.id;
     const parentId = deleteConfirmation.itemToDelete.parentId;
-    const updatedItems: ITTOItem[] = JSON.parse(JSON.stringify(items));
+    const updatedItems: ITTOItem[] = JSON.parse(JSON.stringify(safeItems));
 
     if (parentId) {
       const walk = (arr: ITTOItem[]): boolean => {
         for (const it of arr) {
-          if (it.id === parentId && it.versions && it.versions.length) {
+          if (!it) continue;
+          if (it.id === parentId && it.versions?.length) {
             const idx = it.versions.findIndex(v => v.id === targetId);
             if (idx >= 0) {
               const wasActive = !!it.versions[idx].isActive;
               it.versions.splice(idx, 1);
-              if (wasActive) {
-                if (it.versions.length > 0) {
-                  const promoteIndex = Math.max(0, idx - 1);
-                  it.versions.forEach(v => (v.isActive = false));
-                  it.versions[promoteIndex].isActive = true;
-                }
+              if (wasActive && it.versions.length > 0) {
+                const promoteIndex = Math.max(0, idx - 1);
+                it.versions.forEach(v => (v.isActive = false));
+                it.versions[promoteIndex].isActive = true;
               }
               return true;
             }
@@ -238,11 +236,12 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
     } else {
       const promoteChildToParent = (arr: ITTOItem[]): boolean => {
         for (const it of arr) {
+          if (!it) continue;
           if (it.id === targetId) {
             const children = it.versions ?? [];
 
             if (children.length === 0) {
-              const i = arr.findIndex(x => x.id === targetId);
+              const i = arr.findIndex(x => x?.id === targetId);
               if (i >= 0) arr.splice(i, 1);
               return true;
             }
@@ -281,28 +280,39 @@ const ITTOList: React.FC<ITTOListProps> = ({ title, items, icon, process, setPro
         <span className="ml-2">{title}</span>
         <button
           onClick={handleAddParentItemRequest}
-          className="ml-2 flex items-center justify-center w-5 h-5 bg-gray-200 text-gray-500 rounded-full hover:bg-green-500 hover:text-white transition-all duration-200"
-          title={`Añadir nuevo documento a ${title}`}
+          disabled={isLocked}
+          className="ml-2 flex items-center justify-center w-5 h-5 bg-gray-200 text-gray-500 rounded-full
+                     hover:bg-green-500 hover:text-white transition-all duration-200
+                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-200 disabled:hover:text-gray-500"
+          title={isLocked ? 'Bloqueado durante En Progreso' : `Añadir nuevo documento a ${title}`}
         >
           <span className="text-base font-bold leading-none -mt-px">+</span>
         </button>
       </h3>
+
       <div className="relative text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         <ul>
-          {items.map((item) => (
+          {safeItems.map((item) => (
             <ITTOListItem
               key={item.id}
               item={item}
               isEditing={editingId === item.id}
               processType={process.type}
-              onEditStart={() => { setIsNewItem(false); setEditingId(item.id); }}
+              onEditStart={() => {
+                if (!isLocked) {
+                  setIsNewItem(false);
+                  setEditingId(item.id);
+                }
+              }}
               onSave={handleSave}
               onCancel={handleCancel}
-              onAddVersion={() => handleAddVersionRequest(item.id, item.name.replace(/\*$/, '').trim())}
+              onAddVersion={() => handleAddVersionRequest(item.id, (item.name ?? '').replace(/\*$/, '').trim())}
               onDeleteRequest={(id, name, parentId) => {
+                if (isLocked) return;
                 setDeleteConfirmation({ isVisible: true, itemToDelete: { id, name, parentId } });
               }}
               onSelectVersion={handleSelectVersion}
+              isLocked={isLocked}
             />
           ))}
         </ul>
