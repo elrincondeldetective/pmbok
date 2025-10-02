@@ -1,0 +1,35 @@
+# docker-compose.yml
+
+services:
+  # Servicio de la Base de Datos (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: pmbok_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=pmbok_db
+      - POSTGRES_USER=pmbok_user
+      - POSTGRES_PASSWORD=pmbok_password
+    ports:
+      - "5434:5432"
+
+  # Servicio del Backend (Django)
+  backend:
+      build: ./backend
+      container_name: pmbok_backend
+      command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+      volumes:
+        # ASEGÚRATE DE QUE ESTA LÍNEA TERMINE CON ':z'
+        - ./backend:/app:z
+      ports:
+        - "8000:8000"
+      environment:
+        - DJANGO_DEBUG=True
+        - SECRET_KEY=django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$$(+
+        - DATABASE_URL=postgres://pmbok_user:pmbok_password@db:5432/pmbok_db
+      depends_on:
+        - db
+
+volumes:
+  postgres_data:
