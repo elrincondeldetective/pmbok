@@ -1,0 +1,12 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Zipping the backend directory..."
+      - cd backend
+      - zip -r ../backend-deployment.zip . -x "venv/*" "__pycache__/*" "*.sqlite3"
+
+artifacts:
+  files:
+    - backend-deployment.zip
