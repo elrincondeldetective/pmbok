@@ -2,9 +2,13 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-// Creamos una instancia de Axios con configuración base
+// 1. Lee la variable de entorno de Vite. Si no existe, usa la de localhost.
+// Esto permite que la app funcione tanto en Docker (con la variable de entorno) como localmente o en Amplify (sin ella).
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+// 2. Crea la instancia de Axios con la URL dinámica.
 const apiClient = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api', // URL base de tu API
+    baseURL: API_BASE_URL,
 });
 
 // Interceptor de Petición (Request)
@@ -35,7 +39,9 @@ apiClient.interceptors.request.use(
             }
 
             try {
-                const response = await axios.post('http://127.0.0.1:8000/api/token/refresh/', {
+                // 3. Usa una URL dinámica también para el refresh token.
+                // Se crea una nueva instancia de axios aquí para evitar un bucle infinito en el interceptor.
+                const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {
                     refresh: refreshToken,
                 });
                 
@@ -43,7 +49,9 @@ apiClient.interceptors.request.use(
                 localStorage.setItem('access_token', newAccessToken);
                 
                 // Actualizamos la cabecera de la petición actual con el nuevo token
-                config.headers.Authorization = `Bearer ${newAccessToken}`;
+                if (config.headers) {
+                    config.headers.Authorization = `Bearer ${newAccessToken}`;
+                }
                 
             } catch (error) {
                 // Si el refresh token también falla, limpiamos todo y forzamos el logout.
@@ -55,7 +63,9 @@ apiClient.interceptors.request.use(
             }
         } else {
             // Si el token de acceso no ha expirado, lo usamos
-            config.headers.Authorization = `Bearer ${accessToken}`;
+            if (config.headers) {
+                config.headers.Authorization = `Bearer ${accessToken}`;
+            }
         }
         
         return config;
@@ -67,4 +77,3 @@ apiClient.interceptors.request.use(
 );
 
 export default apiClient;
-

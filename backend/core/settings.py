@@ -28,7 +28,8 @@ SECRET_KEY = 'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
-ALLOWED_HOSTS = ['pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com', 'localhost', '127.0.0.1']
+# 👇 CAMBIO CLAVE: AÑADIMOS 'backend' A LA LISTA
+ALLOWED_HOSTS = ['pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com', 'localhost', '127.0.0.1', 'backend', '0.0.0.0']
 
 
 # Application definition
