@@ -11,44 +11,41 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from datetime import timedelta # Importamos timedelta
+from datetime import timedelta
 import os
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# --- CAMBIO 1: LEER SECRET_KEY DESDE VARIABLES DE ENTORNO ---
+# Es una mejor práctica de seguridad no tener la clave secreta directamente en el código.
+# En producción (Elastic Beanstalk), usará la variable que configuraste.
+# Para desarrollo local (docker-compose), usará el valor por defecto que está aquí.
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY', 
+    'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
+)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
-
-# SECURITY WARNING: don't run with debug turned on in production!
+# --- ESTO YA ESTABA CORRECTO ---
+# Lee la variable DJANGO_DEBUG. Si no existe, se asume True (desarrollo).
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
-# 👇 CAMBIO CLAVE: AÑADIMOS 'backend' A LA LISTA
+# Se mantiene tu lista, asegurando que el dominio de Elastic Beanstalk esté presente.
 ALLOWED_HOSTS = ['pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com', 'localhost', '127.0.0.1', 'backend', '0.0.0.0', '.elasticbeanstalk.com']
 
 
 # Application definition
-
 INSTALLED_APPS = [
-    # Aplicaciones por defecto de Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Dependencias de terceros
     'rest_framework',
     'corsheaders',
-    'rest_framework_simplejwt', # Añadido para autenticación JWT
-
-    # Mis aplicaciones locales
+    'rest_framework_simplejwt',
     'api',
 ]
 
@@ -63,21 +60,20 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Orígenes permitidos para el frontend (asegúrate de que el puerto sea el correcto)
+# --- CAMBIO 2: PERMITIR CONEXIONES DESDE EL FRONTEND EN PRODUCCIÓN ---
+# Tu frontend en producción necesita permiso para hablar con tu backend en producción.
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173", # Puerto por defecto de Vite
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
+    # ¡AÑADIDO! La URL de tu entorno de Elastic Beanstalk.
+    "http://pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com",
 ]
 
-# --- AÑADE ESTO ---
-# Permitimos explícitamente las cabeceras que el frontend enviará
+# Esto ya estaba correcto, permite enviar el token de autorización.
 CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',
 ]
-# -------------------
-
-
 
 ROOT_URLCONF = 'core.urls'
 
@@ -98,74 +94,46 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# --- CONFIGURACIÓN DE BASE DE DATOS (ESTO YA ESTABA PERFECTO) ---
+# Esta sección es clave: lee la variable de entorno `DATABASE_URL` para conectarse.
+# Si no la encuentra, usa SQLite, lo cual es útil para pruebas iniciales, pero
+# en Docker y en Elastic Beanstalk, siempre encontrará la variable que le pasemos.
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}"
+        default=f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}",
+        conn_max_age=600  # Mejora la eficiencia de las conexiones a RDS
     )
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
+# ... (El resto del archivo no necesita cambios)
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
+# Archivos estáticos
 STATIC_URL = 'static/'
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# Esta línea es crucial para que `collectstatic` funcione en producción
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- Custom Settings ---
-
-# 1. Modelo de Usuario Personalizado
-# Le decimos a Django que use nuestro modelo personalizado en lugar del por defecto.
+# Custom Settings
 AUTH_USER_MODEL = 'api.CustomUser'
 
-# 2. Configuración de Django REST Framework
-# Definimos la autenticación por defecto para que sea a través de JWT.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
 
-# 3. Configuración de Simple JWT
-# Personalizamos la duración de los tokens.
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
