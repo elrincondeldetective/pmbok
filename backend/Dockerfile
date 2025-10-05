@@ -29,3 +29,6 @@ EXPOSE 8000
 
 # 8. Punto de entrada: Define el script que se ejecutará al iniciar el contenedor.
 ENTRYPOINT ["/app/entrypoint.sh"]
+# 9. Comando por defecto: Le dice a entrypoint.sh qué ejecutar.
+#    Inicia Gunicorn para servir la aplicación Django.
+CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]
