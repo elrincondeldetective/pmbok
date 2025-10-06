@@ -18,25 +18,25 @@ class Command(BaseCommand):
         ScrumProcess.objects.all().delete()
         ScrumPhase.objects.all().delete()
 
-        # --- ESTATUS CONCEPTUALES PARA EL FLUJO DE TRABAJO SCRUM ---
+        # --- ESTATUS CONCEPTUALES PARA EL FLUJO DE TRABAJO SCRUM (SIN EMOJIS) ---
         status_fase0, _ = ProcessStatus.objects.get_or_create(
-            name="Fase 0: Preparación", 
+            name="Fase 0: Preparacion",
             defaults={'tailwind_bg_color': 'bg-purple-800', 'tailwind_text_color': 'text-white'}
         )
         status_ciclo, _ = ProcessStatus.objects.get_or_create(
-            name="Ciclo del Sprint", 
+            name="Ciclo del Sprint",
             defaults={'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'}
         )
         status_diario, _ = ProcessStatus.objects.get_or_create(
-            name="Ritmo Diario", 
+            name="Ritmo Diario",
             defaults={'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'}
         )
         status_lanzamiento, _ = ProcessStatus.objects.get_or_create(
-            name="Lanzamiento y Cierre", 
+            name="Lanzamiento y Cierre",
             defaults={'tailwind_bg_color': 'bg-rose-700', 'tailwind_text_color': 'text-white'}
         )
         status_escalado, _ = ProcessStatus.objects.get_or_create(
-            name="Escalado Avanzado", 
+            name="Escalado Avanzado",
             defaults={'tailwind_bg_color': 'bg-gray-500', 'tailwind_text_color': 'text-white'}
         )
 
@@ -95,7 +95,6 @@ class Command(BaseCommand):
             ScrumProcess.objects.create(
                 process_number=num,
                 name=name,
-                # --- CAMBIO: Convertir strings a JSON ---
                 inputs=to_json_list(inputs),
                 tools_and_techniques=to_json_list(tools),
                 outputs=to_json_list(outputs),
@@ -105,4 +104,3 @@ class Command(BaseCommand):
             )
         
         self.stdout.write(self.style.SUCCESS('Database has been seeded successfully with full Scrum details!'))
-
