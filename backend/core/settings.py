@@ -14,25 +14,43 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import dj_database_url
+import urllib.request # <-- Se añade esta librería para la solución del Health Check
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- CAMBIO 1: LEER SECRET_KEY DESDE VARIABLES DE ENTORNO ---
-# Es una mejor práctica de seguridad no tener la clave secreta directamente en el código.
-# En producción (Elastic Beanstalk), usará la variable que configuraste.
-# Para desarrollo local (docker-compose), usará el valor por defecto que está aquí.
+# --- SECRET_KEY leída desde variables de entorno ---
 SECRET_KEY = os.environ.get(
     'SECRET_KEY', 
     'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
 )
 
-# --- ESTO YA ESTABA CORRECTO ---
-# Lee la variable DJANGO_DEBUG. Si no existe, se asume True (desarrollo).
+# --- DEBUG leído desde variables de entorno ---
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
-# Se mantiene tu lista, asegurando que el dominio de Elastic Beanstalk esté presente.
-ALLOWED_HOSTS = ['pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com', 'localhost', '127.0.0.1', 'backend', '0.0.0.0', '.elasticbeanstalk.com']
+# --- ALLOWED_HOSTS ---
+# Se mantiene tu lista original para compatibilidad local y de producción.
+ALLOWED_HOSTS = [
+    'pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com', 
+    'localhost', 
+    '127.0.0.1', 
+    'backend', 
+    '0.0.0.0', 
+    '.elasticbeanstalk.com'
+]
+
+# --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
+# Obtiene la IP privada de la instancia EC2 desde el servicio de metadatos de AWS.
+# Esto es crucial para que el Health Checker de Elastic Beanstalk pueda acceder a la aplicación.
+# Este bloque no afectará tu entorno de desarrollo local.
+try:
+    EC2_PRIVATE_IP = urllib.request.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1).read().decode()
+    if EC2_PRIVATE_IP and EC2_PRIVATE_IP not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
+except Exception as e:
+    # No hacer nada si no se puede obtener la IP (por ejemplo, en desarrollo local)
+    pass
+# --- FIN DE LA SOLUCIÓN ---
 
 
 # Application definition
@@ -60,16 +78,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# --- CAMBIO 2: PERMITIR CONEXIONES DESDE EL FRONTEND EN PRODUCCIÓN ---
-# Tu frontend en producción necesita permiso para hablar con tu backend en producción.
+# --- Orígenes permitidos para CORS ---
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    # ¡AÑADIDO! La URL de tu entorno de Elastic Beanstalk.
     "http://pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com",
 ]
 
-# Esto ya estaba correcto, permite enviar el token de autorización.
 CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',
@@ -94,10 +109,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- CONFIGURACIÓN DE BASE DE DATOS (ESTO YA ESTABA PERFECTO) ---
-# Esta sección es clave: lee la variable de entorno `DATABASE_URL` para conectarse.
-# Si no la encuentra, usa SQLite, lo cual es útil para pruebas iniciales, pero
-# en Docker y en Elastic Beanstalk, siempre encontrará la variable que le pasemos.
+# --- Configuración de la Base de Datos ---
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}",
@@ -105,7 +117,7 @@ DATABASES = {
     )
 }
 
-# ... (El resto del archivo no necesita cambios)
+# --- Validadores de Contraseña ---
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -113,19 +125,19 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# --- Internacionalización ---
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Archivos estáticos
+# --- Archivos Estáticos ---
 STATIC_URL = 'static/'
-# Esta línea es crucial para que `collectstatic` funcione en producción
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static') # Crucial para collectstatic
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Custom Settings
+# --- Configuraciones Personalizadas ---
 AUTH_USER_MODEL = 'api.CustomUser'
 
 REST_FRAMEWORK = {
