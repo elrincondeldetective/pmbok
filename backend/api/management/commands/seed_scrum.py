@@ -20,23 +20,23 @@ class Command(BaseCommand):
 
         # --- ESTATUS CONCEPTUALES PARA EL FLUJO DE TRABAJO SCRUM ---
         status_fase0, _ = ProcessStatus.objects.get_or_create(
-            name="Fase 0: Preparación 🚀", 
+            name="Fase 0: Preparación", 
             defaults={'tailwind_bg_color': 'bg-purple-800', 'tailwind_text_color': 'text-white'}
         )
         status_ciclo, _ = ProcessStatus.objects.get_or_create(
-            name="Ciclo del Sprint 🗓️", 
+            name="Ciclo del Sprint", 
             defaults={'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'}
         )
         status_diario, _ = ProcessStatus.objects.get_or_create(
-            name="Ritmo Diario 🛠️", 
+            name="Ritmo Diario", 
             defaults={'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'}
         )
         status_lanzamiento, _ = ProcessStatus.objects.get_or_create(
-            name="Lanzamiento y Cierre 🚢", 
+            name="Lanzamiento y Cierre", 
             defaults={'tailwind_bg_color': 'bg-rose-700', 'tailwind_text_color': 'text-white'}
         )
         status_escalado, _ = ProcessStatus.objects.get_or_create(
-            name="Escalado Avanzado 🧘", 
+            name="Escalado Avanzado", 
             defaults={'tailwind_bg_color': 'bg-gray-500', 'tailwind_text_color': 'text-white'}
         )
 

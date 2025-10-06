@@ -20,7 +20,7 @@ class Command(BaseCommand):
         
         self.stdout.write('Creating/getting shared process statuses...')
         status_base, _ = ProcessStatus.objects.get_or_create(name="Base Estratégica", defaults={'tailwind_bg_color': 'bg-indigo-800', 'tailwind_text_color': 'text-white'})
-        status_sprint_cycle, _ = ProcessStatus.objects.get_or_create(name="Ciclo del Sprint 🗓️", defaults={'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'})
+        status_sprint_cycle, _ = ProcessStatus.objects.get_or_create(name="Ciclo del Sprint", defaults={'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'})
         status_daily, _ = ProcessStatus.objects.get_or_create(name="Ritmo Diario 🛠️", defaults={'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'})
         status_burocracia, _ = ProcessStatus.objects.get_or_create(name="Burocracia Innecesaria", defaults={'tailwind_bg_color': 'bg-amber-500', 'tailwind_text_color': 'text-white'})
         status_inaplicable, _ = ProcessStatus.objects.get_or_create(name="Inaplicable", defaults={'tailwind_bg_color': 'bg-gray-400', 'tailwind_text_color': 'text-gray-800'})
