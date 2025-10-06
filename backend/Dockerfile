@@ -1,7 +1,7 @@
 # backend/Dockerfile
 
 # 1. Imagen base: Usamos una imagen oficial de Python ligera.
-FROM python:3.11-slim-buster
+FROM public.ecr.aws/docker/library/python:3.11-slim-buster
 
 # 2. Variables de entorno: Optimizan la ejecución de Python en Docker.
 ENV PYTHONDONTWRITEBYTECODE 1
