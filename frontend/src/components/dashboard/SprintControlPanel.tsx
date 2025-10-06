@@ -17,30 +17,30 @@ const workflowStages = [
     { 
         name: "Preparación (Scrum)", 
         action: "Iniciar Preparación Scrum", 
-        statusToActivate: "Fase 0: Preparación 🚀",
+        statusToActivate: "Fase 0: Preparación",
         processType: "scrum",
         prereqStatus: "Base Estratégica"
     },
     { 
         name: "Planificación del Sprint", 
         action: "Iniciar Planificación", 
-        statusToActivate: "Ciclo del Sprint 🗓️",
+        statusToActivate: "Ciclo del Sprint",
         processType: "scrum",
-        prereqStatus: "Fase 0: Preparación 🚀"
+        prereqStatus: "Fase 0: Preparación"
     },
     { 
         name: "Ejecución Diaria (Híbrido)", 
         action: "Comenzar Trabajo Diario", 
-        statusToActivate: "Ritmo Diario 🛠️",
+        statusToActivate: "Ritmo Diario",
         processType: "both", // Afecta a ambos
-        prereqStatus: "Ciclo del Sprint 🗓️"
+        prereqStatus: "Ciclo del Sprint"
     },
     { 
         name: "Lanzamiento y Cierre", 
         action: "Iniciar Cierre / Lanzamiento", 
-        statusToActivate: "Lanzamiento y Cierre 🚢",
+        statusToActivate: "Lanzamiento y Cierre",
         processType: "scrum",
-        prereqStatus: "Ritmo Diario 🛠️"
+        prereqStatus: "Ritmo Diario"
     },
 ];
 
