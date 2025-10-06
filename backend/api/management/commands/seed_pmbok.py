@@ -15,15 +15,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Deleting existing PMBOK data...')
         PMBOKProcess.objects.all().delete()
-        # No borramos ProcessStatus para que se compartan con Scrum
-        # ProcessStage se puede mantener o borrar, dependiendo de si cambian
         
         self.stdout.write('Creating/getting shared process statuses...')
+        # V V V LÍNEAS CORREGIDAS - SIN EMOJIS V V V
         status_base, _ = ProcessStatus.objects.get_or_create(name="Base Estratégica", defaults={'tailwind_bg_color': 'bg-indigo-800', 'tailwind_text_color': 'text-white'})
         status_sprint_cycle, _ = ProcessStatus.objects.get_or_create(name="Ciclo del Sprint", defaults={'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'})
-        status_daily, _ = ProcessStatus.objects.get_or_create(name="Ritmo Diario 🛠️", defaults={'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'})
+        status_daily, _ = ProcessStatus.objects.get_or_create(name="Ritmo Diario", defaults={'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'})
         status_burocracia, _ = ProcessStatus.objects.get_or_create(name="Burocracia Innecesaria", defaults={'tailwind_bg_color': 'bg-amber-500', 'tailwind_text_color': 'text-white'})
         status_inaplicable, _ = ProcessStatus.objects.get_or_create(name="Inaplicable", defaults={'tailwind_bg_color': 'bg-gray-400', 'tailwind_text_color': 'text-gray-800'})
+        # ^ ^ ^ LÍNEAS CORREGIDAS - SIN EMOJIS ^ ^ ^
 
         self.stdout.write('Creating process stages...')
         stage_map = {
@@ -118,8 +118,6 @@ class Command(BaseCommand):
                 outputs=to_json_list(outputs),
                 status=status_obj,
                 stage=stage_obj,
-                # ===== CAMBIO 1 de 2: CORRECCIÓN DEL ESTADO INICIAL =====
-                # Cambiamos 'backlog' por 'unassigned' para que el tablero inicie limpio.
                 kanban_status='unassigned'  
             )
         
