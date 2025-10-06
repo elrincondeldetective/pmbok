@@ -31,7 +31,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 # --- ALLOWED_HOSTS ---
 # Se mantiene tu lista original para compatibilidad local y de producción.
 ALLOWED_HOSTS = [
-    'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com',
+    'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com', 
     'localhost', 
     '127.0.0.1', 
     'backend', 
@@ -82,7 +82,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://pmbok-app-prod.eba-n3zbqqz4.us-east-1.elasticbeanstalk.com",
+    "http://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
 ]
 
 CORS_ALLOW_HEADERS = [
