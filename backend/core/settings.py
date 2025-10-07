@@ -14,14 +14,14 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import dj_database_url
-import urllib.request # <-- Se añade esta librería para la solución del Health Check
+import urllib.request  # <-- Se añade esta librería para la solución del Health Check
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SECRET_KEY leída desde variables de entorno ---
 SECRET_KEY = os.environ.get(
-    'SECRET_KEY', 
+    'SECRET_KEY',
     'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
 )
 
@@ -31,11 +31,11 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 # --- ALLOWED_HOSTS ---
 # Se mantiene tu lista original para compatibilidad local y de producción.
 ALLOWED_HOSTS = [
-    'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com', 
-    'localhost', 
-    '127.0.0.1', 
-    'backend', 
-    '0.0.0.0', 
+    'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com',
+    'localhost',
+    '127.0.0.1',
+    'backend',
+    '0.0.0.0',
     '.elasticbeanstalk.com'
 ]
 
@@ -44,7 +44,8 @@ ALLOWED_HOSTS = [
 # Esto es crucial para que el Health Checker de Elastic Beanstalk pueda acceder a la aplicación.
 # Este bloque no afectará tu entorno de desarrollo local.
 try:
-    EC2_PRIVATE_IP = urllib.request.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1).read().decode()
+    EC2_PRIVATE_IP = urllib.request.urlopen(
+        'http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1).read().decode()
     if EC2_PRIVATE_IP and EC2_PRIVATE_IP not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
 except Exception as e:
@@ -69,6 +70,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,6 +79,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Django 5: backend de estáticos (equivale al antiguo STATICFILES_STORAGE)
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    }
+}
 
 # --- Orígenes permitidos para CORS ---
 CORS_ALLOWED_ORIGINS = [
@@ -132,9 +141,11 @@ USE_I18N = True
 USE_TZ = True
 
 # --- Archivos Estáticos ---
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR.parent / 'static'
-# STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'static')) 
+# STATIC_URL = 'static/'
+# STATIC_ROOT = BASE_DIR.parent / 'static'
+# STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'static'))
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

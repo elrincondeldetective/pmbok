@@ -22,4 +22,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8000
 
 # 7. Comando por defecto (no es necesario entrypoint.sh para este caso)
+RUN python manage.py collectstatic --noinput
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]
