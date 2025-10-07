@@ -1,26 +1,38 @@
 #!/bin/sh
+# backend/entrypoint.sh
 
 # Salir inmediatamente si un comando falla
 set -e
 
-# 1. Aplicar migraciones de la base de datos
-echo "Applying database migrations..."
-python manage.py migrate --noinput
+# --- Función para ejecutar comandos y registrar su resultado ---
+run_command() {
+    echo "▶️  Iniciando: $1"
+    # El comando shift mueve los argumentos, así que "$@" ahora contiene el comando real a ejecutar
+    shift
+    # Ejecuta el comando
+    "$@"
+    # Verifica el código de salida del comando anterior
+    if [ $? -eq 0 ]; then
+        echo "✅  Éxito: $1 completado."
+    else
+        echo "❌  FALLO: $1 no se pudo completar."
+        # Salir con un código de error para detener el contenedor
+        exit 1
+    fi
+    echo # Línea en blanco para separar visualmente los logs
+}
 
-# 2. Recolectar archivos estáticos
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+# --- Secuencia de inicio ---
+run_command "Aplicar migraciones de la base de datos" python manage.py migrate --noinput
 
-# 3. Ejecutar los comandos para poblar la base de datos (seeds)
-echo "Seeding database with PMBOK processes..."
-python manage.py seed_pmbok
+run_command "Recolectar archivos estáticos" python manage.py collectstatic --noinput
 
-echo "Seeding database with Scrum processes..."
-python manage.py seed_scrum
+run_command "Poblar DB con procesos PMBOK" python manage.py seed_pmbok
 
-echo "Seeding database with departments..."
-python manage.py seed_departments
+run_command "Poblar DB con procesos Scrum" python manage.py seed_scrum
 
-# 4. Iniciar el servidor (ejecuta el comando principal del Dockerfile o docker-compose)
-echo "Starting server..."
+run_command "Poblar DB con departamentos" python manage.py seed_departments
+
+# --- Iniciar el servidor ---
+echo "🚀 Todos los comandos de inicio se completaron con éxito. Iniciando servidor..."
 exec "$@"
