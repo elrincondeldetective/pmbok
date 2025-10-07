@@ -12,7 +12,7 @@ WORKDIR /app
 
 # 4. Copia del código de backend al contenedor
 # Copia todo el contenido de la carpeta 'backend' local a la carpeta de trabajo '/app'
-COPY . .
+COPY ./backend/ .
 
 # 5. Instalación de dependencias
 RUN pip install --upgrade pip
