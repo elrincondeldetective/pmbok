@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
-import dj_database_url
 import urllib.request  # <-- Se añade esta librería para la solución del Health Check
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -129,11 +128,17 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # --- Configuración de la Base de Datos ---
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}",
-        conn_max_age=600  # Mejora la eficiencia de las conexiones a RDS
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USER'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ['DB_HOST'],
+        'PORT': os.environ.get('DB_PORT', '5432'),
+        'OPTIONS': {'sslmode': 'require'},
+    }
 }
+
 
 # --- Validadores de Contraseña ---
 AUTH_PASSWORD_VALIDATORS = [
