@@ -1,4 +1,4 @@
-# Dockerfile (AHORA EN LA RAÍZ DEL PROYECTO)
+# backend/Dockerfile
 
 # 1. Imagen base
 FROM public.ecr.aws/docker/library/python:3.11-slim-buster

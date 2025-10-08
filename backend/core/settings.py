@@ -39,6 +39,15 @@ ALLOWED_HOSTS = [
     '.elasticbeanstalk.com'
 ]
 
+# --- Seguridad detrás de ELB/Proxy ---
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+    "http://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+]
+
+
 # --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
 # Obtiene la IP privada de la instancia EC2 desde el servicio de metadatos de AWS.
 # Esto es crucial para que el Health Checker de Elastic Beanstalk pueda acceder a la aplicación.
