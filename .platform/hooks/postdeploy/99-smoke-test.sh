@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
+# .platform/hooks/postdeploy/99-smoke-test.sh
 set -Eeuo pipefail
 
-LOG="/var/log/selinux-smoke.log"
+LOG="/var/log/selinux-smoke.log"   # mismo archivo que ya venías usando
 exec >>"$LOG" 2>&1
 echo "== $(date -Is) POSTDEPLOY: smoke test =="
 
-# Da unos segundos por si el contenedor tarda en quedar listo
-for i in {1..10}; do
-  if curl -s -I http://127.0.0.1/admin/login/ | head -n1 | grep -E '200|302' >/dev/null; then
-    echo "[ok] /admin/login/ responde (200/302)"
+# Probamos contra 127.0.0.1 (Nginx→contenedor). GET para evitar rarezas con HEAD.
+for i in {1..20}; do                     # más paciencia: 20 intentos
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/admin/login/ || true)
+  if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+    echo "[ok] /admin/login/ responde ($code)"
     exit 0
   fi
-  echo "[wait] intento $i esperando app…"
+  echo "[wait] intento $i ($code) esperando app…"
   sleep 3
 done
 
 echo "[error] /admin/login/ no respondió 200/302"
-# Salir con error hace que EB marque el deploy como fallido (y te avise)
 exit 1

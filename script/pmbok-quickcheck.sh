@@ -2,6 +2,26 @@ CID=$(sudo docker ps -q)
 
 sudo docker logs --tail 200 $CID
 
+
+# 1) Logs del motor de despliegue y hooks de EB
+sudo tail -n 200 /var/log/eb-engine.log
+sudo tail -n 200 /var/log/eb-hooks.log
+
+# 2) Tus hooks personalizados (.platform/hooks)
+sudo tail -n 200 /var/log/selinux-nginx-upstream.log  # predeploy
+sudo tail -n 200 /var/log/selinux-smoke.log           # postdeploy (smoke test)
+
+# 3) Nginx y salud
+sudo tail -n 200 /var/log/nginx/error.log
+sudo tail -n 200 /var/log/healthd/daemon.log
+
+# 4) Contenedor (app)
+CID=$(sudo docker ps -q)
+
+sudo docker logs --tail 200 $CID
+
+
+
 # 3) Confirma que se ejecutó
 
 # Después de desplegar con tu pipeline:
