@@ -1,3 +1,10 @@
+docker compose down -v                                                              
+docker compose build backend 
+docker compose up -d backend
+docker compose logs -f backend | sed -n '1,120p'
+curl -s http://127.0.0.1/version
+
+
 CID=$(sudo docker ps -q)
 
 sudo docker logs --tail 200 $CID
