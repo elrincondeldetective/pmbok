@@ -20,7 +20,7 @@ done
 # Toggles controlables desde Elastic Beanstalk (Configuration → Software)
 : "${RUN_MIGRATIONS:=1}"     # 1/0
 : "${RUN_COLLECTSTATIC:=1}"  # 1/0
-: "${RUN_SEED:=auto}"        # auto | always | skip  (auto = sólo si faltan datos)
+: "${RUN_SEED:=always}"        # auto | always | skip  (auto = sólo si faltan datos)
 
 # --- Migraciones con reintentos (por si la DB tarda en estar lista) ---
 if [ "$RUN_MIGRATIONS" = "1" ]; then
