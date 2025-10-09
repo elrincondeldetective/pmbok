@@ -23,6 +23,12 @@ sudo docker logs --tail 200 $CID
 
 
 # 3) Confirma que se ejecutó
+# ver el resultado del hook
+sudo tail -n 200 /var/log/selinux-smoke.log
+
+# si llega a marcar [error], pega también:
+CID=$(sudo docker ps -q)
+sudo docker logs --tail 200 $CID
 
 # Después de desplegar con tu pipeline:
 

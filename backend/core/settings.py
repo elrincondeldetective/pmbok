@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import urllib.request  # <-- Se añade esta librería para la solución del Health Check
+from corsheaders.defaults import default_headers, default_methods
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -115,16 +116,19 @@ STORAGES = {
 }
 
 # --- Orígenes permitidos para CORS ---
+CORS_ALLOW_ALL_ORIGINS = False  # explícito
 CORS_ALLOWED_ORIGINS = [
+    "https://elrincondeldetective.com",
+    "https://www.elrincondeldetective.com",
+    "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
 ]
 
-CORS_ALLOW_HEADERS = [
-    'content-type',
-    'authorization',
-]
+# Preflight: permite headers comunes (incluye Authorization) y cachea la respuesta
+CORS_ALLOW_HEADERS = list(default_headers) + ["authorization", "content-type"]
+CORS_ALLOW_METHODS = list(default_methods)
+CORS_PREFLIGHT_MAX_AGE = 86400
 
 ROOT_URLCONF = 'core.urls'
 
@@ -197,6 +201,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+# Usas JWT en header, no cookies:
+CORS_ALLOW_CREDENTIALS = False
 
 LOGGING = {
     "version": 1,
