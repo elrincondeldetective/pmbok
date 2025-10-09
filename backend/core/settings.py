@@ -18,15 +18,16 @@ import urllib.request  # <-- Se añade esta librería para la solución del Heal
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- SECRET_KEY leída desde variables de entorno ---
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
-)
 
 # --- DEBUG leído desde variables de entorno ---
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
+IS_PROD = not DEBUG
 
+# --- SECRET_KEY leída desde variables de entorno ---
+SECRET_KEY = os.environ.get('SECRET_KEY', None) or (
+    'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
+    if not IS_PROD else (_ for _ in ()).throw(RuntimeError("SECRET_KEY no definido en producción"))
+)
 # --- ALLOWED_HOSTS ---
 # Se mantiene tu lista original para compatibilidad local y de producción.
 ALLOWED_HOSTS = [
@@ -43,6 +44,17 @@ ALLOWED_HOSTS = [
 
 # --- Seguridad detrás de ELB/Proxy ---
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if IS_PROD:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = "Lax"   # ← añade esta línea
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = "Lax"
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
 
 CSRF_TRUSTED_ORIGINS = [
     "http://elrincondeldetective.com",
@@ -203,3 +215,5 @@ LOGGING = {
         },
     },
 }
+
+USE_X_FORWARDED_HOST = True
