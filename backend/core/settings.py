@@ -47,6 +47,7 @@ ALLOWED_HOSTS = [
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 if IS_PROD:
     SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = [r"^healthz$", r"^version$"]
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_SAMESITE = "Lax"   # ← añade esta línea
     CSRF_COOKIE_SECURE = True
