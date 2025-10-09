@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copia SOLO el backend (donde está manage.py, requirements.txt y entrypoint.sh)
-COPY ./backend/ .
+COPY . .
 
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt

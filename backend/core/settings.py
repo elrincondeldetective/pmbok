@@ -35,15 +35,22 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'backend',
     '0.0.0.0',
-    '.elasticbeanstalk.com'
+    '.elasticbeanstalk.com',
+    "52.44.102.215",                 # si quieres que la IP responda sin 400
+    "elrincondeldetective.com",      # tu dominio si lo apuntas a EB/ALB
+    "www.elrincondeldetective.com",
 ]
 
 # --- Seguridad detrás de ELB/Proxy ---
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+    "http://elrincondeldetective.com",
+    "http://www.elrincondeldetective.com",
     "http://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+    "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+    "https://elrincondeldetective.com",
+    "https://www.elrincondeldetective.com",
 ]
 
 
@@ -176,4 +183,12 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
+
+LOGGING = {
+  "version": 1,
+  "disable_existing_loggers": False,
+  "loggers": {
+    "django.security.DisallowedHost": {"handlers": ["console"], "level": "WARNING"},
+  },
 }
