@@ -297,5 +297,10 @@ sketch
 .history
 .ionide
 
+myproject
+myproject/
+staticfiles
+staticfiles/
+
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python,visualstudiocode,react
