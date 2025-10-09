@@ -209,7 +209,7 @@ class PMBOKProcessCustomization(models.Model):
 
     class Meta:
         # Asegura que solo haya una personalización por proceso y país.
-        unique_together = ('process', 'country_code')
+        unique_together = ('process', 'country_code', 'department')
         ordering = ['-updated_at']
 
     def __str__(self):
@@ -246,7 +246,7 @@ class ScrumProcessCustomization(models.Model):
 
     class Meta:
         # Asegura que solo haya una personalización por proceso y país.
-        unique_together = ('process', 'country_code')
+        unique_together = ('process', 'country_code', 'department')
         ordering = ['-updated_at']
 
     def __str__(self):

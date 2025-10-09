@@ -174,6 +174,7 @@ class CustomizationWriteSerializer(serializers.Serializer):
         instance, created = customization_model.objects.update_or_create(
             process=process_instance,
             country_code=validated_data.get('country_code'),
+            department_id=department_id,
             defaults={
                 'inputs': validated_data.get('inputs'),
                 'tools_and_techniques': validated_data.get('tools_and_techniques'),
