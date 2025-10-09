@@ -1,5 +1,4 @@
 services:
-  # ... (db service no cambia)
   db:
     image: postgres:15-alpine
     container_name: pmbok_db
@@ -15,7 +14,7 @@ services:
   backend:
     build: ./backend
     container_name: pmbok_backend
-    # 👇 CAMBIO CLAVE: Añadimos --reload y --timeout al comando
+    # Sigue usando el ENTRYPOINT del Dockerfile; aquí sólo pasamos el CMD.
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --reload
     volumes:
       - ./backend:/app:z
@@ -24,11 +23,16 @@ services:
     environment:
       - DJANGO_DEBUG=True
       - SECRET_KEY=django-insecure-nwpq!$$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$$(+
-      - DATABASE_URL=postgres://pmbok_user:pmbok_password@db:5432/pmbok_db
+      - DB_NAME=pmbok_db
+      - DB_USER=pmbok_user
+      - DB_PASSWORD=pmbok_password
+      - DB_HOST=db
+      - DB_PORT=5432
+      # Sólo para local; en AWS no la definas y seguirá en 'require'
+      - DB_SSLMODE=disable
     depends_on:
       - db
 
-  # ... (frontend service no cambia aquí, pero lo hará en el siguiente archivo)
   frontend:
     build:
       context: ./frontend
@@ -41,7 +45,7 @@ services:
       - /app/node_modules
     environment:
       - VITE_DEV_SERVER_HOST=0.0.0.0
-      - VITE_API_URL=http://localhost:8000/api 
+      - VITE_API_URL=http://localhost:8000/api
     depends_on:
       - backend
 
