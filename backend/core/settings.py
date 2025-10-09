@@ -143,6 +143,7 @@ DATABASES = {
         'HOST': os.environ['DB_HOST'],
         'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {'sslmode': os.environ.get('DB_SSLMODE', 'require')},
+
     }
 }
 
@@ -186,9 +187,19 @@ SIMPLE_JWT = {
 }
 
 LOGGING = {
-  "version": 1,
-  "disable_existing_loggers": False,
-  "loggers": {
-    "django.security.DisallowedHost": {"handlers": ["console"], "level": "WARNING"},
-  },
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "django.security.DisallowedHost": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
 }

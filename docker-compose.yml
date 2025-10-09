@@ -30,6 +30,7 @@ services:
       - DB_PORT=5432
       # Sólo para local; en AWS no la definas y seguirá en 'require'
       - DB_SSLMODE=disable
+      - RUN_SEED=skip
     depends_on:
       - db
 
