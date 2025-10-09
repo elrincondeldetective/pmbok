@@ -1,38 +1,56 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # backend/entrypoint.sh
-
-# Salir inmediatamente si un comando falla
 set -e
 
-# --- Función para ejecutar comandos y registrar su resultado ---
-run_command() {
-    echo "▶️  Iniciando: $1"
-    # El comando shift mueve los argumentos, así que "$@" ahora contiene el comando real a ejecutar
-    shift
-    # Ejecuta el comando
-    "$@"
-    # Verifica el código de salida del comando anterior
-    if [ $? -eq 0 ]; then
-        echo "✅  Éxito: $1 completado."
-    else
-        echo "❌  FALLO: $1 no se pudo completar."
-        # Salir con un código de error para detener el contenedor
-        exit 1
-    fi
-    echo # Línea en blanco para separar visualmente los logs
+log() { echo "[$(date -Is)] $*"; }
+
+run() {
+  desc="$1"; shift
+  log "▶ $desc"
+  "$@"
+  log "✅ $desc"
 }
 
-# --- Secuencia de inicio ---
-run_command "Aplicar migraciones de la base de datos" python manage.py migrate --noinput
+# --- Comprobación básica de variables (solo aviso) ---
+for v in DB_NAME DB_USER DB_PASSWORD DB_HOST; do
+  eval "val=\${$v:-}"
+  [ -z "$val" ] && log "⚠ $v no está definida (si Django la requiere, fallará)."
+done
 
-run_command "Recolectar archivos estáticos" python manage.py collectstatic --noinput
+# Toggles (puedes controlarlos con vars en EB)
+: "${RUN_MIGRATIONS:=1}"
+: "${RUN_COLLECTSTATIC:=1}"
+: "${RUN_SEED:=0}"
 
-run_command "Poblar DB con procesos PMBOK" python manage.py seed_pmbok
+# --- Migraciones con reintentos (útil si la DB tarda en estar lista) ---
+if [ "$RUN_MIGRATIONS" = "1" ]; then
+  log "▶ Aplicar migraciones de la base de datos"
+  tries=0
+  until python manage.py migrate --noinput; do
+    code=$?
+    tries=$((tries+1))
+    if [ "$tries" -ge 5 ]; then
+      log "❌ Migraciones fallaron tras $tries intentos (exit $code)"
+      exit "$code"
+    fi
+    log "⏳ Reintentando migraciones en 5s (intento $((tries+1))/5)…"
+    sleep 5
+  done
+  log "✅ Migraciones aplicadas"
+fi
 
-run_command "Poblar DB con procesos Scrum" python manage.py seed_scrum
+# --- Archivos estáticos ---
+if [ "$RUN_COLLECTSTATIC" = "1" ]; then
+  run "Recolectar archivos estáticos" python manage.py collectstatic --noinput
+fi
 
-run_command "Poblar DB con departamentos" python manage.py seed_departments
+# --- Seeds opcionales (ejecútalos solo cuando quieras) ---
+if [ "$RUN_SEED" = "1" ]; then
+  run "Poblar DB con procesos PMBOK" python manage.py seed_pmbok
+  run "Poblar DB con procesos Scrum" python manage.py seed_scrum
+  run "Poblar DB con departamentos" python manage.py seed_departments
+fi
 
 # --- Iniciar el servidor ---
-echo "🚀 Todos los comandos de inicio se completaron con éxito. Iniciando servidor..."
+log "🚀 Iniciando: $*"
 exec "$@"
