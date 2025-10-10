@@ -56,12 +56,29 @@ curl -s -I -H "Host: pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com"
      http://127.0.0.1/admin/login/ | head -n1
 
 
+# Resetear la contraseña del admin existente (recomendado)
+CID=$(sudo docker ps -q | head -n1)
+
+sudo docker exec -i "$CID" python manage.py shell <<'PY'
+from django.contrib.auth import get_user_model
+User = get_user_model()
+u = User.objects.get(email='admin@admin.com')
+u.set_password('Neandertal13*')
+u.is_staff = True
+u.is_superuser = True
+u.save()
+print("✔ Password reseteado y flags de admin asegurados")
+PY
+
+# Crear otro superusuario con otro correo
+CID=$(sudo docker ps -q | head -n1)
 
 sudo docker exec \
-  -e DJANGO_SUPERUSER_USERNAME='admin' \
-  -e DJANGO_SUPERUSER_EMAIL='admin@admin.com' \
+  -e DJANGO_SUPERUSER_USERNAME='admin2' \
+  -e DJANGO_SUPERUSER_EMAIL='admin2@admin.com' \
   -e DJANGO_SUPERUSER_PASSWORD='Neandertal13*' \
-  -it $CID sh -lc 'python manage.py createsuperuser --noinput'
+  -it "$CID" python manage.py createsuperuser --noinput
+
 
 
 

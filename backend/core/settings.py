@@ -13,12 +13,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
-import urllib.request  # <-- Se añade esta librería para la solución del Health Check
+import urllib.request  # Para resolver Health Check en EB
 from corsheaders.defaults import default_headers, default_methods
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # --- DEBUG leído desde variables de entorno ---
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
@@ -29,27 +28,25 @@ SECRET_KEY = os.environ.get('SECRET_KEY', None) or (
     'django-insecure-nwpq!$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$(+'
     if not IS_PROD else (_ for _ in ()).throw(RuntimeError("SECRET_KEY no definido en producción"))
 )
-# --- ALLOWED_HOSTS ---
-# Se mantiene tu lista original para compatibilidad local y de producción.
+
+# --- HOSTS/Dominios ---
+# Backend debe responder SOLO en el subdominio API y (si lo mantienes abierto) el CNAME de EB.
 ALLOWED_HOSTS = [
+    'api.elrincondeldetective.com',
     'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com',
-    'localhost',
-    '127.0.0.1',
-    'backend',
-    '0.0.0.0',
-    '.elasticbeanstalk.com',
-    "52.44.102.215",                 # si quieres que la IP responda sin 400
-    "elrincondeldetective.com",      # tu dominio si lo apuntas a EB/ALB
-    "www.elrincondeldetective.com",
+    'localhost', '127.0.0.1', 'backend', '0.0.0.0',
 ]
 
 # --- Seguridad detrás de ELB/Proxy ---
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
 if IS_PROD:
     SECURE_SSL_REDIRECT = True
+    # Evita que el health check de ALB/EB se rompa si entra por HTTP
     SECURE_REDIRECT_EXEMPT = [r"^healthz$", r"^version$"]
     SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_SAMESITE = "Lax"   # ← añade esta línea
+    SESSION_COOKIE_SAMESITE = "Lax"
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = "Lax"
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
@@ -58,30 +55,23 @@ if IS_PROD:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
 
+# El admin y cualquier vista con formulario sólo deben confiar en el dominio del backend (NO el del frontend)
 CSRF_TRUSTED_ORIGINS = [
-    "http://elrincondeldetective.com",
-    "http://www.elrincondeldetective.com",
-    "http://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
+    "https://api.elrincondeldetective.com",
     "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
-    "https://elrincondeldetective.com",
-    "https://www.elrincondeldetective.com",
 ]
 
-
 # --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
-# Obtiene la IP privada de la instancia EC2 desde el servicio de metadatos de AWS.
-# Esto es crucial para que el Health Checker de Elastic Beanstalk pueda acceder a la aplicación.
-# Este bloque no afectará tu entorno de desarrollo local.
+# Añade la IP privada de la instancia EC2 a ALLOWED_HOSTS para permitir checks internos.
 try:
     EC2_PRIVATE_IP = urllib.request.urlopen(
-        'http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1).read().decode()
+        'http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1
+    ).read().decode()
     if EC2_PRIVATE_IP and EC2_PRIVATE_IP not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
-except Exception as e:
-    # No hacer nada si no se puede obtener la IP (por ejemplo, en desarrollo local)
+except Exception:
     pass
 # --- FIN DE LA SOLUCIÓN ---
-
 
 # Application definition
 INSTALLED_APPS = [
@@ -101,7 +91,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # debe ir antes de CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -116,20 +106,20 @@ STORAGES = {
     }
 }
 
-# --- Orígenes permitidos para CORS ---
-CORS_ALLOW_ALL_ORIGINS = False  # explícito
+# --- CORS ---
+# Sólo el frontend puede llamar a la API
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://elrincondeldetective.com",
     "https://www.elrincondeldetective.com",
-    "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-
-# Preflight: permite headers comunes (incluye Authorization) y cachea la respuesta
 CORS_ALLOW_HEADERS = list(default_headers) + ["authorization", "content-type"]
 CORS_ALLOW_METHODS = list(default_methods)
 CORS_PREFLIGHT_MAX_AGE = 86400
+# Usas JWT en header, no cookies:
+CORS_ALLOW_CREDENTIALS = False
 
 ROOT_URLCONF = 'core.urls'
 
@@ -150,7 +140,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- Configuración de la Base de Datos ---
+# --- Base de Datos ---
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -160,10 +150,8 @@ DATABASES = {
         'HOST': os.environ['DB_HOST'],
         'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {'sslmode': os.environ.get('DB_SSLMODE', 'require')},
-
     }
 }
-
 
 # --- Validadores de Contraseña ---
 AUTH_PASSWORD_VALIDATORS = [
@@ -180,15 +168,10 @@ USE_I18N = True
 USE_TZ = True
 
 # --- Archivos Estáticos ---
-# STATIC_URL = 'static/'
-# STATIC_ROOT = BASE_DIR.parent / 'static'
-# STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'static'))
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 
 AUTH_USER_MODEL = 'api.CustomUser'
 
@@ -203,17 +186,11 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
-# Usas JWT en header, no cookies:
-CORS_ALLOW_CREDENTIALS = False
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-        },
+        "console": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout"},
     },
     "loggers": {
         "django.security.DisallowedHost": {
@@ -223,5 +200,3 @@ LOGGING = {
         },
     },
 }
-
-USE_X_FORWARDED_HOST = True
