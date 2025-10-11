@@ -119,6 +119,9 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # ↓ NUEVO: i18n
+    'django.middleware.locale.LocaleMiddleware',
+    
     'corsheaders.middleware.CorsMiddleware',  # debe ir antes de CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -190,10 +193,19 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # --- Internacionalización ---
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+LANGUAGE_CODE = 'es'     # <- antes: 'en-us'
+TIME_ZONE = 'UTC'        # (puedes poner tu zona si quieres)
 USE_I18N = True
 USE_TZ = True
+
+# Idiomas disponibles (opcional, útil si algún día habilitas cambio de idioma)
+LANGUAGES = [
+    ('es', 'Español'),
+    ('en', 'English'),
+]
+
+# Carpeta para traducciones propias (django-admin makemessages)
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 # --- Archivos Estáticos ---
 STATIC_URL = '/static/'
