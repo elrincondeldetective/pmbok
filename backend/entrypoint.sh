@@ -2,6 +2,11 @@
 # backend/entrypoint.sh
 set -e
 
+# --- Obtener IP privada de la instancia y exportarla como variable de entorno ---
+EC2_PRIVATE_IP=$(wget -q -O - http://169.254.169.254/latest/meta-data/local-ipv4)
+export EC2_PRIVATE_IP
+log "IP Privada de la instancia: $EC2_PRIVATE_IP"
+
 log() { echo "[$(date -Is)] $*"; }
 
 run() {
