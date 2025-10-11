@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
-import type { IProcess } from '../types/process';
+// CORRECCIÓN: Se cambió 'IProcess' por 'AnyProcess' para que coincida con los nuevos tipos de datos.
+import type { AnyProcess } from '../types/process';
 
 export const useProcesses = () => {
     const navigate = useNavigate();
-    const [processes, setProcesses] = useState<IProcess[]>([]);
+    // CORRECCIÓN: Se cambió 'IProcess[]' por 'AnyProcess[]'
+    const [processes, setProcesses] = useState<AnyProcess[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 

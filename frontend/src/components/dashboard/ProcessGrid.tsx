@@ -1,11 +1,11 @@
 // frontend/src/components/dashboard/ProcessGrid.tsx
 import React from 'react';
 import ProcessCard from './ProcessCard';
-// CORRECCIÓN: Se cambió 'IProcess' por 'AnyProcess'
-import type { AnyProcess } from '../../types/process';
+// CORRECCIÓN: Se cambió 'IProcess' por 'AnyProcess' para que coincida con los nuevos tipos de datos.
+import type { AnyProcess, IPMBOKProcess } from '../../types/process';
 
 interface ProcessGridProps {
-    // CORRECCIÓN: Se cambió 'IProcess' por 'AnyProcess'
+    // CORRECCIÓN: Se cambió 'IProcess[]' por 'AnyProcess[]'
     processes: AnyProcess[];
 }
 
@@ -21,10 +21,9 @@ const ProcessGrid: React.FC<ProcessGridProps> = ({ processes }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
             {processes.map((process) => (
-                // NOTA: ProcessCard espera un IPMBOKProcess. Aquí hay un pequeño conflicto de tipos
-                // que TypeScript puede no notar, pero para que funcione, asumiremos que se le pasarán
-                // los procesos correctos desde el componente padre.
-                <ProcessCard key={process.id} process={process as any} />
+                // El componente 'ProcessCard' espera un proceso de tipo PMBOK.
+                // Aseguramos que el tipo sea el correcto al pasarlo.
+                <ProcessCard key={process.id} process={process as IPMBOKProcess} />
             ))}
         </div>
     );
