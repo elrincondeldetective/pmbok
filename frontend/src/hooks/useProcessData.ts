@@ -66,7 +66,8 @@ export const useProcessData = () => {
                 setError(null);
                 try {
                     const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`);
-                    const baseProcessData = { ...response.data, type: processType };
+                    // CORRECCIÓN: Se añade aserción de tipo para resolver el conflicto.
+                    const baseProcessData = { ...response.data, type: processType } as AnyProcess;
                     const processToShow = applyCustomization(baseProcessData);
                     setProcess(processToShow);
                 } catch (err: any) {
@@ -84,4 +85,3 @@ export const useProcessData = () => {
 
     return { process, setProcess, loading, error, processType, apiEndpoint };
 };
-

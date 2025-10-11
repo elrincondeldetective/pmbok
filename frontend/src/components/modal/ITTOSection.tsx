@@ -8,10 +8,10 @@ import { countryMap } from '../../data/countries'; // 👈 Se importa el mapa de
 interface ITTOSectionProps {
     process: AnyProcess;
     setProcess: React.Dispatch<React.SetStateAction<AnyProcess | null>>;
-    apiEndpoint: string;
+    // apiEndpoint: string; // CORRECCIÓN: Esta prop ya no es necesaria aquí.
 }
 
-const ITTOSection: React.FC<ITTOSectionProps> = ({ process, setProcess, apiEndpoint }) => {
+const ITTOSection: React.FC<ITTOSectionProps> = ({ process, setProcess }) => {
     const isPmbok = process.type === 'pmbok';
     const frameworkName = isPmbok ? 'PMBOK® 6' : 'SCRUM GUIDE';
 
@@ -60,7 +60,7 @@ const ITTOSection: React.FC<ITTOSectionProps> = ({ process, setProcess, apiEndpo
                 icon={<FaSignInAlt className="text-blue-500" />}
                 process={process}
                 setProcess={setProcess}
-                apiEndpoint={apiEndpoint}
+                // apiEndpoint={apiEndpoint} // CORRECCIÓN: Se elimina la prop.
             />
             <ITTOList
                 title="Herramientas y Técnicas"
@@ -68,7 +68,7 @@ const ITTOSection: React.FC<ITTOSectionProps> = ({ process, setProcess, apiEndpo
                 icon={<FaTools className="text-amber-500" />}
                 process={process}
                 setProcess={setProcess}
-                apiEndpoint={apiEndpoint}
+                // apiEndpoint={apiEndpoint} // CORRECCIÓN: Se elimina la prop.
             />
             <ITTOList
                 title="Salidas"
@@ -76,7 +76,7 @@ const ITTOSection: React.FC<ITTOSectionProps> = ({ process, setProcess, apiEndpo
                 icon={<FaSignOutAlt className="text-green-500" />}
                 process={process}
                 setProcess={setProcess}
-                apiEndpoint={apiEndpoint}
+                // apiEndpoint={apiEndpoint} // CORRECCIÓN: Se elimina la prop.
             />
         </div>
     );
