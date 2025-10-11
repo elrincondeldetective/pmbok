@@ -27,6 +27,12 @@ CID=$(sudo docker ps -q)
 
 sudo docker logs --tail 200 $CID
 
+# 4) Contenedor (app)
+CID=$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}')
+
+sudo docker logs --tail 200 $CID
+
+
 
 
 # 3) Confirma que se ejecutó
@@ -329,6 +335,18 @@ if [ -n "$ALB_ADDR" ] && [ -n "$PRIVATE_IP" ]; then
   curl -I -H "Host: ${PRIVATE_IP}" "http://${ALB_ADDR}:80/healthz" || true
 fi
 
+
+### Seguir logs (opcional)
+if [ "$FOLLOW_LOGS" = "1" ]; then
+  section "Siguiendo logs del contenedor (Ctrl+C para salir)"
+  sudo docker logs -f --since 5m "$CID"
+fi
+
+log "✅ Listo."
+######################################
+chmod +x pmbok-quickcheck.sh
+
+
 ### Crear/actualizar superusuario (opcional)
 if [ "$CREATE_SU" = "1" ]; then
   section "Crear/actualizar superusuario"
@@ -356,12 +374,3 @@ print(("Creado" if created else "Actualizado"), f"{username_field}={identifier}"
 PY
 ' || true
 fi
-
-### Seguir logs (opcional)
-if [ "$FOLLOW_LOGS" = "1" ]; then
-  section "Siguiendo logs del contenedor (Ctrl+C para salir)"
-  sudo docker logs -f --since 5m "$CID"
-fi
-
-log "✅ Listo."
-######################################
