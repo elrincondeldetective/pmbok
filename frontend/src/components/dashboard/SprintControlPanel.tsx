@@ -3,7 +3,6 @@ import React, { useState, useContext, useMemo } from 'react';
 import { FaPlay, FaSync, FaChevronRight, FaLock } from 'react-icons/fa';
 import { ProcessContext } from '../../context/ProcessContext';
 import apiClient from '../../api/apiClient';
-import type { AnyProcess } from '../../types/process';
 
 // --- LÓGICA DE FLUJO HÍBRIDO ---
 const workflowStages = [

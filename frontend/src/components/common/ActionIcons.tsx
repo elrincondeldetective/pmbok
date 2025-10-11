@@ -1,7 +1,7 @@
 // frontend/src/components/common/ActionIcons.tsx
 import React from 'react';
-// Usaremos íconos de Font Awesome que se parecen mucho a los de tu imagen
-import { FaPencil, FaPlus, FaTimes, FaEye } from 'react-icons/fa';
+// CORRECCIÓN: Se importa desde 'react-icons/fa6' que sí contiene FaPencil
+import { FaPencil, FaPlus, FaTimes, FaEye } from 'react-icons/fa6';
 
 const ActionIcons: React.FC = () => {
     return (

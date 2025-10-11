@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import {
   FaLink,
-  FaPencil,       // <- reemplaza a FaPencilAlt
+  FaPencil,
   FaPlus,
-  FaXmark,        // <- reemplaza a FaTimes
+  FaXmark,
   FaEye,
   FaFile,
   FaCircleCheck,
@@ -136,8 +136,9 @@ const ITTOListItem: React.FC<ITTOListItemProps> = ({
   const displayName = activeVersion ? activeVersion.name : cleanName;
   const displayUrl   = activeVersion ? activeVersion.url  : item.url;
 
+  // CORRECCIÓN: Se añade '|| []' para darle un array vacío como fallback al operador '...'
   const allSelectableVersions: ITTOItem[] = hasVersions
-    ? [{ ...item, name: `${cleanName}`, id: item.id, isActive: !activeVersion }, ...item.versions]
+    ? [{ ...item, name: `${cleanName}`, id: item.id, isActive: !activeVersion }, ...(item.versions || [])]
     : [];
 
   const handleViewClick = () => { if (hasVersions) setShowVersions(prev => !prev); };

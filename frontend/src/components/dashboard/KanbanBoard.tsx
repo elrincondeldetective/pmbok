@@ -1,9 +1,8 @@
 // frontend/src/components/dashboard/KanbanBoard.tsx
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-// ===== INICIO: CAMBIO - IMPORTAR NUEVOS TIPOS =====
-import type { AnyProcess, KanbanStatus, IProcessCustomization, IProcessStatus, IProcessStage, IScrumPhase, IDepartment, ISubDepartment } from '../../types/process';
-// ===== FIN: CAMBIO =====
+// CORRECCIÓN: Se eliminaron los imports 'AnyProcess' y 'IProcessCustomization' que no se usaban.
+import type { KanbanStatus, IProcessStatus, IProcessStage, IScrumPhase, IDepartment, ISubDepartment } from '../../types/process';
 import apiClient from '../../api/apiClient';
 import SectionHeader from '../common/SectionHeader';
 import { ProcessContext } from '../../context/ProcessContext';
@@ -26,10 +25,7 @@ const columnConfig: Record<KanbanColumnStatus, ColumnConfig> = {
 
 const columnOrder: KanbanColumnStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
 
-
-// ===== INICIO: CAMBIO - INTERFAZ DE TARJETA ACTUALIZADA =====
 interface KanbanCard {
-    // Info del proceso base
     id: number;
     process_number: number;
     name: string;
@@ -37,17 +33,12 @@ interface KanbanCard {
     status: IProcessStatus | null;
     stage: IProcessStage | null;
     phase: IScrumPhase | null;
-    // Info de la personalización específica
     customizationId: number;
     country_code: string;
-    // Estado Kanban de la tarjeta
     kanban_status: KanbanStatus;
-    // Departamento asociado
     department: ISubDepartment | null;
 }
-// ===== FIN: CAMBIO =====
 
-// ===== INICIO: NUEVO COMPONENTE INTERNO PARA FILTROS =====
 interface DepartmentFilterProps {
     departments: IDepartment[];
     selectedDepartment: number | null;
@@ -55,7 +46,6 @@ interface DepartmentFilterProps {
 }
 
 const DepartmentFilter: React.FC<DepartmentFilterProps> = ({ departments, selectedDepartment, onSelectDepartment }) => {
-    // Mostramos solo los departamentos de nivel superior para un filtro más limpio
     const topLevelDepartments = departments.filter(d => d.parent === null);
 
     if (topLevelDepartments.length === 0) return null;
@@ -80,15 +70,11 @@ const DepartmentFilter: React.FC<DepartmentFilterProps> = ({ departments, select
         </div>
     );
 };
-// ===== FIN: NUEVO COMPONENTE INTERNO =====
-
 
 const KanbanBoard: React.FC = () => {
     const location = useLocation();
-    // ===== INICIO: CAMBIO - OBTENER DEPARTAMENTOS Y NUEVO ESTADO DE FILTRO =====
     const { processes, selectedCountry, updateCustomizationStatus, departments } = useContext(ProcessContext);
     const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
-    // ===== FIN: CAMBIO =====
     
     const [columns, setColumns] = useState<Record<KanbanColumnStatus, KanbanCard[]>>({
         backlog: [], todo: [], in_progress: [], in_review: [], done: []
@@ -111,47 +97,40 @@ const KanbanBoard: React.FC = () => {
                             customizationId: cust.id,
                             country_code: cust.country_code,
                             kanban_status: cust.kanban_status,
-                            // ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO A LA TARJETA =====
                             department: cust.department,
-                            // ===== FIN: CAMBIO =====
                         });
                     }
                 });
             }
         });
 
-        // Filtrado por país (sin cambios)
         const countryFilteredCards = selectedCountry
             ? expandedCards.filter(card => card.country_code === selectedCountry.code)
             : expandedCards;
 
-        // ===== INICIO: CAMBIO - AÑADIR FILTRADO POR DEPARTAMENTO =====
-        // Filtra por el departamento padre seleccionado, incluyendo las tarjetas de sus subdepartamentos.
         const departmentFilteredCards = selectedDepartment
             ? countryFilteredCards.filter(card => {
                 if (!card.department) return false;
-                if (card.department.id === selectedDepartment) return true; // Coincidencia directa
-                // Buscar si el padre del departamento de la tarjeta coincide
+                if (card.department.id === selectedDepartment) return true;
                 const departmentDetails = departments.find(d => d.id === card.department?.id);
                 return departmentDetails?.parent === selectedDepartment;
             })
             : countryFilteredCards;
-        // ===== FIN: CAMBIO =====
 
-        // Agrupar tarjetas en columnas
         const newColumns: Record<KanbanColumnStatus, KanbanCard[]> = {
             backlog: [], todo: [], in_progress: [], in_review: [], done: []
         };
         departmentFilteredCards.forEach(card => {
-            if (newColumns[card.kanban_status]) {
-                newColumns[card.kanban_status].push(card);
+            // CORRECCIÓN: TypeScript ahora sabe que `card.kanban_status` no puede ser 'unassigned' aquí,
+            // por lo que podemos usarlo como índice de forma segura. Se hace un "cast" para confirmarlo.
+            const status = card.kanban_status as KanbanColumnStatus;
+            if (newColumns[status]) {
+                newColumns[status].push(card);
             }
         });
         setColumns(newColumns);
     }, [processes, selectedCountry, selectedDepartment, departments]);
 
-
-    // La lógica de Drag & Drop no necesita cambios, ya que opera sobre el objeto `KanbanCard` que ya está actualizado.
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, card: KanbanCard, fromColumn: KanbanColumnStatus) => {
         e.dataTransfer.setData('cardData', JSON.stringify(card));
         e.dataTransfer.setData('fromColumn', fromColumn);
@@ -206,17 +185,14 @@ const KanbanBoard: React.FC = () => {
         }
     };
 
-
     return (
         <section>
             <SectionHeader title="Tablero Kanban de Procesos" subtitle="Arrastra y suelta las tarjetas para organizar tu flujo de trabajo." />
-            {/* ===== INICIO: CAMBIO - AÑADIR EL COMPONENTE DE FILTRO ===== */}
             <DepartmentFilter 
                 departments={departments}
                 selectedDepartment={selectedDepartment}
                 onSelectDepartment={setSelectedDepartment}
             />
-            {/* ===== FIN: CAMBIO ===== */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {columnOrder.map(columnKey => (
                     <div key={columnKey} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, columnKey)} className="bg-gray-200/50 rounded-lg p-4 flex flex-col">
@@ -236,7 +212,6 @@ const KanbanBoard: React.FC = () => {
                                             <div className={`p-3 rounded-t-lg text-center ${card.status ? `${card.status.tailwind_bg_color} ${card.status.tailwind_text_color}` : 'bg-gray-500 text-white'}`}>
                                                 <p className="text-sm font-bold leading-tight truncate" title={card.name}>{card.process_number}. {card.name}</p>
                                                 
-                                                {/* ===== INICIO: CAMBIO - MOSTRAR EL DEPARTAMENTO EN LA TARJETA ===== */}
                                                 {card.department && (
                                                     <div className="mt-1.5">
                                                         <span className={`inline-block text-white/90 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 ${card.department.tailwind_border_color} bg-black/20`} title={card.department.name}>
@@ -244,7 +219,6 @@ const KanbanBoard: React.FC = () => {
                                                         </span>
                                                     </div>
                                                 )}
-                                                {/* ===== FIN: CAMBIO ===== */}
 
                                                 <div className="mt-1.5 flex justify-center items-center gap-2">
                                                     <span className="inline-block bg-white/25 text-white/95 text-[10px] font-bold px-2 py-0.5 rounded-full">{card.type === 'pmbok' ? 'PMBOK® 6' : 'SCRUM'}</span>
