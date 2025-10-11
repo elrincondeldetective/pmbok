@@ -97,11 +97,27 @@ sudo docker exec \
 # ./pmbok-quickcheck.sh
 set -Eeuo pipefail
 
+# ------------------------------------------------------------------------------------
+# NOTA SOBRE MARCAS DE SECCIONES EN SALIDA (BEGIN/END)
+# ------------------------------------------------------------------------------------
+# - Se imprime un encabezado visible de sección "========== <NOMBRE> ==========" y además:
+#     [YYYY-MM-DDTHH:MM:SS+00:00] >>> BEGIN: <NOMBRE>
+#     [YYYY-MM-DDTHH:MM:SS+00:00] <<< END  : <NOMBRE>
+# - Cada 'section' abre una sección; añadimos 'section_end' justo antes de cada nueva
+#   'section' para cerrar la anterior. Al terminar el script, un trap EXIT cierra
+#   cualquier sección abierta restante automáticamente.
+# - Hay un caso particular: "Últimos logs del contenedor" imprime su encabezado
+#   al inicio, pero el contenido (tail 200) se muestra después de los bloques
+#   de Gunicorn. Para que sea claro, alrededor de ese 'tail' también añadimos
+#   marcas BEGIN/END explícitas (contenido diferido).
+# ------------------------------------------------------------------------------------
+
 ### ====== Config rápida (ajusta si lo necesitas) ======
 # Hostname público de tu ambiente EB (para las pruebas por Nginx con Host:)
 EB_HOST="pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com"
 
-# IP privada de la instancia (para simular el Host que envía el ALB)
+# IP privada de la instancia (para simular el Host que envía el ALB).
+# 1) Intenta IMDS; 2) hostname -I; 3) salida de 'ip route get'.
 PRIVATE_IP="${PRIVATE_IP:-$(curl -s --max-time 1 http://169.254.169.254/latest/meta-data/local-ipv4 || true)}"
 if [ -z "$PRIVATE_IP" ]; then
   # Fallbacks si IMDS no responde
@@ -111,13 +127,13 @@ if [ -z "$PRIVATE_IP" ] && command -v ip >/dev/null 2>&1; then
   PRIVATE_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')"
 fi
 
-# Dominio público de la API (HTTPS)
+# Dominio público de la API (HTTPS) para validar /healthz, /version y endpoints.
 API_DOMAIN="${API_DOMAIN:-api.elrincondeldetective.com}"
 
-# Dominio del frontend (para probar rechazo 444 en backend)
+# Dominio del frontend (para probar rechazo 444 en backend por Host inválido).
 FRONTEND_DOMAIN="${FRONTEND_DOMAIN:-elrincondeldetective.com}"
 
-# Dirección del ALB o IP pública para la prueba 444 (si no la pones, se salta esa prueba)
+# Dirección del ALB o IP pública para la prueba 444 (si no la pones, se salta esa prueba).
 ALB_ADDR="${ALB_ADDR:-}"
 
 # Mostrar secretos? (0 = enmascarar, 1 = mostrar tal cual)
@@ -136,20 +152,48 @@ RUN_SEED="${RUN_SEED:-0}"
 FOLLOW_LOGS="${FOLLOW_LOGS:-0}"
 
 ### ====== Utilidades ======
+# ts: timestamp ISO-8601 (útil para marcar BEGIN/END).
 ts() { date -Is; }
+
+# log: imprime con timestamp.
 log() { echo "[$(ts)] $*"; }
-section() { echo; echo "========== $* =========="; }
+
+# section: imprime encabezado visible y marca BEGIN; guarda el nombre activo.
+CURRENT_SECTION=""
+section() {
+  local name="$*"
+  echo
+  echo "========== $name =========="
+  echo "[ $(ts) ] >>> BEGIN: $name"
+  CURRENT_SECTION="$name"
+}
+
+# section_end: marca el fin de la sección activa (si la hay).
+section_end() {
+  if [ -n "${CURRENT_SECTION:-}" ]; then
+    echo "[ $(ts) ] <<< END  : ${CURRENT_SECTION}"
+    CURRENT_SECTION=""
+  fi
+}
+
+# Cierra automáticamente la última sección si el script termina con una abierta.
+trap 'section_end' EXIT
+
+# exists: ¿existe un binario?
 exists() { command -v "$1" >/dev/null 2>&1; }
+
+# mask: enmascara valores si SHOW_SECRETS=0 (por ejemplo, SECRET_KEY).
 mask() {
   local s="$1"
   [ "$SHOW_SECRETS" = "1" ] && { echo "$s"; return; }
   local n=${#s}
   if (( n <= 6 )); then echo "***"; else echo "${s:0:3}****${s: -2}"; fi
 }
-# Curl que devuelve sólo el status code
+
+# curl_code: curl que devuelve sólo el status code (útil para checks rápidos).
 curl_code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
 
-# Detecta contenedor de la app
+# detect_cid: detecta el contenedor de la app (prefiere imagen aws_beanstalk/current-app).
 detect_cid() {
   local cid
   cid=$(sudo docker ps -q --filter "ancestor=aws_beanstalk/current-app" || true)
@@ -159,13 +203,15 @@ detect_cid() {
   echo "$cid"
 }
 
-# Ejecutar dentro del contenedor
+# dc: ejecutar un comando dentro del contenedor TARGET ($CID) usando sh -lc.
+#     Útil para invocar manage.py, Python embebido, o inspecciones internas.
 dc() {
   local cmd="$*"
   sudo docker exec -i "$CID" sh -lc "$cmd"
 }
 
 ### ====== Inicio ======
+# SECCIÓN: lista contenedores y verifica que haya uno activo para continuar.
 section "Contenedores activos"
 sudo docker ps --format 'table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}' || true
 
@@ -175,19 +221,121 @@ if [ -z "$CID" ]; then
   exit 1
 fi
 log "Usando contenedor: $CID"
+section_end
 
+# SECCIÓN: (cabecera) “Últimos logs del contenedor”.
+# NOTA: el contenido real (tail 200) se imprime **más adelante** tras los checks de Gunicorn.
 section "Últimos logs del contenedor"
+section_end
+
+# SECCIÓN: inspección de auto-tuning de Gunicorn (flags, workers, timeout) desde /proc.
+# - Lee variables GUNICORN_ de entorno
+# - Parsea el comando maestro desde /proc/1/cmdline
+# - Cuenta workers vivos como hijos del PID 1
+# - Calcula workers/timeout esperados replicando la fórmula del entrypoint
+# - Compara valores actuales vs esperados
+section "Gunicorn auto-tune (workers/timeout)"
+# 1) Estado real dentro del contenedor (flags y procesos)
+dc 'set -e
+echo "— ENV GUNICORN_* relevantes —"
+env | grep -E "^GUNICORN_(FORCE_AUTOTUNE|AUTOTUNE|WORKERS|TIMEOUT|WORKER_CLASS|MAX_WORKERS|DEFAULT_TIMEOUT|GRACEFUL_TIMEOUT|MEM_PER_WORKER_MB)" || true
+echo
+
+# Master CMD sin pgrep/ps: lee /proc/1/cmdline
+PG=""
+if [ -r /proc/1/cmdline ]; then
+  PG="$(tr "\0" " " </proc/1/cmdline)"
+fi
+echo "Master CMD: ${PG:-<no encontrado>}"
+if [ -n "$PG" ]; then
+  ACT_WORKERS="$(printf "%s" "$PG" | sed -nE "s/.*--workers[ =]([0-9]+).*/\1/p")"
+  ACT_TIMEOUT="$(printf "%s" "$PG" | sed -nE "s/.*--timeout[ =]([0-9]+).*/\1/p")"
+  ACT_WCLASS="$(printf "%s" "$PG" | sed -nE "s/.*--worker-class[ =]([^ ]+).*/\1/p")"
+
+  # Workers vivos = hijos directos del master (PID 1)
+  CHILDREN="$(cat /proc/1/task/1/children 2>/dev/null || true)"
+  if [ -n "$CHILDREN" ]; then
+    WCOUNT="$(printf "%s\n" "$CHILDREN" | awk "{print NF}")"
+  else
+    WCOUNT="0"
+  fi
+  echo "Actual flags : workers=${ACT_WORKERS:-<no-flag>} timeout=${ACT_TIMEOUT:-<no-flag>} class=${ACT_WCLASS:-<no-flag>}"
+  echo "Workers vivos: ${WCOUNT}"
+  echo
+
+  # 2) Cálculo esperado (misma fórmula del entrypoint)
+  CPU="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)"
+  MEM_MB="$(awk '\''/MemTotal/ {printf "%.0f",$2/1024}'\'' /proc/meminfo 2>/dev/null || echo 1024)"
+  MEM_PER="${MEM_PER_WORKER_MB:-180}"
+  MAX_WORKERS="${GUNICORN_MAX_WORKERS:-12}"
+  WANT_WORKERS="${GUNICORN_WORKERS:-auto}"
+  DEFAULT_TIMEOUT="${GUNICORN_DEFAULT_TIMEOUT:-90}"
+  WANT_TIMEOUT="${GUNICORN_TIMEOUT:-auto}"
+
+  if [ "$WANT_WORKERS" = "auto" ]; then
+    BY_CPU=$(( 2 * CPU + 1 ))
+    MAX_BY_MEM=$(( MEM_MB / MEM_PER ))
+    [ "$MAX_BY_MEM" -lt 1 ] && MAX_BY_MEM=1
+    EXP_WORKERS="$BY_CPU"
+    [ "$MAX_BY_MEM" -lt "$EXP_WORKERS" ] && EXP_WORKERS="$MAX_BY_MEM"
+    [ "$EXP_WORKERS" -gt "$MAX_WORKERS" ] && EXP_WORKERS="$MAX_WORKERS"
+  else
+    EXP_WORKERS="$WANT_WORKERS"
+  fi
+
+  if [ "$WANT_TIMEOUT" = "auto" ]; then
+    EXP_TIMEOUT="$DEFAULT_TIMEOUT"
+  else
+    EXP_TIMEOUT="$WANT_TIMEOUT"
+  fi
+
+  echo "Esperado     : workers=${EXP_WORKERS} timeout=${EXP_TIMEOUT}s (CPU=${CPU}, MEM=${MEM_MB}MB, mem/worker≈${MEM_PER}MB, max=${MAX_WORKERS})"
+
+  # 3) Comparación simple
+  if [ -n "$ACT_WORKERS" ] && [ -n "$ACT_TIMEOUT" ]; then
+    if [ "$ACT_WORKERS" -eq "$EXP_WORKERS" ] && [ "$ACT_TIMEOUT" -eq "$EXP_TIMEOUT" ]; then
+      echo "[OK] Gunicorn coincide con el auto-tune esperado."
+    else
+      echo "[WARN] Gunicorn difiere: got workers=$ACT_WORKERS timeout=$ACT_TIMEOUT; expected workers=$EXP_WORKERS timeout=$EXP_TIMEOUT"
+    fi
+  else
+    echo "[INFO] Flags --workers/--timeout no visibles en el CMD del master."
+    echo "       (Puede que vengan fijados en el Docker CMD y no se forzó auto-tune; revisa logs.)"
+  fi
+fi
+'
+section_end
+
+# SECCIÓN: evidencia del entrypoint sobre auto-tune en los logs (desde el arranque del contenedor).
+section "Gunicorn auto-tune: logs recientes del contenedor"
+SINCE="$(sudo docker inspect -f "{{.State.StartedAt}}" "$CID" 2>/dev/null || true)"
+if [ -n "$SINCE" ]; then
+  sudo docker logs --since "$SINCE" "$CID" 2>&1 | grep -E "Gunicorn (workers auto|timeout|--workers ya especificado|--timeout ya especificado|⚙️)" || echo "No se hallaron mensajes de auto-tune desde el arranque."
+else
+  sudo docker logs "$CID" 2>&1 | grep -E "Gunicorn (workers auto|timeout|--workers ya especificado|--timeout ya especificado|⚙️)" || echo "No se hallaron mensajes recientes de auto-tune."
+fi
+section_end
+
+# CONTENIDO DIFERIDO de “Últimos logs del contenedor”.
+# Aquí sí se imprime el tail 200, con marcas BEGIN/END explícitas para esa sección.
+echo "[ $(ts) ] >>> BEGIN: Últimos logs del contenedor (tail 200)"
 sudo docker logs --tail 200 "$CID" || true
+echo "[ $(ts) ] <<< END  : Últimos logs del contenedor"
 
 ### EB / Nginx / SELinux
+# SECCIÓN: logs de EB (motor y hooks), útiles para entender el ciclo de despliegue.
 section "Logs de Elastic Beanstalk (engine/hooks)"
 sudo tail -n 150 /var/log/eb-engine.log || true
 sudo tail -n 100 /var/log/eb-hooks.log || true
+section_end
 
+# SECCIÓN: últimos errores y accesos de Nginx (para rechazos 444, upstreams, etc.).
 section "Logs de Nginx"
 sudo tail -n 60 /var/log/nginx/error.log || true
 sudo tail -n 60 /var/log/nginx/access.log || true
+section_end
 
+# SECCIÓN: estado de SELinux, booleanos y puertos http_port_t (si aplica a la AMI).
 section "Estado SELinux (si aplica)"
 if exists getenforce; then
   getenforce || true
@@ -200,14 +348,20 @@ if exists getenforce; then
 else
   log "SELinux tools no disponibles en esta AMI (normal en varios AMI/EB)."
 fi
+section_end
 
 ### Django / App
+# SECCIÓN: plan de migraciones (que haría migrate sin aplicar cambios).
 section "Django: migraciones (plan)"
 dc 'python manage.py migrate --plan || true'
+section_end
 
+# SECCIÓN: muestra un corte de los migrations aplicados (primeros 100).
 section "Django: mostrar primeros migrations aplicados"
 dc 'python manage.py showmigrations | sed -n "1,100p" || true'
+section_end
 
+# SECCIÓN: imprime STATIC_ROOT y lista los primeros items recolectados.
 section "Django: STATIC_ROOT y archivos recolectados"
 dc 'python - <<PY
 import os, django
@@ -219,7 +373,9 @@ if settings.STATIC_ROOT and os.path.isdir(settings.STATIC_ROOT):
         print(f"  [{i}] {name}")
 PY
 ' || true
+section_end
 
+# SECCIÓN: conectividad básica a la DB (host y SELECT 1).
 section "Django: conectividad a la DB"
 dc 'python - <<PY
 import os, django
@@ -231,8 +387,10 @@ with connection.cursor() as c:
     print("DB OK:", c.fetchone())
 PY
 ' || true
+section_end
 
-section "Django: conteo rápido de modelos en app 'api'"
+# SECCIÓN: conteo rápido de filas por modelo en la app 'api' (para sanity check de datos).
+section "Django: conteo rápido de modelos en app '\''api'\'''"
 dc 'python - <<PY
 import os, django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE","core.settings"); django.setup()
@@ -245,18 +403,22 @@ try:
         except Exception as e:
             print(f"{m.__name__}: error -> {e}")
 except LookupError:
-    print("App 'api' no encontrada en INSTALLED_APPS")
+    print("App '\''api'\'' no encontrada en INSTALLED_APPS")
 PY
 ' || true
+section_end
 
+# SECCIÓN (opcional): ejecución de seeds con verbosity 2.
 if [ "$RUN_SEED" = "1" ]; then
   section "Django: ejecutando seeds (-v 2)"
   dc "python manage.py seed_pmbok -v 2" || true
   dc "python manage.py seed_scrum -v 2" || true
   dc "python manage.py seed_departments -v 2" || true
+  section_end
 fi
 
 ### Variables de entorno del despliegue
+# SECCIÓN: muestra env.list de EB, enmascarando valores sensibles.
 section "Variables de entorno de EB (enmascaradas)"
 if [ -f /opt/elasticbeanstalk/deployment/env.list ]; then
   while IFS='=' read -r k v; do
@@ -272,13 +434,20 @@ if [ -f /opt/elasticbeanstalk/deployment/env.list ]; then
 else
   log "No existe /opt/elasticbeanstalk/deployment/env.list"
 fi
+section_end
 
-# Determinar ruta del admin desde env.list (o usar default)
+# Determinar ruta del admin desde env.list (o usar default).
+# ADMIN_URL puede venir de EB; si no, usamos 'super-admin/'.
 ADMIN_URL="${ADMIN_URL:-$(grep -E '^DJANGO_ADMIN_URL=' /opt/elasticbeanstalk/deployment/env.list 2>/dev/null | cut -d= -f2 || echo 'super-admin/')}"
 [[ "$ADMIN_URL" != */ ]] && ADMIN_URL="${ADMIN_URL}/"
 ADMIN_LOGIN_PATH="${ADMIN_URL%/}/login/"
 
 ### Mini check-list de verificación (local Nginx → Gunicorn)
+# SECCIÓN: pruebas HTTP locales contra Nginx (que hace de reverse proxy hacia el contenedor).
+# - Verifica /healthz sin Host (200)
+# - Rechazo 444 con Host inválido (curl reporta 000, pero Nginx log muestra 444)
+# - /healthz con Host=EB_HOST (200)
+# - /healthz con Host=IP privada (simula ALB) (200)
 section "Mini check-list (local Nginx → Gunicorn)"
 code1=$(curl_code http://127.0.0.1/healthz || true)
 echo "1) /healthz local (sin Host) → esperado 200 | obtenido: $code1"
@@ -297,13 +466,15 @@ else
   echo "4) /healthz con Host=IP_privada → saltado (no se pudo determinar PRIVATE_IP)"
 fi
 
-# También algo de inspección rápida
+# Cabeceras mínimas para comprobar redirecciones/seguridad.
 echo
 echo "Cabeceras (HEAD) locales por Nginx:"
 curl -s -I -H "Host: $EB_HOST" http://127.0.0.1/ | sed -n '1,8p' || true
 curl -s -I -H "Host: $EB_HOST" http://127.0.0.1/admin/login/ | sed -n '1,8p' || true
+section_end
 
 ### Verificación pública (HTTPS hacia API_DOMAIN)
+# SECCIÓN: valida el backend públicamente por HTTPS (healthz, version, admin login y 401 en API).
 section "Verificación pública (HTTPS hacia $API_DOMAIN)"
 echo "# Backend OK por HTTPS"
 curl -I "https://${API_DOMAIN}/healthz" || true
@@ -316,30 +487,36 @@ curl -I -L "https://${API_DOMAIN}/${ADMIN_LOGIN_PATH#\/}" || true
 echo
 echo "# API debe responder 401 sin token (correcto)"
 curl -I "https://${API_DOMAIN}/api/tasks/" || true
+section_end
 
 ### Comprobar que el backend NO responde con host del frontend (esperado 444)
+# SECCIÓN: si se define ALB_ADDR, intenta llegar al backend vía ALB con Host=frontend (espera 444).
 if [ -n "$ALB_ADDR" ]; then
   section "Rechazo por Host del frontend en ALB/IP (esperado 444)"
   echo "# Comprobar que el BACKEND NO responde con host del frontend"
   echo "# Probando: curl -I -H 'Host: ${FRONTEND_DOMAIN}' http://${ALB_ADDR}:80/healthz"
   curl -I -H "Host: ${FRONTEND_DOMAIN}" "http://${ALB_ADDR}:80/healthz" || true
+  section_end
 else
   section "Rechazo por Host del frontend — saltado"
   echo "Define ALB_ADDR (DNS del ALB o IP pública válida) para ejecutar esta prueba."
+  section_end
 fi
 
-# (Opcional) Validación a través del ALB real usando Host=IP privada
+# SECCIÓN (opcional): prueba adicional vía ALB simulando Host=IP privada (espera 200).
 if [ -n "$ALB_ADDR" ] && [ -n "$PRIVATE_IP" ]; then
   section "ALB: /healthz con Host=IP_privada (esperado 200)"
   echo "# Probando: curl -I -H 'Host: ${PRIVATE_IP}' http://${ALB_ADDR}:80/healthz"
   curl -I -H "Host: ${PRIVATE_IP}" "http://${ALB_ADDR}:80/healthz" || true
+  section_end
 fi
 
-
 ### Seguir logs (opcional)
+# SECCIÓN (opcional): sigue logs del contenedor en vivo (Ctrl+C para salir).
 if [ "$FOLLOW_LOGS" = "1" ]; then
   section "Siguiendo logs del contenedor (Ctrl+C para salir)"
   sudo docker logs -f --since 5m "$CID"
+  section_end
 fi
 
 log "✅ Listo."
