@@ -20,7 +20,7 @@ from corsheaders.defaults import default_headers, default_methods
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- DEBUG leído desde variables de entorno ---
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
+DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() in ("1","true","yes","on")
 IS_PROD = not DEBUG
 
 # --- SECRET_KEY leída desde variables de entorno ---
@@ -34,8 +34,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY', None) or (
 ALLOWED_HOSTS = [
     'api.elrincondeldetective.com',
     'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com',
-    'localhost', '127.0.0.1', 'backend', '0.0.0.0',
 ]
+if not IS_PROD:
+    ALLOWED_HOSTS += ['localhost', '127.0.0.1', 'backend', '0.0.0.0']
 
 # --- Seguridad detrás de ELB/Proxy ---
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -51,7 +52,7 @@ if IS_PROD:
     CSRF_COOKIE_SAMESITE = "Lax"
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = True
+    SECURE_HSTS_PRELOAD = False
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
 
@@ -63,14 +64,41 @@ CSRF_TRUSTED_ORIGINS = [
 
 # --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
 # Añade la IP privada de la instancia EC2 a ALLOWED_HOSTS para permitir checks internos.
-try:
-    EC2_PRIVATE_IP = urllib.request.urlopen(
-        'http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1
-    ).read().decode()
-    if EC2_PRIVATE_IP and EC2_PRIVATE_IP not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
-except Exception:
-    pass
+# Usa IMDSv2 (token) con fallback a IMDSv1, y solo en producción.
+
+def _append_ec2_private_ip_to_allowed_hosts():
+    import urllib.request
+
+    ip = None
+    # 1) Intento IMDSv2
+    try:
+        token_req = urllib.request.Request(
+            "http://169.254.169.254/latest/api/token",
+            method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"},
+        )
+        token = urllib.request.urlopen(token_req, timeout=0.5).read().decode()
+
+        ip_req = urllib.request.Request(
+            "http://169.254.169.254/latest/meta-data/local-ipv4",
+            headers={"X-aws-ec2-metadata-token": token},
+        )
+        ip = urllib.request.urlopen(ip_req, timeout=0.5).read().decode()
+    except Exception:
+        # 2) Fallback IMDSv1 (por si IMDSv2 no está disponible)
+        try:
+            ip = urllib.request.urlopen(
+                "http://169.254.169.254/latest/meta-data/local-ipv4",
+                timeout=0.5,
+            ).read().decode()
+        except Exception:
+            ip = None
+
+    if ip and ip not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(ip)
+
+if IS_PROD:
+    _append_ec2_private_ip_to_allowed_hosts()
 # --- FIN DE LA SOLUCIÓN ---
 
 # Application definition
@@ -178,7 +206,10 @@ AUTH_USER_MODEL = 'api.CustomUser'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
 
 SIMPLE_JWT = {

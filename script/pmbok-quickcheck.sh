@@ -82,6 +82,7 @@ sudo docker exec \
 
 
 
+#############################
 #!/usr/bin/env bash
 # pmbok-quickcheck.sh — Checks rápidos para EB + Docker + Django
 # Úsalo dentro de la instancia EC2 (SSH).
@@ -93,6 +94,15 @@ set -Eeuo pipefail
 ### ====== Config rápida (ajusta si lo necesitas) ======
 # Hostname público de tu ambiente EB (para las pruebas por Nginx con Host:)
 EB_HOST="pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com"
+
+# Dominio público de la API (HTTPS)
+API_DOMAIN="${API_DOMAIN:-api.elrincondeldetective.com}"
+
+# Dominio del frontend (para probar rechazo 444 en backend)
+FRONTEND_DOMAIN="${FRONTEND_DOMAIN:-elrincondeldetective.com}"
+
+# Dirección del ALB o IP pública para la prueba 444 (si no la pones, se salta esa prueba)
+ALB_ADDR="${ALB_ADDR:-}"
 
 # Mostrar secretos? (0 = enmascarar, 1 = mostrar tal cual)
 SHOW_SECRETS="${SHOW_SECRETS:-0}"
@@ -120,6 +130,8 @@ mask() {
   local n=${#s}
   if (( n <= 6 )); then echo "***"; else echo "${s:0:3}****${s: -2}"; fi
 }
+# Curl que devuelve sólo el status code
+curl_code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
 
 # Detecta contenedor de la app
 detect_cid() {
@@ -245,10 +257,52 @@ else
   log "No existe /opt/elasticbeanstalk/deployment/env.list"
 fi
 
-### Pruebas HTTP internas vía Nginx
-section "Curl por Nginx local (con Host: $EB_HOST)"
+# Determinar ruta del admin desde env.list (o usar default)
+ADMIN_URL="${ADMIN_URL:-$(grep -E '^DJANGO_ADMIN_URL=' /opt/elasticbeanstalk/deployment/env.list 2>/dev/null | cut -d= -f2 || echo 'super-admin/')}"
+[[ "$ADMIN_URL" != */ ]] && ADMIN_URL="${ADMIN_URL}/"
+ADMIN_LOGIN_PATH="${ADMIN_URL%/}/login/"
+
+### Mini check-list de verificación (local Nginx → Gunicorn)
+section "Mini check-list (local Nginx → Gunicorn)"
+code1=$(curl_code http://127.0.0.1/healthz || true)
+echo "1) /healthz local (sin Host) → esperado 200 | obtenido: $code1"
+
+code2=$(curl_code -H 'Host: bad.example' http://127.0.0.1/ || true)
+echo "2) Host inválido en / → esperado 444 | obtenido: $code2"
+
+code3=$(curl_code -H "Host: $EB_HOST" http://127.0.0.1/healthz || true)
+echo "3) /healthz con Host=$EB_HOST → esperado 200 | obtenido: $code3"
+
+# También algo de inspección rápida
+echo
+echo "Cabeceras (HEAD) locales por Nginx:"
 curl -s -I -H "Host: $EB_HOST" http://127.0.0.1/ | sed -n '1,8p' || true
 curl -s -I -H "Host: $EB_HOST" http://127.0.0.1/admin/login/ | sed -n '1,8p' || true
+
+### Verificación pública (HTTPS hacia API_DOMAIN)
+section "Verificación pública (HTTPS hacia $API_DOMAIN)"
+echo "# Backend OK por HTTPS"
+curl -I "https://${API_DOMAIN}/healthz" || true
+curl -I "https://${API_DOMAIN}/version" || true
+
+echo
+echo "# Admin (usa la ruta configurada; default super-admin/)"
+curl -I -L "https://${API_DOMAIN}/${ADMIN_LOGIN_PATH#\/}" || true
+
+echo
+echo "# API debe responder 401 sin token (correcto)"
+curl -I "https://${API_DOMAIN}/api/tasks/" || true
+
+### Comprobar que el backend NO responde con host del frontend (esperado 444)
+if [ -n "$ALB_ADDR" ]; then
+  section "Rechazo por Host del frontend en ALB/IP (esperado 444)"
+  echo "# Comprobar que el BACKEND NO responde con host del frontend"
+  echo "# Probando: curl -I -H 'Host: ${FRONTEND_DOMAIN}' http://${ALB_ADDR}:80/healthz"
+  curl -I -H "Host: ${FRONTEND_DOMAIN}" "http://${ALB_ADDR}:80/healthz" || true
+else
+  section "Rechazo por Host del frontend — saltado"
+  echo "Define ALB_ADDR (DNS del ALB o IP pública válida) para ejecutar esta prueba."
+fi
 
 ### Crear/actualizar superusuario (opcional)
 if [ "$CREATE_SU" = "1" ]; then
@@ -285,3 +339,4 @@ if [ "$FOLLOW_LOGS" = "1" ]; then
 fi
 
 log "✅ Listo."
+######################################
