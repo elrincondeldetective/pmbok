@@ -62,10 +62,15 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
-# Lee la IP privada que fue obtenida por el entrypoint.sh
-EC2_PRIVATE_IP = os.environ.get('EC2_PRIVATE_IP')
-if EC2_PRIVATE_IP:
-    ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
+# Añade la IP privada de la instancia EC2 a ALLOWED_HOSTS para permitir checks internos.
+try:
+    EC2_PRIVATE_IP = urllib.request.urlopen(
+        'http://169.254.169.254/latest/meta-data/local-ipv4', timeout=1
+    ).read().decode()
+    if EC2_PRIVATE_IP and EC2_PRIVATE_IP not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(EC2_PRIVATE_IP)
+except Exception:
+    pass
 # --- FIN DE LA SOLUCIÓN ---
 
 # Application definition
