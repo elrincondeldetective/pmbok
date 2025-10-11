@@ -62,6 +62,30 @@ curl -s -I -H "Host: pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com"
      http://127.0.0.1/admin/login/ | head -n1
 
 
+# Local
+docker compose exec -T backend python manage.py shell <<'PY'
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+email = 'admin@admin.com'
+password = 'Neandertal13*'
+
+if User.objects.filter(email=email).exists():
+    print('Usuario ya existe, actualizando...')
+    u = User.objects.get(email=email)
+    u.set_password(password)
+    u.is_staff = True
+    u.is_superuser = True
+    u.save()
+    print('✔ Contraseña y permisos de administrador actualizados para', email)
+else:
+    print('Usuario no encontrado, creando uno nuevo...')
+    # La línea clave que se corrigió: se eliminó el argumento 'username'
+    User.objects.create_superuser(email=email, password=password)
+    print('✔ Superusuario', email, 'creado correctamente.')
+PY     
+
+
 # Resetear la contraseña del admin existente (recomendado)
 CID=$(sudo docker ps -q | head -n1)
 
@@ -90,7 +114,7 @@ sudo docker exec \
 
 #############################
 #!/usr/bin/env bash
-# pmbok-quickcheck.sh — Checks rápidos para EB + Docker + Django
+# pmbok-quickcheck-prod.sh — Checks rápidos para EB + Docker + Django
 # Úsalo dentro de la instancia EC2 (SSH).
 # nano pmbok-quickcheck.sh
 # chmod +x pmbok-quickcheck.sh
@@ -521,7 +545,8 @@ fi
 
 log "✅ Listo."
 ######################################
-chmod +x pmbok-quickcheck.sh
+chmod +x pmbok-quickcheck-prod.sh
+./pmbok-quickcheck-prod.sh
 
 
 ### Crear/actualizar superusuario (opcional)
