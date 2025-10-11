@@ -95,6 +95,16 @@ set -Eeuo pipefail
 # Hostname público de tu ambiente EB (para las pruebas por Nginx con Host:)
 EB_HOST="pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com"
 
+# IP privada de la instancia (para simular el Host que envía el ALB)
+PRIVATE_IP="${PRIVATE_IP:-$(curl -s --max-time 1 http://169.254.169.254/latest/meta-data/local-ipv4 || true)}"
+if [ -z "$PRIVATE_IP" ]; then
+  # Fallbacks si IMDS no responde
+  PRIVATE_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+fi
+if [ -z "$PRIVATE_IP" ] && command -v ip >/dev/null 2>&1; then
+  PRIVATE_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')"
+fi
+
 # Dominio público de la API (HTTPS)
 API_DOMAIN="${API_DOMAIN:-api.elrincondeldetective.com}"
 
@@ -273,6 +283,14 @@ echo "2) Host inválido en / → esperado 444 | obtenido: $code2"
 code3=$(curl_code -H "Host: $EB_HOST" http://127.0.0.1/healthz || true)
 echo "3) /healthz con Host=$EB_HOST → esperado 200 | obtenido: $code3"
 
+# 4) Simular ALB: /healthz con Host=IP privada de la instancia
+if [ -n "$PRIVATE_IP" ]; then
+  code4=$(curl_code -H "Host: ${PRIVATE_IP}" http://127.0.0.1/healthz || true)
+  echo "4) /healthz con Host=IP_privada (${PRIVATE_IP}) → esperado 200 | obtenido: $code4"
+else
+  echo "4) /healthz con Host=IP_privada → saltado (no se pudo determinar PRIVATE_IP)"
+fi
+
 # También algo de inspección rápida
 echo
 echo "Cabeceras (HEAD) locales por Nginx:"
@@ -302,6 +320,13 @@ if [ -n "$ALB_ADDR" ]; then
 else
   section "Rechazo por Host del frontend — saltado"
   echo "Define ALB_ADDR (DNS del ALB o IP pública válida) para ejecutar esta prueba."
+fi
+
+# (Opcional) Validación a través del ALB real usando Host=IP privada
+if [ -n "$ALB_ADDR" ] && [ -n "$PRIVATE_IP" ]; then
+  section "ALB: /healthz con Host=IP_privada (esperado 200)"
+  echo "# Probando: curl -I -H 'Host: ${PRIVATE_IP}' http://${ALB_ADDR}:80/healthz"
+  curl -I -H "Host: ${PRIVATE_IP}" "http://${ALB_ADDR}:80/healthz" || true
 fi
 
 ### Crear/actualizar superusuario (opcional)
