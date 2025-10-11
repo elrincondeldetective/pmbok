@@ -12,7 +12,7 @@ import ITTOSection from './ITTOSection';
 const UnifiedProcessModal: React.FC = () => {
     const navigate = useNavigate();
     const { processes: allGlobalProcesses, addOrUpdateCustomization, updateCustomizationStatus, departments } = useContext(ProcessContext);
-    const { process, setProcess, loading, error, apiEndpoint } = useProcessData();
+    const { process, setProcess, loading, error } = useProcessData(); // CORRECCIÓN: Se elimina apiEndpoint de aquí
 
     const handleClose = () => navigate(-1);
 
@@ -44,7 +44,6 @@ const UnifiedProcessModal: React.FC = () => {
         }
     };
     
-    // ===== INICIO: CAMBIO - NUEVA FUNCIÓN PARA MANEJAR EL CAMBIO DE DEPARTAMENTO =====
     const handleDepartmentChange = async (departmentId: number | null) => {
         if (!process || !process.activeCustomization) {
             alert("Por favor, selecciona una versión de país antes de asignar un departamento.");
@@ -86,7 +85,6 @@ const UnifiedProcessModal: React.FC = () => {
             alert("No se pudo guardar el cambio de departamento.");
         }
     };
-    // ===== FIN: CAMBIO =====
 
     const handleCountryChange = async (country: Country | null) => {
         if (!process) return;
@@ -198,14 +196,12 @@ const UnifiedProcessModal: React.FC = () => {
                     onKanbanStatusChange={handleKanbanStatusChange}
                     onCountryChange={handleCountryChange}
                     onSelectCustomization={handleSelectCustomization}
-                    // ===== INICIO: CAMBIO - PASAR LA NUEVA FUNCIÓN AL HEADER =====
                     onDepartmentChange={handleDepartmentChange}
-                    // ===== FIN: CAMBIO =====
                 />
                 <ITTOSection
                     process={process}
                     setProcess={setProcess as React.Dispatch<React.SetStateAction<AnyProcess | null>>}
-                    apiEndpoint={apiEndpoint}
+                    // apiEndpoint={apiEndpoint} // CORRECCIÓN: Se elimina la prop.
                 />
                 <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
                     <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700">
