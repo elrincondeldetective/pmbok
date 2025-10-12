@@ -145,7 +145,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.elrincondeldetective.com",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://main.dnhiklbzhb112.amplifyapp.com",
+    "https://main.dm5h6z9u3b12.amplifyapp.com"
 ]
 CORS_ALLOW_HEADERS = list(default_headers) + ["authorization", "content-type"]
 CORS_ALLOW_METHODS = list(default_methods)
