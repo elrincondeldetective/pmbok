@@ -85,7 +85,7 @@ else:
     print('✔ Superusuario', email, 'creado correctamente.')
 PY     
 
-
+# Prod
 # Resetear la contraseña del admin existente (recomendado)
 CID=$(sudo docker ps -q | head -n1)
 

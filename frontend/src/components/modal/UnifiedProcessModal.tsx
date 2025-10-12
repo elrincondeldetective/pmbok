@@ -201,7 +201,6 @@ const UnifiedProcessModal: React.FC = () => {
                 <ITTOSection
                     process={process}
                     setProcess={setProcess as React.Dispatch<React.SetStateAction<AnyProcess | null>>}
-                    // apiEndpoint={apiEndpoint} // CORRECCIÓN: Se elimina la prop.
                 />
                 <div className="p-4 bg-gray-100 rounded-b-xl border-t text-right">
                     <button onClick={handleClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-700">
@@ -222,3 +221,4 @@ const UnifiedProcessModal: React.FC = () => {
 };
 
 export default UnifiedProcessModal;
+

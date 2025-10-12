@@ -121,7 +121,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     # ↓ NUEVO: i18n
     'django.middleware.locale.LocaleMiddleware',
-    
+
     'corsheaders.middleware.CorsMiddleware',  # debe ir antes de CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -145,6 +145,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.elrincondeldetective.com",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://main.dnhiklbzhb112.amplifyapp.com",
 ]
 CORS_ALLOW_HEADERS = list(default_headers) + ["authorization", "content-type"]
 CORS_ALLOW_METHODS = list(default_methods)
