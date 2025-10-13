@@ -50,14 +50,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-        )
-        user.set_password(validated_data['password'])
-        user.save()
+        # Eliminamos password2 para que no se pase al modelo
+        validated_data.pop('password2')
+        
+        # Extraemos la contraseña para pasarla como argumento a create_user
+        password = validated_data.pop('password')
+
+        # Creamos el usuario con los datos restantes y la contraseña.
+        # El método create_user ya se encarga de hashear y guardar.
+        user = CustomUser.objects.create_user(password=password, **validated_data)
+        
         return user
 
 
@@ -109,29 +111,21 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class PMBOKProcessCustomizationSerializer(serializers.ModelSerializer):
-    # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO =====
     department = SubDepartmentSerializer(read_only=True)
-    # ===== FIN: CAMBIO =====
 
     class Meta:
         model = PMBOKProcessCustomization
-        # ===== INICIO: CAMBIO - AÑADIR 'department' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
                   'tools_and_techniques', 'outputs', 'kanban_status', 'department')
-        # ===== FIN: CAMBIO =====
 
 
 class ScrumProcessCustomizationSerializer(serializers.ModelSerializer):
-    # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO =====
     department = SubDepartmentSerializer(read_only=True)
-    # ===== FIN: CAMBIO =====
 
     class Meta:
         model = ScrumProcessCustomization
-        # ===== INICIO: CAMBIO - AÑADIR 'department' A LOS CAMPOS =====
         fields = ('id', 'country_code', 'inputs',
                   'tools_and_techniques', 'outputs', 'kanban_status', 'department')
-        # ===== FIN: CAMBIO =====
 
 
 # --- SERIALIZADORES DE PROCESOS PRINCIPALES ---
@@ -170,16 +164,12 @@ class CustomizationWriteSerializer(serializers.Serializer):
     inputs = serializers.JSONField()
     tools_and_techniques = serializers.JSONField()
     outputs = serializers.JSONField()
-    # ===== INICIO: CAMBIO - AÑADIR CAMPO PARA ASIGNAR DEPARTAMENTO =====
     department_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    # ===== FIN: CAMBIO =====
 
     def create(self, validated_data):
         process_type_str = validated_data.pop('process_type')
         process_id = validated_data.pop('process_id')
-        # ===== INICIO: CAMBIO - OBTENER EL ID DEL DEPARTAMENTO =====
         department_id = validated_data.pop('department_id', None)
-        # ===== FIN: CAMBIO =====
 
         if process_type_str == 'pmbok':
             model_class = PMBOKProcess
@@ -204,9 +194,7 @@ class CustomizationWriteSerializer(serializers.Serializer):
                 'inputs': validated_data.get('inputs'),
                 'tools_and_techniques': validated_data.get('tools_and_techniques'),
                 'outputs': validated_data.get('outputs'),
-                # ===== INICIO: CAMBIO - AÑADIR DEPARTAMENTO AL GUARDAR/ACTUALIZAR =====
                 'department_id': department_id
-                # ===== FIN: CAMBIO =====
             }
         )
         return instance
