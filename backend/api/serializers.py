@@ -1,12 +1,15 @@
 # backend/api/serializers.py
+from django.db import IntegrityError
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 from .models import (
     Task, CustomUser, PMBOKProcess, ProcessStatus, ProcessStage,
     ScrumProcess, ScrumPhase, PMBOKProcessCustomization, ScrumProcessCustomization,
     Department
 )
-from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # --- Serializadores de autenticación y soporte ---
 
@@ -19,6 +22,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Añadir claims personalizados
         token['email'] = user.email
         token['first_name'] = user.first_name
+        # Si quisieras también: token['last_name'] = user.last_name
 
         return token
 
@@ -34,9 +38,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 # ===== FIN: NUEVO SERIALIZER =====
 
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True, required=True, validators=[validate_password])
+    # Validar unicidad de email antes de guardar (evita IntegrityError -> 500)
+    email = serializers.EmailField(
+        validators=[UniqueValidator(
+            queryset=CustomUser.objects.all(),
+            message="Ya existe una cuenta con este correo."
+        )]
+    )
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -45,21 +56,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError(
-                {"password": "Las contraseñas no coinciden."})
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
         return attrs
 
     def create(self, validated_data):
         # Eliminamos password2 para que no se pase al modelo
         validated_data.pop('password2')
-        
+
         # Extraemos la contraseña para pasarla como argumento a create_user
         password = validated_data.pop('password')
 
-        # Creamos el usuario con los datos restantes y la contraseña.
-        # El método create_user ya se encarga de hashear y guardar.
-        user = CustomUser.objects.create_user(password=password, **validated_data)
-        
+        # Creamos el usuario con manejo de posible duplicado (por si la condición de carrera)
+        try:
+            user = CustomUser.objects.create_user(password=password, **validated_data)
+        except IntegrityError:
+            # En caso de que pese al UniqueValidator ocurra un duplicado (race condition)
+            raise serializers.ValidationError({"email": "Ya existe una cuenta con este correo."})
         return user
 
 
@@ -87,6 +99,7 @@ class SubDepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = ('id', 'name', 'tailwind_border_color')
+
 
 class DepartmentSerializer(serializers.ModelSerializer):
     """Serializer completo para Departamentos, maneja la jerarquía."""
@@ -158,8 +171,7 @@ class ScrumProcessSerializer(serializers.ModelSerializer):
 
 class CustomizationWriteSerializer(serializers.Serializer):
     process_id = serializers.IntegerField(write_only=True)
-    process_type = serializers.ChoiceField(
-        choices=['pmbok', 'scrum'], write_only=True)
+    process_type = serializers.ChoiceField(choices=['pmbok', 'scrum'], write_only=True)
     country_code = serializers.CharField(max_length=2)
     inputs = serializers.JSONField()
     tools_and_techniques = serializers.JSONField()
@@ -183,8 +195,7 @@ class CustomizationWriteSerializer(serializers.Serializer):
         try:
             process_instance = model_class.objects.get(pk=process_id)
         except model_class.DoesNotExist:
-            raise serializers.ValidationError(
-                "El proceso con el ID y tipo especificados no existe.")
+            raise serializers.ValidationError("El proceso con el ID y tipo especificados no existe.")
 
         instance, created = customization_model.objects.update_or_create(
             process=process_instance,

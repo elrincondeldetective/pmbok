@@ -19,12 +19,11 @@ router.register(r'departments', views.DepartmentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-
-    # --- Rutas de Autenticación JWT ---
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-
+    path('token/', views.MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-    # --- Ruta de Registro ---
     path('register/', views.RegisterView.as_view(), name='auth_register'),
+
+    # NUEVO: endpoints 2FA
+    path('2fa/setup/verify/', views.TwoFASetupVerifyView.as_view(), name='2fa_setup_verify'),
+    path('2fa/login/verify/', views.TwoFALoginVerifyView.as_view(), name='2fa_login_verify'),
 ]
