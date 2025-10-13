@@ -1,20 +1,27 @@
 # backend/api/views.py
+from django.conf import settings
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import (
     TaskSerializer, UserRegistrationSerializer, PMBOKProcessSerializer,
     ScrumProcessSerializer, CustomizationWriteSerializer,
     PMBOKProcessCustomizationSerializer, ScrumProcessCustomizationSerializer,
-    # ===== INICIO: CAMBIO - IMPORTAR NUEVOS SERIALIZERS Y MODELOS =====
-    DepartmentSerializer
+    DepartmentSerializer,
+    # ===== INICIO: IMPORTAR NUEVO SERIALIZER =====
+    MyTokenObtainPairSerializer
 )
 from .models import (
     Task, CustomUser, PMBOKProcess, ScrumProcess, KANBAN_STATUS_CHOICES,
     PMBOKProcessCustomization, ScrumProcessCustomization,
     Department
-    # ===== FIN: CAMBIO =====
 )
+
+# ===== INICIO: VISTA PERSONALIZADA PARA OBTENER TOKEN =====
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+# ===== FIN: VISTA PERSONALIZADA =====
 
 # --- Vista de Registro (SIN CAMBIOS) ---
 class RegisterView(generics.CreateAPIView):
@@ -22,6 +29,45 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = UserRegistrationSerializer
 
+# ===== INICIO: NUEVAS VISTAS PARA 2FA =====
+class TwoFASetupVerifyView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        code1 = request.data.get('code1')
+        code2 = request.data.get('code2')
+
+        if not email or not code1 or not code2:
+            return Response({"error": "Faltan datos (email, code1, code2)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if code1 != settings.TWO_FA_CODE_REGISTRATION_1 or code2 != settings.TWO_FA_CODE_REGISTRATION_2:
+            return Response({"error": "Los códigos proporcionados son incorrectos."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(email=email)
+            user.two_fa_enabled = True
+            user.save()
+            return Response({"success": "Autenticación en dos factores activada."}, status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TwoFALoginVerifyView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        code = request.data.get('code')
+        if not code:
+            return Response({"error": "El código es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if code != settings.TWO_FA_CODE_LOGIN:
+            return Response({"error": "El código es incorrecto."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # En una implementación real, aquí se generaría un nuevo token con permisos completos.
+        # Para esta simulación, una respuesta exitosa es suficiente.
+        return Response({"success": "Código verificado correctamente."}, status=status.HTTP_200_OK)
+# ===== FIN: NUEVAS VISTAS PARA 2FA =====
 
 # ===== INICIO: CAMBIO - AÑADIR LA VISTA PARA DEPARTAMENTOS =====
 class DepartmentViewSet(viewsets.ModelViewSet):

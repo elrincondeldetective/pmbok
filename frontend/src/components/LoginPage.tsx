@@ -1,10 +1,16 @@
 // frontend/src/components/LoginPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient'; // 👈 CAMBIO 1: Importamos apiClient en lugar de axios
+import apiClient from '../api/apiClient';
+// ===== INICIO: IMPORTAR CONTEXTO DE AUTH =====
+import { useAuth } from '../context/AuthContext';
+// ===== FIN: IMPORTAR CONTEXTO DE AUTH =====
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
+    // ===== INICIO: USAR CONTEXTO =====
+    const { set2FAModalOpen, setTwoFAStage } = useAuth();
+    // ===== FIN: USAR CONTEXTO =====
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -14,18 +20,26 @@ const LoginPage: React.FC = () => {
         setError('');
 
         try {
-            // 👇 CAMBIO 2: Usamos apiClient y quitamos la URL base.
             const response = await apiClient.post('/token/', {
                 email,
                 password,
             });
             
-            // Guardamos los tokens en localStorage
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
             
-            // Redirigimos al dashboard
-            navigate('/');
+            // ===== INICIO: LÓGICA CONDICIONAL 2FA =====
+            const twoFactorEnabled = response.data.two_fa_enabled;
+
+            if (twoFactorEnabled) {
+                // Si 2FA está activado, mostramos el modal de verificación
+                setTwoFAStage('login-verify');
+                set2FAModalOpen(true);
+            } else {
+                // Si no, redirigimos directamente al dashboard
+                navigate('/');
+            }
+            // ===== FIN: LÓGICA CONDICIONAL 2FA =====
 
         } catch (err) {
             setError('Error al iniciar sesión. Verifica tu correo y contraseña.');

@@ -1,11 +1,18 @@
 // frontend/src/components/RegisterPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient'; // 👈 CAMBIO 1: Importamos apiClient en lugar de axios
-import { AxiosError } from 'axios'; // Importamos AxiosError para un tipado más seguro
+import apiClient from '../api/apiClient';
+import { AxiosError } from 'axios';
+// ===== INICIO: IMPORTAR CONTEXTO DE AUTH =====
+import { useAuth } from '../context/AuthContext';
+// ===== FIN: IMPORTAR CONTEXTO DE AUTH =====
 
 const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
+    // ===== INICIO: USAR CONTEXTO =====
+    const { set2FAModalOpen, setTwoFAStage, setUserEmailFor2FA } = useAuth();
+    // ===== FIN: USAR CONTEXTO =====
+    
     const [formData, setFormData] = useState({
         email: '',
         first_name: '',
@@ -29,7 +36,6 @@ const RegisterPage: React.FC = () => {
         }
 
         try {
-            // 👇 CAMBIO 2: Usamos apiClient y quitamos la URL base.
             await apiClient.post('/register/', {
                 email: formData.email,
                 first_name: formData.first_name,
@@ -37,13 +43,18 @@ const RegisterPage: React.FC = () => {
                 password: formData.password,
                 password2: formData.password2,
             });
-            // Si el registro es exitoso, redirigimos al login
-            navigate('/login');
+            
+            // ===== INICIO: CAMBIO DE LÓGICA =====
+            // En lugar de redirigir, abrimos el modal 2FA
+            setUserEmailFor2FA(formData.email); // Guardamos el email para la verificación
+            setTwoFAStage('setup-qr');
+            set2FAModalOpen(true);
+            // navigate('/login'); // Ya no navegamos aquí
+            // ===== FIN: CAMBIO DE LÓGICA =====
 
         } catch (err) {
-            const error = err as AxiosError<{[key: string]: string[]}>; // Tipado para el error de la API
+            const error = err as AxiosError<{[key: string]: string[]}>;
             if (error.response && error.response.data) {
-                // Muestra el primer error que envíe la API de forma más segura
                 const apiErrors = error.response.data;
                 const firstErrorKey = Object.keys(apiErrors)[0];
                 if (firstErrorKey && apiErrors[firstErrorKey].length > 0) {

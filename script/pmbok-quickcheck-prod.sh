@@ -1,9 +1,19 @@
+──── ./script/pmbok-quickcheck-prod.sh ────
 docker compose down -v                                                              
 docker compose build backend 
 docker compose up -d backend
 docker compose logs -f backend | sed -n '1,120p'
 curl -s http://127.0.0.1/version
 
+docker compose down && docker compose up --build
+
+# Detener y Eliminar Todo (Incluida la Base de Datos)
+docker compose down -v
+
+docker compose run --rm backend python manage.py makemigrations --empty api
+docker compose run --rm backend python manage.py makemigrations api
+# Este es el comando clave. Usaremos el flag --entrypoint "" para decirle a Docker que ignore el entrypoint.sh solo para esta ejecución.
+docker compose run --rm --entrypoint "" backend python manage.py makemigrations api
 
 CID=$(sudo docker ps -q)
 

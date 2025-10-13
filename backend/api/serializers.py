@@ -6,9 +6,33 @@ from .models import (
     Department
 )
 from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # --- Serializadores de autenticación y soporte ---
 
+# ===== INICIO: NUEVO SERIALIZER PARA TOKEN PERSONALIZADO =====
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Añadir claims personalizados
+        token['email'] = user.email
+        token['first_name'] = user.first_name
+
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # Añadir datos extra a la respuesta del token
+        data['two_fa_enabled'] = self.user.two_fa_enabled
+        data['email'] = self.user.email
+        data['first_name'] = self.user.first_name
+        data['last_name'] = self.user.last_name
+
+        return data
+# ===== FIN: NUEVO SERIALIZER =====
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(

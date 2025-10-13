@@ -6,37 +6,46 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
-// CAMBIO: Apuntar a la nueva ruta del modal refactorizado
 import UnifiedProcessModal from './components/modal/UnifiedProcessModal'; 
+// ===== INICIO: NUEVOS IMPORTS =====
 import { ProcessProvider } from './context/ProcessContext';
+import { AuthProvider } from './context/AuthContext';
+import TwoFAModal from './components/modal/TwoFAModal';
+// ===== FIN: NUEVOS IMPORTS =====
 
 function App() {
     const location = useLocation();
     const background = location.state && location.state.background;
 
     return (
-        <ProcessProvider>
-            <Routes location={background || location}>
-                <Route path="/" element={
-                    <ProtectedRoute>
-                        <Dashboard />
-                    </ProtectedRoute>
-                }
-                />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-
-            {background && (
-                <Routes>
-                    {/* Las rutas no cambian, pero el componente que renderizan es el nuevo */}
-                    <Route path="/process/:processId" element={<UnifiedProcessModal />} />
-                    <Route path="/scrum-process/:processId" element={<UnifiedProcessModal />} />
+        // ===== INICIO: ENVOLVER CON AUTHPROVIDER =====
+        <AuthProvider>
+            <ProcessProvider>
+                <Routes location={background || location}>
+                    <Route path="/" element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    }
+                    />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
-            )}
-        </ProcessProvider>
+
+                {background && (
+                    <Routes>
+                        <Route path="/process/:processId" element={<UnifiedProcessModal />} />
+                        <Route path="/scrum-process/:processId" element={<UnifiedProcessModal />} />
+                    </Routes>
+                )}
+                {/* Renderizar el modal de 2FA globalmente */}
+                <TwoFAModal /> 
+            </ProcessProvider>
+        </AuthProvider>
+        // ===== FIN: ENVOLVER CON AUTHPROVIDER =====
     );
 }
 
 export default App;
+

@@ -36,6 +36,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
+    
+    # ===== INICIO: CAMPO NUEVO PARA 2FA =====
+    two_fa_enabled = models.BooleanField(default=False)
+    # ===== FIN: CAMPO NUEVO PARA 2FA =====
+
     objects = CustomUserManager()
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
