@@ -1,7 +1,7 @@
 // frontend/src/components/modal/TwoFAModal.tsx
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import apiClient from '../../api/apiClient';
+import { useAuth } from '@/context/AuthContext';
+import apiClient from '@/api/apiClient';
 import { useNavigate } from 'react-router-dom';
 
 const TwoFAModal: React.FC = () => {

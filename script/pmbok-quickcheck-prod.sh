@@ -14,6 +14,7 @@ docker compose run --rm backend python manage.py makemigrations --empty api
 docker compose run --rm backend python manage.py makemigrations api
 # Este es el comando clave. Usaremos el flag --entrypoint "" para decirle a Docker que ignore el entrypoint.sh solo para esta ejecución.
 docker compose run --rm --entrypoint "" backend python manage.py makemigrations api
+docker compose run --rm --entrypoint "" backend python manage.py makemigrations api
 
 CID=$(sudo docker ps -q)
 

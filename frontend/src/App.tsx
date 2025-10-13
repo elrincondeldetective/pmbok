@@ -2,15 +2,14 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import "./App.css";
 
-import ProtectedRoute from './components/ProtectedRoute';
-import Dashboard from './components/Dashboard';
-import LoginPage from './components/LoginPage';
-import RegisterPage from './components/RegisterPage';
-import UnifiedProcessModal from './components/modal/UnifiedProcessModal'; 
-// ===== INICIO: NUEVOS IMPORTS =====
-import { ProcessProvider } from './context/ProcessContext';
-import { AuthProvider } from './context/AuthContext';
-import TwoFAModal from './components/modal/TwoFAModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Dashboard from '@/components/Dashboard';
+import LoginPage from '@/components/LoginPage';
+import RegisterPage from '@/components/RegisterPage';
+import UnifiedProcessModal from '@/components/modal/UnifiedProcessModal';
+import { ProcessProvider } from '@/context/ProcessContext';
+import { AuthProvider } from '@/context/AuthContext';
+import TwoFAModal from '@/components/modal/TwoFAModal';
 // ===== FIN: NUEVOS IMPORTS =====
 
 function App() {
