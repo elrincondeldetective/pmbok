@@ -1,6 +1,6 @@
 // frontend/src/components/RegisterPage.tsx
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import { AxiosError } from 'axios';
 // ===== INICIO: IMPORTAR CONTEXTO DE AUTH =====
@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 // ===== FIN: IMPORTAR CONTEXTO DE AUTH =====
 
 const RegisterPage: React.FC = () => {
-    const navigate = useNavigate();
+  
     // ===== INICIO: USAR CONTEXTO =====
     const { set2FAModalOpen, setTwoFAStage, setUserEmailFor2FA } = useAuth();
     // ===== FIN: USAR CONTEXTO =====
