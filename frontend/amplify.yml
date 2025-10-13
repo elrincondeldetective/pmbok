@@ -6,6 +6,7 @@ applications:
       phases:
         preBuild:
           commands:
+            - test -n "$VITE_API_URL" || (echo "ERROR: VITE_API_URL no está definida" && exit 1)
             - npm ci
         build:
           commands:
