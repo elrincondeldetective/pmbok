@@ -11,7 +11,6 @@ from .models import (
     Department
 )
 
-# --- Serializadores de autenticación y soporte ---
 
 # ===== INICIO: NUEVO SERIALIZER PARA TOKEN PERSONALIZADO =====
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
