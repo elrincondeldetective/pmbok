@@ -1,10 +1,10 @@
 // frontend/src/components/dashboard/ProcessCard.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { IPMBOKProcess } from '../../types/process'; // Corrección: tipo específico
+import type { IPMBOKProcess } from '../../types/process'; 
 
 interface ProcessCardProps {
-    process: IPMBOKProcess; // Corrección: tipo específico
+    process: IPMBOKProcess; 
 }
 
 const ProcessCard: React.FC<ProcessCardProps> = ({ process }) => {
