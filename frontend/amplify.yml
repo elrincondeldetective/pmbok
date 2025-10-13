@@ -1,0 +1,22 @@
+# frontend/amplify.yml
+version: 1
+frontend:
+  phases:
+    # FASE PRE-BUILD: Nos movemos a la carpeta del frontend e instalamos dependencias
+    preBuild:
+      commands:
+        - cd frontend
+        - npm ci
+    # FASE BUILD: Ejecutamos el comando de construcción desde la carpeta del frontend
+    build:
+      commands:
+        - npm run build
+  # ARTIFACTS: Le decimos a Amplify dónde está el resultado de la construcción
+  artifacts:
+    baseDirectory: frontend/dist
+    files:
+      - '**/*'
+  # CACHE: Guardamos node_modules para acelerar futuros despliegues
+  cache:
+    paths:
+      - frontend/node_modules/**/*
