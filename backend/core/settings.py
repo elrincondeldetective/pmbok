@@ -20,7 +20,8 @@ from corsheaders.defaults import default_headers, default_methods
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- DEBUG leído desde variables de entorno ---
-DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() in ("1","true","yes","on")
+DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() in (
+    "1", "true", "yes", "on")
 IS_PROD = not DEBUG
 
 # --- SECRET_KEY leída desde variables de entorno ---
@@ -35,8 +36,18 @@ ALLOWED_HOSTS = [
     'api.elrincondeldetective.com',
     'pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com',
 ]
+
+# --- ¡NUEVA LÍNEA! ---
+# Añade hosts adicionales desde una variable de entorno (ej: "host1,host2")
+EXTRA_ALLOWED_HOSTS = os.getenv("EXTRA_ALLOWED_HOSTS")
+if EXTRA_ALLOWED_HOSTS:
+    ALLOWED_HOSTS.extend([host.strip()
+                         for host in EXTRA_ALLOWED_HOSTS.split(',')])
+# --- FIN DE LA NUEVA LÍNEA ---
+
 if not IS_PROD:
-    ALLOWED_HOSTS += ['localhost', '127.0.0.1', 'backend', '0.0.0.0']
+    ALLOWED_HOSTS += ['localhost', '127.0.0.1',
+                      'backend', '0.0.0.0', 'backend-dev']
 
 # --- Seguridad detrás de ELB/Proxy ---
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -62,9 +73,23 @@ CSRF_TRUSTED_ORIGINS = [
     "https://pmbok-app-prod.eba-p9tjqp8p.us-east-1.elasticbeanstalk.com",
 ]
 
+# --- ¡AÑADIR ESTE BLOQUE! ---
+# Añade los orígenes locales para desarrollo y staging
+if not IS_PROD:
+    CSRF_TRUSTED_ORIGINS.extend([
+        "http://localhost:5173",  # Para frontend-dev
+        "http://127.0.0.1:5173",
+        "http://localhost:8080",  # Para frontend-staging
+        "http://127.0.0.1:8080",
+        "https://localhost:9443",
+        "https://127.0.0.1:9443",
+    ])
+# --- FIN DEL BLOQUE ---
+
 # --- SOLUCIÓN PARA EL HEALTH CHECK DE AWS ELASTIC BEANSTALK ---
 # Añade la IP privada de la instancia EC2 a ALLOWED_HOSTS para permitir checks internos.
 # Usa IMDSv2 (token) con fallback a IMDSv1, y solo en producción.
+
 
 def _append_ec2_private_ip_to_allowed_hosts():
     import urllib.request
@@ -96,6 +121,7 @@ def _append_ec2_private_ip_to_allowed_hosts():
 
     if ip and ip not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(ip)
+
 
 if IS_PROD:
     _append_ec2_private_ip_to_allowed_hosts()
@@ -146,6 +172,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.elrincondeldetective.com",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
     "https://main.dm5h6z9u3b12.amplifyapp.com"
 ]
 CORS_ALLOW_HEADERS = list(default_headers) + ["authorization", "content-type"]

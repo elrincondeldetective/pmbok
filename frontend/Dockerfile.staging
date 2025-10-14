@@ -1,0 +1,37 @@
+# frontend/Dockerfile.staging
+
+# --- ETAPA 1: El Constructor (Builder) ---
+# Usamos la imagen de Node 20 para construir el proyecto
+FROM node:20-alpine AS builder
+
+# Establecemos el directorio de trabajo
+WORKDIR /app
+
+# Copiamos los archivos de dependencias y las instalamos con 'npm ci'
+# Esto es más rápido en builds sucesivos si no cambian las dependencias
+COPY package*.json ./
+RUN npm ci
+
+# Copiamos el resto del código fuente
+COPY . .
+
+# Inyectamos la variable de entorno para la API y construimos el proyecto
+# Asegúrate de configurar VITE_API_URL en tu entorno de CI/CD
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+# --- ETAPA 2: El Servidor Final (Server) ---
+# Usamos una imagen súper ligera de Nginx para servir los archivos
+FROM nginx:stable-alpine
+
+# Copiamos los archivos compilados desde la etapa 'builder'
+# Esta es la magia: solo nos llevamos la carpeta 'dist', nada más.
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# (Opcional pero recomendado) Copiamos una configuración personalizada de Nginx
+# Esto es necesario para que las rutas de React (React Router) funcionen.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Nginx escucha en el puerto 80 por defecto
+EXPOSE 80

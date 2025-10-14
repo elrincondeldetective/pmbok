@@ -1,7 +1,8 @@
+# docker-compose.yml  (SOLO entornos DEV)
 services:
   db:
     image: postgres:15-alpine
-    container_name: pmbok_db
+    profiles: ["dev"]
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -9,12 +10,21 @@ services:
       - POSTGRES_USER=pmbok_user
       - POSTGRES_PASSWORD=pmbok_password
     ports:
-      - "5434:5432"
+      - "5434:5432" # solo DEV publica 5434
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h 127.0.0.1 -p 5432",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
-  backend:
+  backend-dev:
+    profiles: ["dev"]
     build: ./backend
-    container_name: pmbok_backend
-    # Sigue usando el ENTRYPOINT del Dockerfile; aquí sólo pasamos el CMD.
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --reload
     volumes:
       - ./backend:/app:z
@@ -22,34 +32,35 @@ services:
       - "8000:8000"
     environment:
       - DJANGO_DEBUG=True
-      - SECRET_KEY=django-insecure-nwpq!$$u+9%el8cr9qhkl(=1svcl4=fc@rn)26p(@)g(6xq2$$(+
+      - SECRET_KEY=django-insecure-REEMPLAZA_ESTO
       - DB_NAME=pmbok_db
       - DB_USER=pmbok_user
       - DB_PASSWORD=pmbok_password
       - DB_HOST=db
       - DB_PORT=5432
-      # Sólo para local; en AWS no la definas y seguirá en 'require'
       - DB_SSLMODE=disable
       - RUN_SEED=always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
-  frontend:
+  frontend-dev:
+    profiles: ["dev"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: pmbok_frontend
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app:z
       - /app/node_modules
     environment:
-      - VITE_DEV_SERVER_HOST=0.0.0.0
-      - VITE_API_URL=http://localhost:8000/api
+      - VITE_API_URL=http://backend-dev:8000/api
+      # VITE_HOST=0.0.0.0   # (opcional, tu script ya usa `vite --host`)
     depends_on:
-      - backend
+      - backend-dev
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-

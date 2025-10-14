@@ -31,3 +31,13 @@ frontend/dist/
 
 # Archivos de SO
 .DS_Store
+
+.git
+.gitignore
+**/*.log
+**/.DS_Store
+**/.env*
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc

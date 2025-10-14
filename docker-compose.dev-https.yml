@@ -1,0 +1,25 @@
+# /webapps/PMBOK-6/docker-compose.dev-https.yml
+services:
+  # El backend en DEV usa TLS (8444) definido en docker-compose.dev-backend-https.yml
+  backend-dev:
+    profiles: ["dev"]
+
+  frontend-dev-https:
+    profiles: ["dev"]
+    depends_on:
+      backend-dev:
+        condition: service_healthy # espera a que el backend TLS esté healthy
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.staging
+      args:
+        # El frontend hará fetch a /api sobre el MISMO origen (https://localhost:9443)
+        VITE_API_URL: https://localhost:9443/api
+    container_name: pmbok_frontend_dev_https
+    ports:
+      - "9443:443"
+    volumes:
+      # Nginx con TLS y proxy a backend-dev:8444
+      - ./frontend/nginx.https.dev.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      - ./certs:/etc/nginx/certs:ro,Z
+    restart: unless-stopped

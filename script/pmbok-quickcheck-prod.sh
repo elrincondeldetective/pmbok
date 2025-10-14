@@ -1,3 +1,8 @@
+cat dev-pmbok-http
+cat dev-pmbok-https
+cat staging-pmbok-http
+cat staging-pmbok-https
+
 ──── ./script/pmbok-quickcheck-prod.sh ────
 docker compose down -v                                                              
 docker compose build backend 
@@ -5,7 +10,14 @@ docker compose up -d backend
 docker compose logs -f backend | sed -n '1,120p'
 curl -s http://127.0.0.1/version
 
-docker compose down && docker compose up --build
+
+# Para levantar el entorno de DESARROLLO:
+docker compose up --build -d backend-dev frontend-dev
+
+# Para levantar el entorno de STAGING:
+docker compose -f docker-compose.yml -f docker-compose.staging.yml up --build -d backend-staging frontend-staging
+docker compose -f docker-compose.yml -f docker-compose.staging.yml up --build backend-staging frontend-staging
+docker compose down && docker compose -f docker-compose.yml -f docker-compose.staging.yml up --build backend-staging frontend-staging
 
 # Detener y Eliminar Todo (Incluida la Base de Datos)
 docker compose down -v
@@ -120,6 +132,100 @@ sudo docker exec \
   -e DJANGO_SUPERUSER_PASSWORD='Neandertal13*' \
   -it "$CID" python manage.py createsuperuser --noinput
 
+
+
+
+
+
+# db
+# Variables (corrige la clave)
+export PGHOST="database-1.cyjqc22ckxkl.us-east-1.rds.amazonaws.com"
+export PGPORT="5432"
+
+# Usuario de la app (lo quieres conservar)
+export APP_DB="pmbok_db"
+export APP_USER="pmbok_user"
+export APP_PASS="+Eftc88$.DA&xR^"   # ← OJO: sin '>' al final
+
+# Para las operaciones usaremos el usuario de la app
+export PGUSER="$APP_USER"
+export PGPASSWORD="$APP_PASS"
+
+# 1) (Opcional) Backup correcto (server 17.6)
+sudo docker run --rm \
+  -e PGPASSWORD="$PGPASSWORD" \
+  -v "$PWD:/dump" \
+  postgres:17-alpine \
+  pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$APP_DB" -Fc \
+  -f "/dump/${APP_DB}_$(date +%F_%H%M%S).dump"
+
+ls -lh ${APP_DB}_*.dump
+
+
+# 2) Verificar si hay tablas/datos ahora
+# Listado rápido de tablas del esquema public:
+
+sudo docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17-alpine \
+  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$APP_DB" -v ON_ERROR_STOP=1 -c "\dt"
+
+# Si te dice “Did not find any relation”, no hay tablas.
+# Si hay tablas, mira un estimado de filas por tabla:
+sudo docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17-alpine \
+  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$APP_DB" -c "
+SELECT relname AS table, n_live_tup AS approx_rows
+FROM pg_stat_user_tables
+ORDER BY 2 DESC;"
+
+# 3) Vaciar conservando el mismo usuario/clave
+# Opción A: Drop & recreate del schema (rápido y limpio)
+
+# Esto borra TODAS las tablas y objetos del public y lo recrea con el mismo owner.
+# Intenta como APP_USER (si es owner de la DB). Si te da permiso denegado,
+# haz lo mismo usando el usuario maestro de RDS.
+sudo docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17-alpine \
+  psql -h "$PGHOST" -p "$PGPORT" -U "$APP_USER" -d "$APP_DB" -v ON_ERROR_STOP=1 -c "
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public AUTHORIZATION ${APP_USER};
+GRANT ALL ON SCHEMA public TO ${APP_USER};
+GRANT USAGE ON SCHEMA public TO public;
+"
+# 4) Comprobar que quedó vacía
+# No debe listar tablas si hiciste Drop Schema
+sudo docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17-alpine \
+  psql -h "$PGHOST" -p "$PGPORT" -U "$APP_USER" -d "$APP_DB" -c "\dt"
+
+# O, si truncaste, deberían verse 0 filas en todas:
+sudo docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17-alpine \
+  psql -h "$PGHOST" -p "$PGPORT" -U "$APP_USER" -d "$APP_DB" -c "
+SELECT relname AS table, n_live_tup AS approx_rows
+FROM pg_stat_user_tables
+ORDER BY 2 DESC;"
+
+
+
+
+# limpiar
+# Arreglo rápido (manteniendo tu DB de dev)
+docker compose -p pmbok-dev-http down
+
+# 2) Libera espacio de Docker sin tocar volúmenes usados (conserva tu DB dev)
+docker builder prune -af
+docker image prune -a -f
+docker system prune -af   # sin --volumes
+
+# 3) Verifica uso
+docker system df
+df -h
+
+# 4) Sube otra vez
+dev-pmbok-http
+
+# Si sigue sin alcanzar (limpieza máxima)
+docker compose -p pmbok-dev-http down
+docker system prune -af --volumes
+# o borra sólo el volumen que falló (el ID largo que te mostró el error):
+docker volume rm 85fecdca1e87976e51e2eba978e7c7608f0bda4a3defc12fb5f1c773e22cd08a
+dev-pmbok-http
 
 
 
