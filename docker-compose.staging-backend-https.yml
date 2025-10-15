@@ -1,0 +1,5 @@
+# docker-compose.staging-backend-https.yml
+# STAGING: backend sin exposición al host (el TLS lo termina Nginx del frontend)
+services:
+  backend-staging:
+    ports: []

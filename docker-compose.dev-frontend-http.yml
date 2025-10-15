@@ -1,0 +1,8 @@
+# DEV: Frontend vía HTTP (Vite 5173) apuntando al backend http
+services:
+  frontend-dev:
+    profiles: ["dev"]
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000/api

@@ -1,0 +1,5 @@
+# STAGING: expone el backend en 8000 (útil si el frontend NO hace proxy /api)
+services:
+  backend-staging:
+    ports:
+      - "8000:8000"

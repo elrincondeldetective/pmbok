@@ -1,0 +1,11 @@
+# STAGING: Frontend por HTTP (Nginx en 8080), SIN proxy; el browser llama a localhost:8000
+services:
+  frontend-staging:
+    ports:
+      - "8080:80"
+    build:
+      args:
+        # Como el backend está publicado en el host por 8000 (ver backend-http),
+        # el browser puede llamar directo:
+        VITE_API_URL: http://localhost:8000/api
+    # Usa el nginx.conf básico (copiado por Dockerfile.staging)

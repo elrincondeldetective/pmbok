@@ -1,0 +1,6 @@
+# DEV: Backend vía HTTP
+services:
+  backend-dev:
+    profiles: ["dev"]
+    ports:
+      - "8000:8000"

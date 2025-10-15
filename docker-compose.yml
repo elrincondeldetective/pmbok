@@ -56,7 +56,7 @@ services:
       - ./frontend:/app:z
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://backend-dev:8000/api
+      - VITE_API_URL=http://localhost:8000/api
       # VITE_HOST=0.0.0.0   # (opcional, tu script ya usa `vite --host`)
     depends_on:
       - backend-dev
