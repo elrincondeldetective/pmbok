@@ -1,0 +1,30 @@
+# ./apps/pmbok/docker-compose.dev-frontend-https.yml
+services:
+  frontend-dev-https:
+    profiles: ["dev"]
+    container_name: pmbok_frontend_dev_https
+
+    # Espera a que el backend (TLS en 8444) esté healthy
+    depends_on:
+      backend-dev:
+        condition: service_healthy
+
+    # Construye el frontend (usa tu Dockerfile.staging)
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.staging
+      args:
+        # El propio Nginx servirá el frontend y proxyará /api al backend;
+        # aún así dejamos VITE_API_URL apuntando a mismo origen (9443)
+        VITE_API_URL: https://localhost:9443/api
+
+    # Expone el Nginx TLS en 9443
+    ports:
+      - "9443:443"
+
+    # Monta el conf de Nginx y los certs self-signed de dev
+    volumes:
+      - ./frontend/nginx.https.dev.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      - ./certs:/etc/nginx/certs:ro,Z
+
+    restart: unless-stopped
