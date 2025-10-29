@@ -12,7 +12,7 @@ const apiClient = axios.create({
 });
 
 // Interceptor de Petición (Request)
-// Se ejecuta ANTES de que cada petición sea enviada.
+
 apiClient.interceptors.request.use(
     async (config) => {
         const accessToken = localStorage.getItem('access_token');
