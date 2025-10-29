@@ -1,4 +1,4 @@
-# docker-compose.staging.yml (STAGING base)
+# /webapps/erd-ecosystem/apps/pmbok/docker-compose.staging.yml
 services:
   db-staging:
     image: postgres:15-alpine
@@ -31,19 +31,24 @@ services:
       - DB_NAME=pmbok_db
       - DB_USER=pmbok_user
       - DB_PASSWORD=pmbok_password
-      - DB_HOST=db-staging # 👈 apunta al DB de staging
+      - DB_HOST=db-staging  # 👈 apunta al DB de staging
       - DB_PORT=5432
       - DB_SSLMODE=disable
       - RUN_SEED=auto
       - EXTRA_ALLOWED_HOSTS=backend-staging,localhost,127.0.0.1,0.0.0.0
     depends_on:
       db-staging:
-        condition: service_healthy # espera a que Postgres esté listo
+        condition: service_healthy  # espera a que Postgres esté listo
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8000/healthz || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "python - <<'PY'\nimport urllib.request, urllib.error, sys\nfor p in ('/healthz','/api/version','/'):\n  try:\n    urllib.request.urlopen('http://127.0.0.1:8000'+p, timeout=5)\n    sys.exit(0)\n  except urllib.error.HTTPError as e:\n    # Considera 4xx como OK para no bloquear por auth/CSRF/etc.\n    if 400 <= e.code < 500:\n      sys.exit(0)\n  except Exception:\n    pass\nsys.exit(1)\nPY",
+        ]
       interval: 10s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     # No exponemos puertos aquí; lo definen los overrides http/https
     restart: unless-stopped
 

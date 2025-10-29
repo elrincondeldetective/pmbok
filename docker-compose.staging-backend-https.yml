@@ -1,0 +1,4 @@
+# /webapps/erd-ecosystem/apps/pmbok/docker-compose.staging-backend-https.yml
+services:
+  backend-staging:
+    ports: []   # asegura que NO se exponga en host en la variante HTTPS
