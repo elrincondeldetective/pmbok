@@ -1,14 +1,15 @@
-// frontend/src/components/dashboard/SprintControlPanel.tsx
 import React, { useState, useContext, useMemo } from 'react';
 import { FaPlay, FaSync, FaChevronRight, FaLock } from 'react-icons/fa';
 import { ProcessContext } from '../../context/ProcessContext';
 import apiClient from '../../api/apiClient';
+// 1. IMPORTAR TIPO
+import type { IProcessCustomization } from '../../types/process';
 
 // --- LÓGICA DE FLUJO HÍBRIDO ---
 const workflowStages = [
     { 
         name: "Estrategia (PMBOK)", 
-        action: "Activar Fase Estratégica", 
+        action: "Activar Base Estratégica", 
         statusToActivate: "Base Estratégica",
         processType: "pmbok",
         prereqStatus: null // Es el primer paso
@@ -44,7 +45,8 @@ const workflowStages = [
 ];
 
 const SprintControlPanel: React.FC = () => {
-    const { processes, updateProcessInState } = useContext(ProcessContext);
+    // 2. OBTENER DATOS DEL CONTEXTO
+    const { processes, updateProcessInState, addOrUpdateCustomization, selectedCountry } = useContext(ProcessContext);
     const [sprintNumber, setSprintNumber] = useState(1);
     const [currentStageIndex, setCurrentStageIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,24 +58,44 @@ const SprintControlPanel: React.FC = () => {
         const prevStage = workflowStages[currentStageIndex - 1];
         if (!prevStage) return true;
 
+        // Lógica de prerrequisito mejorada
         const prereqProcesses = processes.filter(p => p.status?.name === prevStage.statusToActivate);
-        
-        if (prereqProcesses.length === 0) return true;
-        
-        return prereqProcesses.every(p => p.kanban_status === 'done');
-    }, [currentStageIndex, processes]);
+        if (prereqProcesses.length === 0) return true; 
 
+        // Si hay un país seleccionado, chequear el estado de las personalizaciones de ESE país
+        if (selectedCountry) {
+             const relevantCustomizations = prereqProcesses.map(p => 
+                p.customizations.find(c => c.country_code === selectedCountry.code)
+            ).filter(Boolean); 
+
+            if (relevantCustomizations.length === 0) return true; 
+            
+            return relevantCustomizations.every(c => c && c.kanban_status === 'done');
+        }
+
+        // Fallback: si no hay país, chequear el estado base
+        return prereqProcesses.every(p => p.kanban_status === 'done');
+        
+    }, [currentStageIndex, processes, selectedCountry]);
+
+    // 3. FUNCIÓN handleActivateStage REESCRITA
     const handleActivateStage = async () => {
         const stage = workflowStages[currentStageIndex];
         setIsLoading(true);
         setFeedback(null);
 
-        // ===== CAMBIO 2 de 2: LÓGICA CONDICIONAL PARA EL ESTADO KANBAN =====
-        // El primer paso (índice 0) mueve a 'backlog' (Pendiente).
-        // Los pasos siguientes mueven a 'todo' (Por Hacer).
         const targetKanbanStatus = currentStageIndex === 0 ? 'backlog' : 'todo';
         const targetKanbanLabel = targetKanbanStatus === 'backlog' ? 'Pendiente' : 'Por Hacer';
-        // ===================================================================
+
+        // --- INICIO DE LA CORRECCIÓN ---
+
+        // 3a. VALIDAR QUE HAYA UN PAÍS SELECCIONADO
+        if (!selectedCountry) {
+            setFeedback({ message: `Por favor, selecciona un país en la barra de navegación para activar las tareas.`, type: 'error' });
+            setIsLoading(false);
+            setTimeout(() => setFeedback(null), 5000);
+            return;
+        }
 
         if (!prerequisiteMet) {
             setFeedback({ message: `Completa todas las tareas de la etapa anterior ("${workflowStages[currentStageIndex-1].name}") para continuar.`, type: 'error' });
@@ -82,51 +104,97 @@ const SprintControlPanel: React.FC = () => {
             return;
         }
 
+        // 3b. MODIFICAR EL FILTRO
         const processesToActivate = processes.filter(p => {
             const typeMatch = stage.processType === 'both' || p.type === stage.processType;
-            return typeMatch && p.status?.name === stage.statusToActivate && (p.kanban_status === 'unassigned' || p.kanban_status === 'backlog');
+            if (!typeMatch || p.status?.name !== stage.statusToActivate) {
+                return false;
+            }
+            // Solo activa si NO tiene ya una personalización para este país
+            const hasCustomization = p.customizations.some(c => c.country_code === selectedCountry.code);
+            return !hasCustomization;
         });
 
         if (processesToActivate.length === 0) {
-            setFeedback({ message: `No hay nuevas tareas para la etapa "${stage.name}". Avanzando...`, type: 'info' });
+            setFeedback({ message: `No hay nuevas tareas para la etapa "${stage.name}" (o ya están activadas para ${selectedCountry.name}). Avanzando...`, type: 'info' });
             setCurrentStageIndex((prev) => prev + 1);
             setIsLoading(false);
             return;
         }
-
-        const pmbokIds = processesToActivate.filter(p => p.type === 'pmbok').map(p => p.id);
-        const scrumIds = processesToActivate.filter(p => p.type === 'scrum').map(p => p.id);
         
-        // Optimistic UI update
-        processesToActivate.forEach(proc => {
-            updateProcessInState(proc.id, proc.type, { ...proc, kanban_status: targetKanbanStatus });
+        // 3c. Optimistic UI update: Añade las nuevas personalizaciones al estado
+        // Guardar estado original para revertir
+        const originalProcesses = processesToActivate.map(proc => 
+            processes.find(p => p.id === proc.id && p.type === proc.type)
+        );
+
+        processesToActivate.map((proc, index) => {
+            const tempCust: IProcessCustomization = {
+                id: -(Date.now() + index), // ID temporal negativo
+                country_code: selectedCountry.code,
+                inputs: proc.inputs,
+                tools_and_techniques: proc.tools_and_techniques,
+                outputs: proc.outputs,
+                kanban_status: targetKanbanStatus, // Estado objetivo
+                department: null
+            };
+            addOrUpdateCustomization(proc.id, proc.type, tempCust);
+            return tempCust;
         });
 
         try {
-            const apiCalls = [];
-            if (pmbokIds.length > 0) {
-                apiCalls.push(apiClient.post('/pmbok-processes/bulk-update-kanban-status/', { process_ids: pmbokIds, kanban_status: targetKanbanStatus }));
-            }
-            if (scrumIds.length > 0) {
-                apiCalls.push(apiClient.post('/scrum-processes/bulk-update-kanban-status/', { process_ids: scrumIds, kanban_status: targetKanbanStatus }));
-            }
-            
-            await Promise.all(apiCalls);
+            // 3d. API Calls: Creamos las nuevas personalizaciones
+            const creationPayloads = processesToActivate.map(proc => ({
+                process_id: proc.id,
+                process_type: proc.type,
+                country_code: selectedCountry.code,
+                inputs: proc.inputs,
+                tools_and_techniques: proc.tools_and_techniques,
+                outputs: proc.outputs,
+                department_id: null,
+            }));
 
-            setFeedback({ message: `${processesToActivate.length} tarea(s) movida(s) a "${targetKanbanLabel}".`, type: 'success' });
+            const creationCalls = creationPayloads.map(payload => 
+                apiClient.post<IProcessCustomization>('/customizations/', payload)
+            );
+            
+            const creationResponses = await Promise.all(creationCalls);
+            const createdCustomizations = creationResponses.map(res => res.data);
+
+            // 3e. API Calls: Actualizamos el estado Kanban de las personalizaciones recién creadas
+            const statusUpdateCalls = createdCustomizations.map(cust => 
+                apiClient.patch<IProcessCustomization>(`/customizations/${cust.id}/update-kanban-status/`, {
+                    kanban_status: targetKanbanStatus
+                })
+            );
+            
+            const statusUpdateResponses = await Promise.all(statusUpdateCalls);
+            const updatedCustomizations = statusUpdateResponses.map(res => res.data);
+
+            // 3f. Sincronización final: Actualiza el estado con los datos reales del servidor
+            updatedCustomizations.forEach((cust, index) => {
+                const proc = processesToActivate[index];
+                addOrUpdateCustomization(proc.id, proc.type, cust);
+            });
+
+            setFeedback({ message: `${processesToActivate.length} tarea(s) activada(s) para ${selectedCountry.name} y movida(s) a "${targetKanbanLabel}".`, type: 'success' });
             setCurrentStageIndex((prev) => prev + 1);
 
         } catch (error) {
             console.error("Error al activar la etapa:", error);
-            setFeedback({ message: "Error al actualizar las tareas. Reintentando...", type: 'error' });
-            // Revertir
-            processesToActivate.forEach(proc => {
-                updateProcessInState(proc.id, proc.type, { ...proc });
+            setFeedback({ message: "Error al crear/actualizar las tareas.", type: 'error' });
+            
+            // 3g. Revertir: Volvemos a poner el estado original
+            originalProcesses.forEach(proc => {
+                if (proc) {
+                    updateProcessInState(proc.id, proc.type, proc);
+                }
             });
         } finally {
             setIsLoading(false);
             setTimeout(() => setFeedback(null), 4000);
         }
+        // --- FIN DE LA CORRECCIÓN ---
     };
 
     const handleResetSprint = () => {
