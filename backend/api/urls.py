@@ -2,6 +2,7 @@
 from django.urls import path, include
 from rest_framework import routers
 from . import views
+from .views import get_git_history
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -24,6 +25,9 @@ urlpatterns = [
     path('register/', views.RegisterView.as_view(), name='auth_register'),
 
     # NUEVO: endpoints 2FA
-    path('2fa/setup/verify/', views.TwoFASetupVerifyView.as_view(), name='2fa_setup_verify'),
-    path('2fa/login/verify/', views.TwoFALoginVerifyView.as_view(), name='2fa_login_verify'),
+    path('2fa/setup/verify/', views.TwoFASetupVerifyView.as_view(),
+         name='2fa_setup_verify'),
+    path('2fa/login/verify/', views.TwoFALoginVerifyView.as_view(),
+         name='2fa_login_verify'),
+    path('git-history/', get_git_history, name='git-history'),
 ]

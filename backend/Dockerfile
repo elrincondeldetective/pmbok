@@ -9,10 +9,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependencias de sistema
+# Instalamos dependencias del sistema y Git
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    git \
  && rm -rf /var/lib/apt/lists/*
+
+# --- AGREGA ESTA LÍNEA NUEVA ---
+# Permitir a git leer cualquier directorio (evita error "dubious ownership")
+RUN git config --system --add safe.directory '*'
+# -------------------------------
 
 # 1) Instalar dependencias de Python
 COPY requirements.txt .
