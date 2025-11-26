@@ -304,3 +304,7 @@ staticfiles/
 
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python,visualstudiocode,react
+
+certs/
+certs/dev.crt
+certs/dev.key
