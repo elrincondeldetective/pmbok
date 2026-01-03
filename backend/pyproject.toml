@@ -1,3 +1,8 @@
+[tool.poetry]
+# ESTO ES LO NUEVO: Evita que Poetry intente instalar tu proyecto como un paquete
+# y elimina el error del README.md faltante.
+package-mode = false
+
 [project]
 name = "pmbok-backend"
 version = "0.1.0"
@@ -5,7 +10,7 @@ description = "Backend para PMBOK"
 authors = [
     {name = "Reydem"}
 ]
-readme = "README.md"
+# Eliminamos la línea readme = "README.md" porque no tienes ese archivo
 requires-python = "^3.12"
 dependencies = [
     "asgiref (==3.9.2)",
@@ -22,7 +27,6 @@ dependencies = [
     "whitenoise (==6.11.0)"
 ]
 
-
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
@@ -30,4 +34,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
 pytest-django = "^4.11.1"
-
