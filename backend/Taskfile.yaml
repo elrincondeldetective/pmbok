@@ -1,1 +1,23 @@
 # /webapps/erd-ecosystem/apps/pmbok/backend/Taskfile.yaml
+version: "3"
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - poetry install --no-root
+
+  install-ci:
+    desc: install/download package dependencies (CI mode)
+    cmds:
+      - poetry install --no-root
+
+  test:
+    desc: run tests
+    cmds:
+      - poetry run pytest
+
+  run:
+    desc: Run dev server
+    cmds:
+      - poetry run python manage.py runserver 0.0.0.0:8000
