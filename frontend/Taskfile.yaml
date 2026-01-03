@@ -1,1 +1,26 @@
 # /webapps/erd-ecosystem/apps/pmbok/frontend/Taskfile.yaml
+version: "3"
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - npm install
+
+  install-ci:
+    desc: install dependencies (CI mode)
+    # npm ci borra node_modules y instala exactamente lo que dice el package-lock.json
+    cmds:
+      - npm ci
+
+  test:
+    desc: run tests (Linting + Build check)
+    cmds:
+      # Como no hay tests unitarios aún, validamos calidad de código y compilación
+      - npm run lint
+      - npm run build
+
+  run:
+    desc: Run dev server
+    cmds:
+      - npm run dev
