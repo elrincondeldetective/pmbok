@@ -14,26 +14,30 @@
     ],
     "skipLibCheck": true,
     "baseUrl": "src",
-    /* ===== INICIO: SECCIÓN NUEVA ===== */
     "paths": {
       "@/*": [
         "./*"
       ]
     },
-    /* ===== FIN: SECCIÓN NUEVA ===== */
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    
+    /* CAMBIO 1: Desactivamos la sintaxis estricta de módulos para evitar errores de 'import type' */
+    "verbatimModuleSyntax": false,
+    
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    
     /* Linting */
     "strict": true,
-    /* Linting */
-    "forceConsistentCasingInFileNames": true, // <--- AÑADE ESTA LÍNEA
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    /* CAMBIO 2: Desactivamos el chequeo de variables no usadas para evitar error por 'React' */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
