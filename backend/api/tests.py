@@ -1,10 +1,10 @@
-from django.test import TestCase
+# OJO: Importamos SimpleTestCase en lugar de TestCase
+from django.test import SimpleTestCase
 
 
-class CiSmokeTest(TestCase):
+class CiSmokeTest(SimpleTestCase):
     def test_basic_math(self):
         """
-        Prueba básica para asegurar que el runner de pruebas funciona
-        y evitar el error 'exit status 5' por falta de tests.
+        Prueba de humo que NO requiere base de datos.
         """
         self.assertEqual(1 + 1, 2)
