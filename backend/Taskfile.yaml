@@ -1,16 +1,14 @@
 # /webapps/erd-ecosystem/apps/pmbok/backend/Taskfile.yaml
-version: "3"
+version: '3'
 
-# Definimos variables de entorno por defecto solo para este Taskfile
+# Variables de entorno por defecto para que Django arranque sin errores
 env:
-  # Forzamos modo DEBUG para que IS_PROD sea False y evitar el check estricto de SECRET_KEY
-  DJANGO_DEBUG: "true"
-  # Definimos una SECRET_KEY cualquiera para que no falle al arrancar
-  SECRET_KEY: "insecure-test-key-for-ci-only"
-  # Variables de base de datos dummy.
-  # NOTA: Si tus tests requieren DB real, pytest-django intentará crear una DB de prueba.
-  # Si usas SQLite para tests (recomendado para CI rápido), esto puede variar.
-  # Por ahora ponemos valores placeholder para que settings.py no explote al leer os.environ
+  # Forzamos modo DEBUG para evitar validaciones estrictas de seguridad en local
+  DJANGO_DEBUG: "True"
+  # Definimos una SECRET_KEY cualquiera para que settings.py no falle al arrancar
+  SECRET_KEY: "insecure-test-key-for-task-runner"
+  # Valores placeholder para la DB.
+  # Aunque usemos SimpleTestCase, Django lee settings.py al inicio y necesita estos valores.
   DB_NAME: "pmbok_test_db"
   DB_USER: "testuser"
   DB_PASSWORD: "testpassword"
@@ -19,7 +17,7 @@ env:
 
 tasks:
   install:
-    desc: Install dependencies
+    desc: Install dependencies (Local Dev)
     cmds:
       - poetry install --no-root
 
@@ -30,12 +28,11 @@ tasks:
 
   test:
     desc: run tests
-    # pytest-django usará una base de datos en memoria o creará una de prueba si está configurado
-    # Si tus tests no necesitan DB real, usa --nomigrations para ir más rápido
+    # Ejecuta los tests usando la configuración de pytest.ini
     cmds:
       - poetry run pytest
 
   run:
-    desc: Run dev server
+    desc: Run dev server (Django)
     cmds:
       - poetry run python manage.py runserver 0.0.0.0:8000
