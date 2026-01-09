@@ -1,0 +1,82 @@
+# apps/pmbok/.github/workflows/test.yaml
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: pmbok_test_db
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        # Aquí definimos las carpetas relativas a la raíz de ESTE repo
+        service: [backend, frontend]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- SETUP ---
+      # Aquí puedes copiar tu acción compuesta "setup-dependencies" 
+      # a este repo (.github/actions/...) O configurar manualmente aquí para ir rápido.
+      # Por simplicidad y portabilidad, te recomiendo copiar la acción compuesta también.
+      
+      - name: Setup Node (si es frontend)
+        if: matrix.service == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python (si es backend)
+        if: matrix.service == 'backend'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Poetry (si es backend)
+        if: matrix.service == 'backend'
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      # --- EJECUCIÓN ---
+      - name: Install dependencies
+        working-directory: ${{ matrix.service }}
+        run: task install-ci
+
+      - name: Run tests
+        working-directory: ${{ matrix.service }}
+        env:
+          DB_HOST: localhost
+          DB_PORT: ${{ job.services.postgres.ports[5432] }}
+          DB_NAME: pmbok_test_db
+          DB_USER: testuser
+          DB_PASSWORD: testpassword
+          DB_SSLMODE: disable
+        run: task test
