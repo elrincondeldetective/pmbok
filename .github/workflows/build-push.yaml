@@ -1,0 +1,85 @@
+# apps/pmbok/.github/workflows/build-push.yaml
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/build-push.yaml"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  packages: write
+
+jobs:
+  filter:
+    runs-on: ubuntu-24.04
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: .github/utils/file-filters.yaml
+
+  build-push:
+    needs: filter
+    runs-on: ubuntu-24.04
+    if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.filter.outputs.services) }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Dependencies
+        uses: ./.github/actions/setup-dependencies
+        with:
+          working-directory: ${{ matrix.service }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # IMPORTANTE: Aquí definimos el nombre de la imagen para este repo hijo
+          # Quedará: ghcr.io/reydem/pmbok/backend
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # --- ZONA DE GITOPS (PENDIENTE DE CONEXIÓN CON PADRE) ---
+      # Aquí es donde, en el futuro, dispararemos el evento hacia 'reydem/erd-ecosystem'
+      # para que actualice los manifiestos. Por ahora lo dejamos solo como log.
+      - name: Log GitOps Trigger
+        run: echo "Build finished. Ready to trigger update in erd-ecosystem for ${{ matrix.service }}"

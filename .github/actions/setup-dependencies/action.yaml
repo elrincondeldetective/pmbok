@@ -1,0 +1,53 @@
+# apps/pmbok/.github/actions/setup-dependencies/action.yaml
+name: "Setup Dependencies"
+description: "Configura el entorno para Backend (Python/Poetry) o Frontend (Node) automáticamente"
+
+inputs:
+  working-directory:
+    description: "Ruta del servicio (ej: backend)"
+    required: true
+  python-version:
+    description: "Versión de Python"
+    default: "3.12"
+  node-version:
+    description: "Versión de Node"
+    default: "20"
+  task-version:
+    description: "Versión de Task"
+    default: "3.x"
+
+runs:
+  using: "composite"
+  steps:
+    # --- DETECCIÓN: FRONTEND (Node) ---
+    - name: Setup Node.js environment
+      if: ${{ hashFiles(format('{0}/package.json', inputs.working-directory)) != '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    # --- DETECCIÓN: BACKEND (Python + Poetry) ---
+    - name: Install poetry
+      if: ${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) != '' }}
+      uses: snok/install-poetry@v1.4.1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
+
+    - name: Install python
+      if: ${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) != '' }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'poetry'
+        cache-dependency-path: ${{ inputs.working-directory }}/poetry.lock
+
+    # --- COMÚN: TASK ---
+    - name: Install task
+      uses: arduino/setup-task@v2
+      with:
+        version: ${{ inputs.task-version }}
+        # Composite actions heredan el token automáticamente

@@ -5,11 +5,36 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/test.yaml"
+      - ".github/actions/**"
   pull_request:
 
 jobs:
-  test:
+  # 1. Detectar cambios
+  filter:
     runs-on: ubuntu-24.04
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: .github/utils/file-filters.yaml
+
+  # 2. Ejecutar Tests
+  test:
+    needs: filter
+    if: ${{ needs.filter.outputs.services != '[]' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.filter.outputs.services) }}
+
     services:
       postgres:
         image: postgres:15
@@ -25,47 +50,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    strategy:
-      matrix:
-        # Aquí definimos las carpetas relativas a la raíz de ESTE repo
-        service: [backend, frontend]
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- SETUP ---
-      # Aquí puedes copiar tu acción compuesta "setup-dependencies" 
-      # a este repo (.github/actions/...) O configurar manualmente aquí para ir rápido.
-      # Por simplicidad y portabilidad, te recomiendo copiar la acción compuesta también.
-      
-      - name: Setup Node (si es frontend)
-        if: matrix.service == 'frontend'
-        uses: actions/setup-node@v4
+      # Usamos la acción compuesta que acabamos de crear
+      - name: Setup Dependencies
+        uses: ./.github/actions/setup-dependencies
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          working-directory: ${{ matrix.service }}
 
-      - name: Setup Python (si es backend)
-        if: matrix.service == 'backend'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Install Poetry (si es backend)
-        if: matrix.service == 'backend'
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-
-      # --- EJECUCIÓN ---
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
         run: task install-ci

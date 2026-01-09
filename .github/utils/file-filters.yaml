@@ -1,0 +1,10 @@
+# apps/pmbok/.github/utils/file-filters.yaml
+backend:
+  - "backend/**"
+  - ".github/workflows/test.yaml"
+  - ".github/workflows/build-push.yaml"
+
+frontend:
+  - "frontend/**"
+  - ".github/workflows/test.yaml"
+  - ".github/workflows/build-push.yaml"
