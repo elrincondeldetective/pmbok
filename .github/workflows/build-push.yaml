@@ -14,7 +14,7 @@ on:
 permissions:
   actions: write
   contents: read
-  packages: write  # IMPORTANTE: Esto permite al GITHUB_TOKEN subir la imagen
+  packages: write  # VITAL: Permite subir la imagen sin pedir password extra
 
 jobs:
   filter:
@@ -49,23 +49,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # CAMBIO 1: Usamos el token NATIVO (Automático)
-      # Al estar en la organización, este token ya tiene permiso de escritura.
-      # Esto soluciona el error "Password required".
+      # PASO 1: Autenticación en el registro (Usamos token nativo de la org)
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }} 
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # CAMBIO 2: Usamos dinámicamente el nombre del repositorio actual.
-          # Al mover el repo, esto se convertirá automáticamente en:
-          # ghcr.io/elrincondeldetective/pmbok/backend
+          # Esto generará: ghcr.io/elrincondeldetective/pmbok/backend
           images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=sha,format=long
@@ -82,17 +78,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # CAMBIO 3: Trigger Remoto
-      # Aquí SÍ necesitamos el token personal (ERD_ECOSYSTEM_CI) porque vamos a
-      # despertar a OTRO repositorio (erd-ecosystem).
+      # PASO 2: Avisar al repositorio Padre (Aquí es donde fallaba)
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
+          # AQUÍ ESTÁ LA CORRECCIÓN: Definimos explícitamente el token
           github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
             try {
               const shortSha = context.sha.substring(0, 7);
               
+              // Llamamos al repo 'erd-ecosystem' en la organización
               await github.rest.actions.createWorkflowDispatch({
                 owner: 'elrincondeldetective',
                 repo: 'erd-ecosystem',
@@ -100,7 +96,7 @@ jobs:
                 ref: 'main',
                 inputs: {
                   sha: shortSha,
-                  // Nota: Mantenemos el prefijo apps/pmbok/ para que coincida con la estructura
+                  // Mantenemos la estructura de carpetas
                   services: JSON.stringify(['apps/pmbok/${{ matrix.service }}'])
                 }
               })
