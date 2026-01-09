@@ -1,0 +1,22 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Usamos el token por defecto de GitHub Actions
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Apuntamos a los archivos de configuración
+          config-file: .github/utils/release-please-config.json
+          manifest-file: .github/utils/.release-please-manifest.json
