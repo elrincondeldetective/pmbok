@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/reydem/pmbok/compare/pmbok-backend-0.2.0...pmbok-backend-0.2.1) (2026-01-09)
+
+
+### Bug Fixes
+
+* **backend:** prueba final de integracion federada ([1c02633](https://github.com/reydem/pmbok/commit/1c02633baf120cad57e1c2c84efbd842ac56db68))
+
 ## [0.2.0](https://github.com/reydem/pmbok/compare/pmbok-backend-0.1.0...pmbok-backend-0.2.0) (2026-01-09)
 
 
