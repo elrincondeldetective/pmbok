@@ -1,4 +1,4 @@
-# apps/pmbok/.github/workflows/build-push.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/build-push.yaml
 name: Build and Push
 
 on:
@@ -49,20 +49,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # CAMBIO 1: Usamos el token ERD_ECOSYSTEM_CI para autenticarnos en la Org
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.ERD_ECOSYSTEM_CI }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # IMPORTANTE: Aquí definimos el nombre de la imagen para este repo hijo
-          # Quedará: ghcr.io/reydem/pmbok/backend
-          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          # CAMBIO 2: Forzamos la ruta de la Organización
+          # Esto generará: ghcr.io/elrincondeldetective/erd-ecosystem/apps/pmbok/backend
+          images: ghcr.io/elrincondeldetective/erd-ecosystem/apps/pmbok/${{ matrix.service }}
           tags: |
             type=sha,format=long
             type=ref,event=branch
@@ -78,11 +79,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-# Paso Final: Disparar actualización en el repo Padre (GitOps)
+      # Paso Final: Disparar actualización en el repo Padre (GitOps)
+      # Nota: Usamos también ERD_ECOSYSTEM_CI asumiendo que tiene permisos de Repo
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ERD_ECOSYSTEM_PAT }}
+          github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
             try {
               // 1. Obtenemos el SHA corto (7 caracteres)
