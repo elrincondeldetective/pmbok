@@ -78,8 +78,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # --- ZONA DE GITOPS (PENDIENTE DE CONEXIÓN CON PADRE) ---
-      # Aquí es donde, en el futuro, dispararemos el evento hacia 'reydem/erd-ecosystem'
-      # para que actualice los manifiestos. Por ahora lo dejamos solo como log.
-      - name: Log GitOps Trigger
-        run: echo "Build finished. Ready to trigger update in erd-ecosystem for ${{ matrix.service }}"
+# Paso Final: Disparar actualización en el repo Padre (GitOps)
+      - name: Trigger GitOps in Parent Repo
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ERD_ECOSYSTEM_PAT }}
+          script: |
+            try {
+              // 1. Obtenemos el SHA corto (7 caracteres)
+              const shortSha = context.sha.substring(0, 7);
+              
+              // 2. Disparamos el workflow en el repo padre
+              await github.rest.actions.createWorkflowDispatch({
+                owner: 'elrincondeldetective',
+                repo: 'erd-ecosystem',
+                workflow_id: 'update-gitops-manifests.yaml',
+                ref: 'main',
+                inputs: {
+                  sha: shortSha,
+                  // IMPORTANTE: Le agregamos el prefijo 'apps/pmbok/' para que
+                  // el script del padre pueda calcular la ruta correcta del archivo yaml.
+                  services: JSON.stringify(['apps/pmbok/${{ matrix.service }}'])
+                }
+              })
+              console.log(`🚀 Triggered GitOps update for sha: ${shortSha}`);
+            } catch (error) {
+              console.error('❌ Failed to trigger workflow:', error);
+              throw error;
+            }
