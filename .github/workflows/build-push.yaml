@@ -14,7 +14,7 @@ on:
 permissions:
   actions: write
   contents: read
-  packages: write
+  packages: write  # IMPORTANTE: Esto permite al GITHUB_TOKEN subir la imagen
 
 jobs:
   filter:
@@ -49,21 +49,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # CAMBIO 1: Usamos el token ERD_ECOSYSTEM_CI para autenticarnos en la Org
+      # CAMBIO 1: Usamos el token NATIVO (Automático)
+      # Al estar en la organización, este token ya tiene permiso de escritura.
+      # Esto soluciona el error "Password required".
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.ERD_ECOSYSTEM_CI }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # CAMBIO 2: Forzamos la ruta de la Organización
-          # Esto generará: ghcr.io/elrincondeldetective/erd-ecosystem/apps/pmbok/backend
-          images: ghcr.io/elrincondeldetective/erd-ecosystem/apps/pmbok/${{ matrix.service }}
+          # CAMBIO 2: Usamos dinámicamente el nombre del repositorio actual.
+          # Al mover el repo, esto se convertirá automáticamente en:
+          # ghcr.io/elrincondeldetective/pmbok/backend
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=sha,format=long
             type=ref,event=branch
@@ -79,18 +82,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Paso Final: Disparar actualización en el repo Padre (GitOps)
-      # Nota: Usamos también ERD_ECOSYSTEM_CI asumiendo que tiene permisos de Repo
+      # CAMBIO 3: Trigger Remoto
+      # Aquí SÍ necesitamos el token personal (ERD_ECOSYSTEM_CI) porque vamos a
+      # despertar a OTRO repositorio (erd-ecosystem).
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
             try {
-              // 1. Obtenemos el SHA corto (7 caracteres)
               const shortSha = context.sha.substring(0, 7);
               
-              // 2. Disparamos el workflow en el repo padre
               await github.rest.actions.createWorkflowDispatch({
                 owner: 'elrincondeldetective',
                 repo: 'erd-ecosystem',
@@ -98,8 +100,7 @@ jobs:
                 ref: 'main',
                 inputs: {
                   sha: shortSha,
-                  // IMPORTANTE: Le agregamos el prefijo 'apps/pmbok/' para que
-                  // el script del padre pueda calcular la ruta correcta del archivo yaml.
+                  // Nota: Mantenemos el prefijo apps/pmbok/ para que coincida con la estructura
                   services: JSON.stringify(['apps/pmbok/${{ matrix.service }}'])
                 }
               })
