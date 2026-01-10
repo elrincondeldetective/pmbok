@@ -130,7 +130,6 @@ if IS_PROD:
 
 # Application definition
 INSTALLED_APPS = [
-    'django_prometheus',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
