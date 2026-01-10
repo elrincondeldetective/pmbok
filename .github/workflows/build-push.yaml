@@ -1,20 +1,26 @@
 # /webapps/erd-ecosystem/apps/pmbok/.github/workflows/build-push.yaml
-name: Build and Push
+name: Build and Push (PMBOK)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".github/workflows/build-push.yaml"
+      - "apps/pmbok/backend/**"
+      - "apps/pmbok/frontend/**"
+      - "apps/pmbok/.github/workflows/build-push.yaml"
+      - ".github/workflows/update-gitops-manifests.yaml"
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: read
-  packages: write  # VITAL: Permite subir la imagen sin pedir password extra
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NS: pmbok
+  BASE_PATH: apps/pmbok
+  # ✅ URL productiva para hornear en el build del frontend (Vite)
+  FRONTEND_VITE_API_URL: https://api.ihexhubs.com/api
 
 jobs:
   filter:
@@ -23,10 +29,12 @@ jobs:
       services: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          filters: .github/utils/file-filters.yaml
+          # Este archivo existe dentro de apps/pmbok/
+          filters: apps/pmbok/.github/utils/file-filters.yaml
 
   build-push:
     needs: filter
@@ -36,72 +44,80 @@ jobs:
       fail-fast: false
       matrix:
         service: ${{ fromJson(needs.filter.outputs.services) }}
-    
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Dependencies
-        uses: ./.github/actions/setup-dependencies
+        uses: ./apps/pmbok/.github/actions/setup-dependencies
         with:
-          working-directory: ${{ matrix.service }}
+          working-directory: ${{ env.BASE_PATH }}/${{ matrix.service }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # PASO 1: Autenticación en el registro (Usamos token nativo de la org)
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} 
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # Esto generará: ghcr.io/elrincondeldetective/pmbok/backend
-          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          # ✅ ghcr.io/<owner>/pmbok/frontend  o  ghcr.io/<owner>/pmbok/backend
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NS }}/${{ matrix.service }}
           tags: |
-            type=sha,format=long
-            type=ref,event=branch
+            type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      # ---------- FRONTEND (Dockerfile.prod + build-arg VITE_API_URL) ----------
+      - name: Build and push FRONTEND
+        if: ${{ matrix.service == 'frontend' }}
+        uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.service }}
+          context: ${{ env.BASE_PATH }}/frontend
+          file: ${{ env.BASE_PATH }}/frontend/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_URL=${{ env.FRONTEND_VITE_API_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ----------------------------- BACKEND (Dockerfile normal) -----------------------------
+      - name: Build and push BACKEND
+        if: ${{ matrix.service == 'backend' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BASE_PATH }}/backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # PASO 2: Avisar al repositorio Padre (Aquí es donde fallaba)
+      # ✅ Dispara GitOps en el repo padre con SHA corto (7 chars)
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
-          # AQUÍ ESTÁ LA CORRECCIÓN: Definimos explícitamente el token
           github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
-            try {
-              const shortSha = context.sha.substring(0, 7);
-              
-              // Llamamos al repo 'erd-ecosystem' en la organización
-              await github.rest.actions.createWorkflowDispatch({
-                owner: 'elrincondeldetective',
-                repo: 'erd-ecosystem',
-                workflow_id: 'update-gitops-manifests.yaml',
-                ref: 'main',
-                inputs: {
-                  sha: shortSha,
-                  // Mantenemos la estructura de carpetas
-                  services: JSON.stringify(['apps/pmbok/${{ matrix.service }}'])
-                }
-              })
-              console.log(`🚀 Triggered GitOps update for sha: ${shortSha}`);
-            } catch (error) {
-              console.error('❌ Failed to trigger workflow:', error);
-              throw error;
-            }
+            const shortSha = context.sha.substring(0, 7);
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'elrincondeldetective',
+              repo: 'erd-ecosystem',
+              workflow_id: 'update-gitops-manifests.yaml',
+              ref: 'main',
+              inputs: {
+                sha: shortSha,
+                services: JSON.stringify([`apps/pmbok/${{ matrix.service }}`])
+              }
+            });
+
+            console.log(`🚀 Triggered GitOps update for sha: ${shortSha}`);
