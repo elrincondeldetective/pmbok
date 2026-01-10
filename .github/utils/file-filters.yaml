@@ -1,10 +1,16 @@
-# apps/pmbok/.github/utils/file-filters.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/utils/file-filters.yaml
 backend:
   - "backend/**"
+  # Infraestructura de CI/CD que afecta al backend
   - ".github/workflows/test.yaml"
   - ".github/workflows/build-push.yaml"
+  - ".github/actions/**"  # <-- IMPORTANTE: Si cambias como se instalan deps
+  - "Taskfile.yaml"       # <-- IMPORTANTE: Si cambias el orquestador
 
 frontend:
   - "frontend/**"
+  # Infraestructura de CI/CD que afecta al frontend
   - ".github/workflows/test.yaml"
   - ".github/workflows/build-push.yaml"
+  - ".github/actions/**"  # <-- IMPORTANTE
+  - "Taskfile.yaml"       # <-- IMPORTANTE

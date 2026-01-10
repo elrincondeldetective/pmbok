@@ -1,29 +1,45 @@
+# /webapps/erd-ecosystem/apps/pmbok/Taskfile.yaml
 version: '3'
 
 tasks:
-  # 1. Tarea para probar solo el Backend
+  # --- TAREAS DE INSTALACIÓN (Faltaban estas) ---
+  install-ci:
+    desc: Install dependencies for CI
+    cmds:
+      - echo "📦 Instalando dependencias BACKEND..."
+      - task: install:backend
+      - echo "📦 Instalando dependencias FRONTEND..."
+      - task: install:frontend
+
+  install:backend:
+    dir: backend
+    cmds:
+      - task install # Asume que backend/Taskfile.yaml tiene 'install'
+
+  install:frontend:
+    dir: frontend
+    cmds:
+      - task install # Asume que frontend/Taskfile.yaml tiene 'install'
+
+  # --- TAREAS DE TEST (Ya las tenías bien) ---
   test:backend:
     desc: Run backend tests only
-    dir: backend  # <-- ¡La magia! Entra a la carpeta backend automáticamente
+    dir: backend
     cmds:
       - task test
 
-  # 2. Tarea para probar solo el Frontend
   test:frontend:
-    desc: Run frontend tests (lint + build) only
-    dir: frontend # <-- Entra a la carpeta frontend automáticamente
+    desc: Run frontend tests only
+    dir: frontend
     cmds:
       - task test
 
-  # 3. Tarea Maestra: ¡Prueba TODO!
   test:
-    desc: Run ALL tests (Backend + Frontend)
+    desc: Run ALL tests
     cmds:
       - echo "🚀 Iniciando pruebas del BACKEND..."
       - task: test:backend
-      
       - echo "-----------------------------------"
       - echo "🚀 Iniciando pruebas del FRONTEND..."
       - task: test:frontend
-      
       - echo "✅ ¡Todas las pruebas finalizaron con éxito!"

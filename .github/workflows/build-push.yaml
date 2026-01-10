@@ -1,14 +1,16 @@
-# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/build-push.yaml
+# apps/pmbok/.github/workflows/build-push.yaml
 name: Build and Push (PMBOK)
 
 on:
   push:
     branches: [main]
     paths:
-      - "apps/pmbok/backend/**"
-      - "apps/pmbok/frontend/**"
-      - "apps/pmbok/.github/workflows/build-push.yaml"
-      - ".github/workflows/update-gitops-manifests.yaml"
+      # CORRECCIÓN: Rutas relativas a la raíz del submódulo
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/build-push.yaml"
+      # Quitamos la referencia al update-gitops del padre en los paths, 
+      # porque este repo no sabe cuando cambia el padre.
   workflow_dispatch:
 
 permissions:
@@ -18,8 +20,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NS: pmbok
-  BASE_PATH: apps/pmbok
-  # ✅ URL productiva para hornear en el build del frontend (Vite)
+  # CORRECCIÓN: BASE_PATH ahora es la raíz actual, no apps/pmbok
+  BASE_PATH: . 
   FRONTEND_VITE_API_URL: https://api.ihexhubs.com/api
 
 jobs:
@@ -29,16 +31,17 @@ jobs:
       services: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # Este archivo existe dentro de apps/pmbok/
-          filters: apps/pmbok/.github/utils/file-filters.yaml
+          # CORRECCIÓN: Ruta relativa al submódulo
+          filters: .github/utils/file-filters.yaml
 
   build-push:
     needs: filter
     runs-on: ubuntu-24.04
+    # Verificación de seguridad para no correr si no hay cambios
     if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     strategy:
       fail-fast: false
@@ -50,9 +53,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Dependencies
-        uses: ./apps/pmbok/.github/actions/setup-dependencies
+        uses: ./.github/actions/setup-dependencies
         with:
-          working-directory: ${{ env.BASE_PATH }}/${{ matrix.service }}
+          # CORRECCIÓN: Usamos '.' como base path
+          working-directory: ${{ matrix.service }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -68,19 +72,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # ✅ ghcr.io/<owner>/pmbok/frontend  o  ghcr.io/<owner>/pmbok/backend
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NS }}/${{ matrix.service }}
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # ---------- FRONTEND (Dockerfile.prod + build-arg VITE_API_URL) ----------
+      # ---------- FRONTEND ----------
       - name: Build and push FRONTEND
         if: ${{ matrix.service == 'frontend' }}
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.BASE_PATH }}/frontend
-          file: ${{ env.BASE_PATH }}/frontend/Dockerfile.prod
+          # CORRECCIÓN: Rutas limpias
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -89,25 +93,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ----------------------------- BACKEND (Dockerfile normal) -----------------------------
+      # ---------- BACKEND ----------
       - name: Build and push BACKEND
         if: ${{ matrix.service == 'backend' }}
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.BASE_PATH }}/backend
+          # CORRECCIÓN: Rutas limpias
+          context: ./backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ✅ Dispara GitOps en el repo padre con SHA corto (7 chars)
+      # ✅ TRIGGER AL PADRE
+      # Esta es la única parte que DEBE saber sobre la estructura del padre.
+      # Enviamos la ruta completa para que el padre sepa qué actualizar.
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
             const shortSha = context.sha.substring(0, 7);
+            
+            // Aquí SI usamos 'apps/pmbok' porque es información para el padre
+            const servicePathInParent = `apps/pmbok/${{ matrix.service }}`;
 
             await github.rest.actions.createWorkflowDispatch({
               owner: 'elrincondeldetective',
@@ -116,8 +126,8 @@ jobs:
               ref: 'main',
               inputs: {
                 sha: shortSha,
-                services: JSON.stringify([`apps/pmbok/${{ matrix.service }}`])
+                services: JSON.stringify([servicePathInParent])
               }
             });
 
-            console.log(`🚀 Triggered GitOps update for sha: ${shortSha}`);
+            console.log(`🚀 Triggered GitOps update for sha: ${shortSha} on service: ${servicePathInParent}`);
