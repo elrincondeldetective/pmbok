@@ -34,3 +34,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
 pytest-django = "^4.11.1"
+# force rebuild sáb 10 ene 2026 14:22:15 -05
