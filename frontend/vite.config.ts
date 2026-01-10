@@ -15,12 +15,15 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+
+    // ✅ Permitir dominio en Vite dev server
+    allowedHosts: ["ihexhubs.com", "www.ihexhubs.com"],
+
+    // ✅ Si igual quieres mantener HMR, cámbialo a tu IP nueva
     hmr: {
-      // Host público (IP/DNS desde donde entras al NodePort)
-      host: process.env.VITE_HMR_HOST || "3.215.182.51",
-      // Puerto público (NodePort)
+      host: process.env.VITE_HMR_HOST || "98.89.173.36",
       clientPort: Number(process.env.VITE_HMR_CLIENT_PORT || 30100),
-      protocol: "ws",
+      protocol: "wss", // porque estás entrando por https
     },
   },
 });
