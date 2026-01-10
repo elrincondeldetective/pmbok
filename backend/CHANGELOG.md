@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.2.1...pmbok-backend-0.3.0) (2026-01-10)
+
+
+### Features
+
+* **auth:** configurar dominios de produccion y sanitizacion de URL en el cliente API ([5463215](https://github.com/elrincondeldetective/pmbok/commit/546321550fa918265e2afa18df31d6784a370cfd))
+
 ## [0.2.1](https://github.com/reydem/pmbok/compare/pmbok-backend-0.2.0...pmbok-backend-0.2.1) (2026-01-09)
 
 

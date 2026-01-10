@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-frontend-0.3.0...pmbok-frontend-0.4.0) (2026-01-10)
+
+
+### Features
+
+* **auth:** configurar dominios de produccion y sanitizacion de URL en el cliente API ([5463215](https://github.com/elrincondeldetective/pmbok/commit/546321550fa918265e2afa18df31d6784a370cfd))
+* **frontend:** configurar servidor de desarrollo y hmr para entorno kubernetes ([475b5ff](https://github.com/elrincondeldetective/pmbok/commit/475b5ff556b4bc41a99611cdd3df15ae45b3bbba))
+
+
+### Bug Fixes
+
+* **vite:** actualizar configuración de HMR y permitir dominios productivos ([b4e5731](https://github.com/elrincondeldetective/pmbok/commit/b4e57316e87fd63841ed121a4d11b842c32bad8f))
+* **vite:** refinar configuración de host y puertos para HMR seguro ([883533b](https://github.com/elrincondeldetective/pmbok/commit/883533b7d6eb142c36ed49d694e473fa50c54733))
+
 ## [0.3.0](https://github.com/reydem/pmbok/compare/pmbok-frontend-0.2.0...pmbok-frontend-0.3.0) (2026-01-09)
 
 
