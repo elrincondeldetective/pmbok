@@ -145,20 +145,22 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # 1. Inicia la medición (SIEMPRE PRIMERO)
     'django_prometheus.middleware.PrometheusBeforeMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    # ↓ NUEVO: i18n
     'django.middleware.locale.LocaleMiddleware',
-
-    'corsheaders.middleware.CorsMiddleware',  # debe ir antes de CommonMiddleware
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_prometheus.middleware.PrometheusBeforeMiddleware',
+
+    # 2. Finaliza la medición (SIEMPRE ÚLTIMO)
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
 # Django 5: backend de estáticos (equivale al antiguo STATICFILES_STORAGE)
