@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.3.0...pmbok-backend-0.4.0) (2026-01-11)
+
+
+### Features
+
+* **backend:** integrar django-prometheus para exportación de métricas ([18a28a7](https://github.com/elrincondeldetective/pmbok/commit/18a28a75938c5071774cae226d3e774ac716ec39))
+* **backend:** registrar django-prometheus en las dependencias del proyecto ([881e212](https://github.com/elrincondeldetective/pmbok/commit/881e2122450e22d0a364a10df5c0fa9c07571301))
+
+
+### Bug Fixes
+
+* **backend:** corregir orden de middlewares de django-prometheus ([3b483b9](https://github.com/elrincondeldetective/pmbok/commit/3b483b9c14f077c33bf52b3c0b73b47336791a84))
+* **backend:** eliminar declaración duplicada de django_prometheus ([b862cac](https://github.com/elrincondeldetective/pmbok/commit/b862cac68b1cf62b07890d1c20314a27e9f8485d))
+
 ## [0.3.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.2.1...pmbok-backend-0.3.0) (2026-01-10)
 
 
