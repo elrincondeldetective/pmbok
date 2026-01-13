@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.4.0...pmbok-backend-0.5.0) (2026-01-13)
+
+
+### Features
+
+* **settings:** implementar configuracion dinamica de cors y csrf para entornos hibridos ([4dbdf36](https://github.com/elrincondeldetective/pmbok/commit/4dbdf36327f8fc32e33e901e88cf54bc0ba3e71d))
+
 ## [0.4.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.3.0...pmbok-backend-0.4.0) (2026-01-11)
 
 
