@@ -5,12 +5,9 @@ on:
   push:
     branches: [main]
     paths:
-      # CORRECCIÓN: Rutas relativas a la raíz del submódulo
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/build-push.yaml"
-      # Quitamos la referencia al update-gitops del padre en los paths, 
-      # porque este repo no sabe cuando cambia el padre.
   workflow_dispatch:
 
 permissions:
@@ -20,7 +17,6 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NS: pmbok
-  # CORRECCIÓN: BASE_PATH ahora es la raíz actual, no apps/pmbok
   BASE_PATH: . 
   FRONTEND_VITE_API_URL: https://api.ihexhubs.com/api
 
@@ -35,13 +31,11 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # CORRECCIÓN: Ruta relativa al submódulo
           filters: .github/utils/file-filters.yaml
 
   build-push:
     needs: filter
     runs-on: ubuntu-24.04
-    # Verificación de seguridad para no correr si no hay cambios
     if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     strategy:
       fail-fast: false
@@ -55,7 +49,6 @@ jobs:
       - name: Setup Dependencies
         uses: ./.github/actions/setup-dependencies
         with:
-          # CORRECCIÓN: Usamos '.' como base path
           working-directory: ${{ matrix.service }}
 
       - name: Set up Docker Buildx
@@ -82,9 +75,11 @@ jobs:
         if: ${{ matrix.service == 'frontend' }}
         uses: docker/build-push-action@v6
         with:
-          # CORRECCIÓN: Rutas limpias
           context: ./frontend
-          file: ./frontend/Dockerfile.prod
+          # 👇 CORRECCIÓN 1: Apuntar al Dockerfile unificado
+          file: ./frontend/Dockerfile
+          # 👇 CORRECCIÓN 2: Usar el target 'prod' (Nginx)
+          target: prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -98,8 +93,8 @@ jobs:
         if: ${{ matrix.service == 'backend' }}
         uses: docker/build-push-action@v6
         with:
-          # CORRECCIÓN: Rutas limpias
           context: ./backend
+          # No es necesario especificar file si es Dockerfile por defecto
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -107,8 +102,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ✅ TRIGGER AL PADRE
-      # Esta es la única parte que DEBE saber sobre la estructura del padre.
-      # Enviamos la ruta completa para que el padre sepa qué actualizar.
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
@@ -116,7 +109,6 @@ jobs:
           script: |
             const shortSha = context.sha.substring(0, 7);
             
-            // Aquí SI usamos 'apps/pmbok' porque es información para el padre
             const servicePathInParent = `apps/pmbok/${{ matrix.service }}`;
 
             await github.rest.actions.createWorkflowDispatch({
