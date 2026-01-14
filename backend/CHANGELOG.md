@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.5.0...pmbok-backend-0.6.0) (2026-01-14)
+
+
+### Features
+
+* **backend:** integrar configuración dinámica para AWS RDS con soporte SSL ([d6d266e](https://github.com/elrincondeldetective/pmbok/commit/d6d266e01e3f3fa9a06e188eb732938efcdb0268))
+
 ## [0.5.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.4.0...pmbok-backend-0.5.0) (2026-01-13)
 
 
