@@ -1,3 +1,4 @@
+# /webapps/erd-ecosystem/apps/pmbok/backend/core/settings.py
 """
 Django settings for core project.
 
@@ -136,18 +137,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
-# --- Base de Datos (SSL dinámico) ---
+# ------------------------------------------------------------------
+# CONFIGURACIÓN DE BASE DE DATOS (CONEXIÓN A RDS)
+# ------------------------------------------------------------------
+# AWS RDS usa SSL por defecto. 'require' es seguro, 'disable' para local.
 DB_SSLMODE = os.environ.get("DB_SSLMODE", "require" if IS_PROD else "disable")
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
+        # Estas variables de entorno son inyectadas por External Secrets
         "NAME": os.environ["DB_NAME"],
         "USER": os.environ["DB_USER"],
         "PASSWORD": os.environ["DB_PASSWORD"],
-        "HOST": os.environ["DB_HOST"],
+        "HOST": os.environ["DB_HOST"],  # Aquí llegará el endpoint de RDS
         "PORT": os.environ.get("DB_PORT", "5432"),
-        "OPTIONS": {"sslmode": DB_SSLMODE},
+        "OPTIONS": {
+            "sslmode": DB_SSLMODE
+        },
     }
 }
 
