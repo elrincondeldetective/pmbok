@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.6.0...pmbok-backend-0.6.1) (2026-01-14)
+
+
+### Bug Fixes
+
+* **backend:** resolver errores de DisallowedHost y flexibilizar settings por entorno ([b2f4414](https://github.com/elrincondeldetective/pmbok/commit/b2f44144599d1a3f6d1ee4bbfd1964302948554a))
+
 ## [0.6.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-backend-0.5.0...pmbok-backend-0.6.0) (2026-01-14)
 
 
