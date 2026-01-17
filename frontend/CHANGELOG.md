@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/elrincondeldetective/pmbok/compare/pmbok-frontend-0.5.0...pmbok-frontend-0.5.1) (2026-01-17)
+
+
+### Bug Fixes
+
+* **pmbok/frontend:** forzar rutas relativas en apiClient para asegurar misma-origin ([7c8e52d](https://github.com/elrincondeldetective/pmbok/commit/7c8e52d0a3cc7903c2abf70cbb3da04be0e46401))
+
 ## [0.5.0](https://github.com/elrincondeldetective/pmbok/compare/pmbok-frontend-0.4.0...pmbok-frontend-0.5.0) (2026-01-13)
 
 
