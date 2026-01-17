@@ -1,16 +1,20 @@
-// frontend/src/api/apiClient.ts
+// /webapps/erd-ecosystem/apps/pmbok/frontend/src/api/apiClient.ts
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
 /**
- * Política recomendada:
- * - En local con Traefik (misma-origin): VITE_API_BASE_URL=/api
- * - En prod: VITE_API_BASE_URL=https://api.ihexhubs.com/api
+ * Política recomendada (robusta):
+ * - Siempre misma-origin: VITE_API_BASE_URL=/api
  *
- * Nota: normalizamos para que NO termine en "/".
+ * Nota:
+ * - Para evitar que DEV se rompa por builds “horneados” con dominios (ej: https://api.ihexhubs.com/api),
+ *   SOLO aceptamos rutas relativas (que empiezan con "/"). Cualquier valor absoluto se ignora.
+ * - Normalizamos para que NO termine en "/".
  */
-const API_BASE_URL =
-    (import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "")) || "/api";
+const RAW = (import.meta.env.VITE_API_BASE_URL || "").trim();
+
+// ✅ Solo aceptamos base URLs relativas (misma-origin). Todo lo demás se ignora.
+const API_BASE_URL = (RAW.startsWith("/") ? RAW : "/api").replace(/\/$/, "");
 
 // Crea la instancia de Axios con la URL dinámica.
 const apiClient = axios.create({
@@ -50,7 +54,6 @@ apiClient.interceptors.request.use(
                  * Usamos axios "sin interceptor" para evitar bucle infinito.
                  * Endpoint esperado: `${API_BASE_URL}/token/refresh/`
                  * - Si API_BASE_URL = "/api" => "/api/token/refresh/"
-                 * - Si API_BASE_URL = "https://api.ihexhubs.com/api" => "https://api.ihexhubs.com/api/token/refresh/"
                  */
                 const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {
                     refresh: refreshToken,
