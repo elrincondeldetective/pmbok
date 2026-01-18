@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.0/.schema/devbox.schema.json",
+  "packages": [
+    "go-task@latest",
+    "gh@latest",
+    "gum@latest",
+    "jq@latest",
+    "yq-go@latest",
+    "python312@latest",
+    "poetry@latest",
+    "nodejs_24@latest",
+    "git@latest",
+    "bash@latest"
+  ],
+  "env": {
+    "SECRET_KEY":           "django-insecure-dev-key-for-local-devbox",
+    "DB_NAME":              "pmbok_db",
+    "DB_USER":              "pmbok_user",
+    "DB_PASSWORD":          "secretpassword123",
+    "DB_HOST":              "localhost",
+    "DB_PORT":              "5432",
+    "DB_SSLMODE":           "disable",
+    "RUN_MIGRATIONS":       "1",
+    "RUN_SEED":             "auto",
+    "RUN_COLLECTSTATIC":    "0",
+    "VITE_API_URL":         "http://localhost:8000/api",
+    "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
+    "CSRF_TRUSTED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
+    "EXTRA_ALLOWED_HOSTS":  "127.0.0.1,localhost"
+  },
+  "shell": {
+    "init_hook": [
+      "echo '🚀 PMBOK Devbox Loaded!'",
+      "echo '💡 Try running: devbox run backend / devbox run frontend'",
+      "# Aliases locales de git (solo para este repo)",
+      "git config alias.acp '!bash ./.devtools/git-acp.sh'",
+      "git config alias.gp '!bash ./.devtools/git-gp.sh'",
+      "git config alias.rp '!bash ./.devtools/git-rp.sh'"
+    ]
+  },
+  "scripts": {
+    "backend":  "cd backend && chmod +x entrypoint.sh && poetry run ./entrypoint.sh python manage.py runserver 0.0.0.0:8000",
+    "frontend": "cd frontend && npm run dev",
+    "acp":      "bash ./.devtools/git-acp.sh",
+    "gp":       "bash ./.devtools/git-gp.sh",
+    "rp":       "bash ./.devtools/git-rp.sh"
+  }
+}

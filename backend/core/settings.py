@@ -12,7 +12,7 @@ from corsheaders.defaults import default_headers, default_methods
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- DEBUG: Controlado por variable de entorno ---
-# En K8s local, esto será "1" (True). En Prod será "0" (False).
+# En K8s local, esto será "1" (True). En Prod será "0" (False)....
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() in (
     "1", "true", "yes", "on")
 IS_PROD = not DEBUG
