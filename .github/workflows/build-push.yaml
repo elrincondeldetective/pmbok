@@ -1,4 +1,4 @@
-# apps/pmbok/.github/workflows/build-push.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/build-push.yaml
 name: Build and Push (PMBOK)
 
 on:
@@ -8,6 +8,8 @@ on:
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/build-push.yaml"
+      - ".github/actions/**"
+      - "Taskfile.yaml"
   workflow_dispatch:
 
 permissions:
@@ -17,8 +19,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NS: pmbok
-  BASE_PATH: . 
+  BASE_PATH: .
   FRONTEND_VITE_API_URL: https://api.ihexhubs.com/api
+  # ✅ Rama del padre donde se actualiza GitOps (respeta tu flujo dev -> staging -> main)
+  PARENT_GITOPS_BRANCH: dev
 
 jobs:
   filter:
@@ -27,7 +31,7 @@ jobs:
       services: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -76,9 +80,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
-          # 👇 CORRECCIÓN 1: Apuntar al Dockerfile unificado
           file: ./frontend/Dockerfile
-          # 👇 CORRECCIÓN 2: Usar el target 'prod' (Nginx)
           target: prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -94,21 +96,19 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          # No es necesario especificar file si es Dockerfile por defecto
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ✅ TRIGGER AL PADRE
+      # ✅ TRIGGER AL PADRE (GitOps) -> actualiza manifests en la rama "dev" del superrepo
       - name: Trigger GitOps in Parent Repo
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
           script: |
             const shortSha = context.sha.substring(0, 7);
-            
             const servicePathInParent = `apps/pmbok/${{ matrix.service }}`;
 
             await github.rest.actions.createWorkflowDispatch({
@@ -118,8 +118,9 @@ jobs:
               ref: 'main',
               inputs: {
                 sha: shortSha,
-                services: JSON.stringify([servicePathInParent])
+                services: JSON.stringify([servicePathInParent]),
+                target_branch: process.env.PARENT_GITOPS_BRANCH
               }
             });
 
-            console.log(`🚀 Triggered GitOps update for sha: ${shortSha} on service: ${servicePathInParent}`);
+            console.log(`🚀 Triggered GitOps update for sha: ${shortSha} on service: ${servicePathInParent} (branch: ${process.env.PARENT_GITOPS_BRANCH})`);
