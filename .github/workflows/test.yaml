@@ -2,19 +2,45 @@
 name: Run Tests
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [dev]
     paths:
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/test.yaml"
+      - ".github/workflows/build-push.yaml"
       - ".github/actions/**"
-  pull_request:
+      - ".github/utils/**"
+      - "Taskfile.yaml"
+  push:
+    branches: [dev]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/test.yaml"
+      - ".github/workflows/build-push.yaml"
+      - ".github/actions/**"
+      - ".github/utils/**"
+      - "Taskfile.yaml"
 
 jobs:
+  validate-pr:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce feature/** source branch
+        shell: bash
+        run: |
+          if [[ "${{ github.head_ref }}" != feature/* ]]; then
+            echo "❌ Este PR hacia dev debe venir desde una rama feature/**"
+            echo "   Rama origen: ${{ github.head_ref }}"
+            exit 1
+          fi
+
   # 1. Detectar cambios
   filter:
+    needs: [validate-pr]
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') }}
     runs-on: ubuntu-24.04
     outputs:
       services: ${{ steps.filter.outputs.changes }}
@@ -28,7 +54,7 @@ jobs:
   # 2. Ejecutar Tests
   test:
     needs: filter
-    if: ${{ needs.filter.outputs.services != '[]' }}
+    if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
