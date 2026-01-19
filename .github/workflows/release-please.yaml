@@ -1,9 +1,10 @@
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/release-please.yaml
 name: Release Please
 
 on:
   push:
     branches:
-      - main
+      - dev
 
 permissions:
   contents: write
@@ -20,3 +21,7 @@ jobs:
           # Apuntamos a los archivos de configuración
           config-file: .github/utils/release-please-config.json
           manifest-file: .github/utils/.release-please-manifest.json
+          # ✅ Mantiene el versionado y PRs en la rama real de integración (dev)
+          target-branch: dev
+          # ✅ Evita duplicar releases porque los crea el superrepo vía tags (release-on-tag)
+          skip-github-release: true

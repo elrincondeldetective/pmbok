@@ -1,0 +1,24 @@
+# --- Configuración del script ---
+# --- /home/reydem/scripts/.git-acprc 
+DAY_START="00:00"
+REFS_LABEL="Conteo: commit"
+DAILY_GOAL=10
+
+# Formato extendido (los 3 últimos son opcionales, pero recomendados):
+# "Seudónimo;Nombre Real;Email;GPGKEY;push_remote;ssh_host_alias;ssh_key_path;gh_owner"
+
+PROFILE_1="Reydem;Erik Lemus;reydem613@gmail.com;F84276DF8DB9F7C7CC38701105BCBDDA6B20E8DE;origin;github.com-reydem;~/.ssh/id_ed25519_reydem;reydem"
+PROFILE_2="ElRinconDelDetective®;El Rincón del Detective;elrincondeldetective@gmail.com;2E0F72E32D406F4F92B0C80F96D6;origin;github.com-elrincondeldetective;~/.ssh/id_ed25519_elrincondeldetective;elrincondeldetective"
+PROFILE_3="JONATHAN-MENGUAL;Yonathan Mengual;jsmengual10@gmail.com;E8F52E0C2316EA37C98961CBD62B083C171E1E32;upstream;github.com-JONATHAN-MENGUAL;~/.ssh/id_ed25519_JONATHAN-MENGUAL;JONATHAN-MENGUAL"
+PROFILE_4="iHexHubs;iHexHubs Foundation;ihexhubs@gmail.com;E6C929405ABEE42D;origin;github.com-ihexhubs;~/.ssh/id_ed25519_ihexhubs;iHexHubs"
+
+PROFILES=(
+  "$PROFILE_1"
+  "$PROFILE_2"
+  "$PROFILE_3"
+  "$PROFILE_4"
+)
+
+# Opcional: creación automática del repo remoto si no existe
+GH_AUTO_CREATE=false
+GH_DEFAULT_VISIBILITY="private"   # "private" o "public"
