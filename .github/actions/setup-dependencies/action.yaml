@@ -1,4 +1,4 @@
-# apps/pmbok/.github/actions/setup-dependencies/action.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/actions/setup-dependencies/action.yaml
 name: "Setup Dependencies"
 description: "Configura el entorno para Backend (Python/Poetry) o Frontend (Node) automáticamente"
 
@@ -50,4 +50,5 @@ runs:
       uses: arduino/setup-task@v2
       with:
         version: ${{ inputs.task-version }}
+        repo-token: ${{ github.token }}
         # Composite actions heredan el token automáticamente
