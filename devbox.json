@@ -10,7 +10,8 @@
     "poetry@latest",
     "nodejs_24@latest",
     "git@latest",
-    "bash@latest"
+    "bash@latest",
+    "starship@latest"
   ],
   "env": {
     "SECRET_KEY":           "django-insecure-dev-key-for-local-devbox",
@@ -26,7 +27,8 @@
     "VITE_API_URL":         "http://localhost:8000/api",
     "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
     "CSRF_TRUSTED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
-    "EXTRA_ALLOWED_HOSTS":  "127.0.0.1,localhost"
+    "EXTRA_ALLOWED_HOSTS":  "127.0.0.1,localhost",
+    "DEVBOX_ENV_NAME":      "PMBOK"
   },
   "shell": {
     "init_hook": [
@@ -35,7 +37,12 @@
       "# Aliases locales de git (solo para este repo)",
       "git config alias.acp '!bash ./.devtools/git-acp.sh'",
       "git config alias.gp '!bash ./.devtools/git-gp.sh'",
-      "git config alias.rp '!bash ./.devtools/git-rp.sh'"
+      "git config alias.rp '!bash ./.devtools/git-rp.sh'",
+      "git config alias.feature '!bash ./.devtools/git-feature.sh'",
+      "# --- DevX menu (solo interactivo) ---",
+      "if [[ -t 0 && -t 1 ]]; then DEVX_CHOICE=\"\"; if command -v gum >/dev/null 2>&1; then DEVX_CHOICE=\"$(gum choose --header \"Selecciona tu DevX (sombrero):\" \"Ecosystem Admin (ERD)\" \"PMBOK App Dev (PMBOK)\" \"GitOps Control (GITOPS)\")\"; else echo \"Selecciona tu DevX (sombrero):\"; select opt in \"Ecosystem Admin (ERD)\" \"PMBOK App Dev (PMBOK)\" \"GitOps Control (GITOPS)\"; do DEVX_CHOICE=\"$opt\"; break; done; fi; case \"$DEVX_CHOICE\" in \"Ecosystem Admin (ERD)\") export DEVBOX_ENV_NAME=\"ERD\" ;; \"PMBOK App Dev (PMBOK)\") export DEVBOX_ENV_NAME=\"PMBOK\" ;; \"GitOps Control (GITOPS)\") export DEVBOX_ENV_NAME=\"GITOPS\" ;; *) export DEVBOX_ENV_NAME=\"${DEVBOX_ENV_NAME:-DEVBOX}\" ;; esac; devx() { export DEVBOX_ENV_NAME=\"$1\"; }; fi",
+      "# --- Prompt: Starship (B) con fallback (A) ---",
+      "if command -v starship >/dev/null 2>&1; then export STARSHIP_CONFIG=\"$PWD/.starship.toml\"; if [[ -n \"${ZSH_VERSION:-}\" ]]; then eval \"$(starship init zsh)\"; else eval \"$(starship init bash)\"; fi; else if [[ -n \"${ZSH_VERSION:-}\" ]]; then export PROMPT=\"(devbox ${DEVBOX_ENV_NAME}) ${PROMPT}\"; else export PS1=\"(devbox ${DEVBOX_ENV_NAME}) ${PS1}\"; fi; fi"
     ]
   },
   "scripts": {
@@ -43,6 +50,7 @@
     "frontend": "cd frontend && npm run dev",
     "acp":      "bash ./.devtools/git-acp.sh",
     "gp":       "bash ./.devtools/git-gp.sh",
-    "rp":       "bash ./.devtools/git-rp.sh"
+    "rp":       "bash ./.devtools/git-rp.sh",
+    "feature":  "bash ./.devtools/git-feature.sh"
   }
 }

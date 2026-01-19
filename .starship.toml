@@ -1,0 +1,6 @@
+format = "[$env_var]($style) $directory $git_branch$git_status $character"
+
+[env_var]
+variable = "DEVBOX_ENV_NAME"
+format = "(devbox $env_value)"
+style = "bold green"

@@ -4,7 +4,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # Mensaje de confirmación de script integrado
-echo "🟢 [ERD-ECOSYSTEM] Ejecutando git-acp integrado..."
+echo "🟢 [ERD-PMBOK] Ejecutando git-acp integrado..."
 
 # --- Detección inteligente de configuración ---
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
