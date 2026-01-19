@@ -78,6 +78,7 @@ jobs:
         uses: ./.github/actions/setup-dependencies
         with:
           working-directory: ${{ matrix.service }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

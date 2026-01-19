@@ -85,6 +85,8 @@ jobs:
         uses: ./.github/actions/setup-dependencies
         with:
           working-directory: ${{ matrix.service }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
