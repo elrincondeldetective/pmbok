@@ -9,7 +9,7 @@ import { jwtDecode } from "jwt-decode";
  * Nota:
  * - Para evitar que DEV se rompa por builds “horneados” con dominios (ej: https://api.ihexhubs.com/api),
  *   SOLO aceptamos rutas relativas (que empiezan con "/"). Cualquier valor absoluto se ignora.
- * - Normalizamos para que NO termine en "/".
+ * - Normalizamos para que NO termine en "/"...
  */
 const RAW = (import.meta.env.VITE_API_BASE_URL || "").trim();
 
