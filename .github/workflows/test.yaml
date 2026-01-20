@@ -1,4 +1,4 @@
-# apps/pmbok/.github/workflows/test.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/test.yaml
 name: Run Tests
 
 on:
@@ -22,6 +22,10 @@ on:
       - ".github/actions/**"
       - ".github/utils/**"
       - "Taskfile.yaml"
+
+permissions:
+  contents: read
+  statuses: write
 
 jobs:
   validate-pr:
@@ -102,3 +106,37 @@ jobs:
           DB_PASSWORD: testpassword
           DB_SSLMODE: disable
         run: task test
+
+  report-required-status:
+    name: Report required status (Run Tests)
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [validate-pr, filter, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish legacy required status "Run Tests"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          R_VALIDATE: ${{ needs.validate-pr.result }}
+          R_FILTER: ${{ needs.filter.result }}
+          R_TEST: ${{ needs.test.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state="success"
+          for r in "$R_VALIDATE" "$R_FILTER" "$R_TEST"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              state="failure"
+            fi
+          done
+
+          echo "Publishing status: Run Tests => $state (sha=$SHA)"
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/$SHA" \
+            -d "{\"state\":\"$state\",\"context\":\"Run Tests\",\"description\":\"Aggregate required status\"}"

@@ -1,6 +1,6 @@
 # /webapps/erd-ecosystem/apps/pmbok/backend/core/settings.py
 """
-Django settings for core project...
+Django settings for core project.
 """
 
 from pathlib import Path

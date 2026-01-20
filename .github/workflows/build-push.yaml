@@ -25,6 +25,7 @@ on:
 permissions:
   contents: read
   packages: write
+  statuses: write
 
 env:
   REGISTRY: ghcr.io
@@ -151,3 +152,37 @@ jobs:
             });
 
             console.log(`🚀 Triggered GitOps update for sha: ${shortSha} on service: ${servicePathInParent} (branch: ${process.env.PARENT_GITOPS_BRANCH})`);
+
+  report-required-status:
+    name: Report required status (Build and Push)
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [validate-pr, filter, build-push]
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish legacy required status "Build and Push (PMBOK)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          R_VALIDATE: ${{ needs.validate-pr.result }}
+          R_FILTER: ${{ needs.filter.result }}
+          R_BUILD: ${{ needs.build-push.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state="success"
+          for r in "$R_VALIDATE" "$R_FILTER" "$R_BUILD"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              state="failure"
+            fi
+          done
+
+          echo "Publishing status: Build and Push (PMBOK) => $state (sha=$SHA)"
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/$SHA" \
+            -d "{\"state\":\"$state\",\"context\":\"Build and Push (PMBOK)\",\"description\":\"Aggregate required status\"}"
