@@ -1,20 +1,50 @@
-# apps/pmbok/.github/workflows/test.yaml
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/test.yaml
 name: Run Tests
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [dev]
     paths:
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/test.yaml"
+      - ".github/workflows/build-push.yaml"
       - ".github/actions/**"
-  pull_request:
+      - ".github/utils/**"
+      - "Taskfile.yaml"
+  push:
+    branches: [dev]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/test.yaml"
+      - ".github/workflows/build-push.yaml"
+      - ".github/actions/**"
+      - ".github/utils/**"
+      - "Taskfile.yaml"
+
+permissions:
+  contents: read
+  statuses: write
 
 jobs:
+  validate-pr:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce feature/** source branch
+        shell: bash
+        run: |
+          if [[ "${{ github.head_ref }}" != feature/* ]]; then
+            echo "❌ Este PR hacia dev debe venir desde una rama feature/**"
+            echo "   Rama origen: ${{ github.head_ref }}"
+            exit 1
+          fi
+
   # 1. Detectar cambios
   filter:
+    needs: [validate-pr]
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') }}
     runs-on: ubuntu-24.04
     outputs:
       services: ${{ steps.filter.outputs.changes }}
@@ -28,7 +58,7 @@ jobs:
   # 2. Ejecutar Tests
   test:
     needs: filter
-    if: ${{ needs.filter.outputs.services != '[]' }}
+    if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -59,6 +89,8 @@ jobs:
         uses: ./.github/actions/setup-dependencies
         with:
           working-directory: ${{ matrix.service }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
@@ -74,3 +106,37 @@ jobs:
           DB_PASSWORD: testpassword
           DB_SSLMODE: disable
         run: task test
+
+  report-required-status:
+    name: Report required status (Run Tests)
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [validate-pr, filter, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish legacy required status "Run Tests"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          R_VALIDATE: ${{ needs.validate-pr.result }}
+          R_FILTER: ${{ needs.filter.result }}
+          R_TEST: ${{ needs.test.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state="success"
+          for r in "$R_VALIDATE" "$R_FILTER" "$R_TEST"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              state="failure"
+            fi
+          done
+
+          echo "Publishing status: Run Tests => $state (sha=$SHA)"
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/$SHA" \
+            -d "{\"state\":\"$state\",\"context\":\"Run Tests\",\"description\":\"Aggregate required status\"}"
