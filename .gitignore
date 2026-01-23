@@ -308,3 +308,4 @@ staticfiles/
 certs/
 certs/dev.crt
 certs/dev.key
+devbox.lock
