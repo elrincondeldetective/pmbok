@@ -1,4 +1,4 @@
-// frontend/src/types/process.ts
+// apps/pmbok/frontend/src/types/process.ts
 
 export type KanbanStatus = 'unassigned' | 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 
@@ -81,7 +81,7 @@ interface IBaseProcess {
 
     // Un proceso ahora puede tener múltiples personalizaciones, una para cada país.
     customizations: IProcessCustomization[];
-    
+
     // Propiedad del lado del cliente para rastrear la personalización activa en el modal.
     activeCustomization?: IProcessCustomization;
 }
