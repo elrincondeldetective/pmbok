@@ -9,30 +9,49 @@ env:
   SECRET_KEY: "insecure-test-key-for-task-runner"
   # Valores placeholder para la DB.
   # Aunque usemos SimpleTestCase, Django lee settings.py al inicio y necesita estos valores.
-  DB_NAME: "pmbok_test_db"
-  DB_USER: "testuser"
-  DB_PASSWORD: "testpassword"
+  # ✅ FIX: Alineado con docker-compose para que pueda conectar a la DB local
+  DB_NAME: "pmbok_db"
+  DB_USER: "pmbok_user"
+  DB_PASSWORD: "secretpassword123"
   DB_HOST: "localhost"
   DB_PORT: "5432"
 
 tasks:
   install:
-    desc: Install dependencies (Local Dev)
+    desc: "📦 Instalar dependencias (Local)"
     cmds:
       - poetry install --no-root
 
   install-ci:
-    desc: install/download package dependencies (CI mode)
+    desc: "📦 Instalar dependencias (CI - Strict)"
     cmds:
-      - poetry install --no-root
+      # --sync asegura que el entorno quede idéntico al lockfile (borra extra packages)
+      - poetry install --no-root --sync
 
   test:
-    desc: run tests
+    desc: "🧪 Ejecutar pruebas unitarias (Pytest)"
     # Ejecuta los tests usando la configuración de pytest.ini
     cmds:
+      - echo "🧪 [BACKEND] Ejecutando tests..."
       - poetry run pytest
 
+  # ✅ NEW: Estandarización de Linting
+  lint:
+    desc: "🧹 Check de código (Flake8/Black)"
+    cmds:
+      - echo "🧹 [BACKEND] Linting..."
+      # Descomentar cuando configures linters:
+      # - poetry run flake8 .
+      # - poetry run black --check .
+
+  # ✅ NEW: Estandarización de Formateo
+  fmt:
+    desc: "🎨 Formatear código (Auto-fix)"
+    cmds:
+      - echo "🎨 [BACKEND] Formatting..."
+      # - poetry run black .
+
   run:
-    desc: Run dev server (Django)
+    desc: "🚀 Ejecutar servidor de desarrollo (Directo)"
     cmds:
       - poetry run python manage.py runserver 0.0.0.0:8000
