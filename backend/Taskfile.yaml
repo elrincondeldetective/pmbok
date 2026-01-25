@@ -9,7 +9,7 @@ env:
   SECRET_KEY: "insecure-test-key-for-task-runner"
   # Valores placeholder para la DB.
   # Aunque usemos SimpleTestCase, Django lee settings.py al inicio y necesita estos valores.
-  # ✅ FIX: Alineado con docker-compose para que pueda conectar a la DB local
+  # ✅ FIX: Alineado con docker-compose y la DB de CI para conectar a localhost
   DB_NAME: "pmbok_db"
   DB_USER: "pmbok_user"
   DB_PASSWORD: "secretpassword123"
@@ -25,15 +25,48 @@ tasks:
   install-ci:
     desc: "📦 Instalar dependencias (CI - Strict)"
     cmds:
-      # --sync asegura que el entorno quede idéntico al lockfile (borra extra packages)
-      - poetry install --no-root --sync
+      # ✅ FIX: Usamos 'sync' en lugar de '--sync' para evitar el warning de deprecación
+      - poetry sync --no-root
 
   test:
     desc: "🧪 Ejecutar pruebas unitarias (Pytest)"
-    # Ejecuta los tests usando la configuración de pytest.ini
+    # ✅ FIX: Aseguramos que haya una DB escuchando antes de correr los tests
+    deps: [db:ensure]
     cmds:
       - echo "🧪 [BACKEND] Ejecutando tests..."
       - poetry run pytest
+
+  # ✅ NEW: Tarea inteligente para levantar DB solo si hace falta
+  db:ensure:
+    desc: "Levanta una DB efímera si el puerto 5432 está libre"
+    cmds:
+      - |
+        # Verificamos si algo ya escucha en el puerto 5432 (usando bash tcp check)
+        if ! (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1; then
+          echo "🐘 [CI] No se detectó DB en el puerto 5432. Levantando contenedor temporal 'pmbok-ci-db'..."
+          
+          # Intentamos limpiar por si quedó una instancia zombie
+          docker rm -f pmbok-ci-db >/dev/null 2>&1 || true
+          
+          # Levantamos Postgres ligero
+          docker run -d --name pmbok-ci-db -p 5432:5432 \
+            -e POSTGRES_DB=pmbok_db \
+            -e POSTGRES_USER=pmbok_user \
+            -e POSTGRES_PASSWORD=secretpassword123 \
+            postgres:16-alpine
+          
+          echo "⏳ [CI] Esperando a que Postgres esté listo..."
+          # Loop de espera hasta que pg_isready diga OK
+          for i in {1..30}; do
+            if docker exec pmbok-ci-db pg_isready -U pmbok_user -d pmbok_db >/dev/null 2>&1; then
+              echo "✅ DB lista para tests."
+              break
+            fi
+            sleep 1
+          done
+        else
+          echo "🐘 [CI] DB detectada en puerto 5432. Usándola."
+        fi
 
   # ✅ NEW: Estandarización de Linting
   lint:
