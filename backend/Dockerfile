@@ -1,5 +1,5 @@
 # /webapps/erd-ecosystem/apps/pmbok/backend/Dockerfile
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
 
 # Evitar .pyc y logs buferizados
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -32,19 +32,32 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi
 
+# --------------------------------------------------------
+# ETAPA DE DESARROLLO (Lo que usa docker compose / minikube dev)
+# --------------------------------------------------------
+FROM base AS dev
+# En dev generalmente no copiamos código porque se monta como volumen,
+# pero el CMD por defecto es útil para arrancar.
+EXPOSE 8000
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+# --------------------------------------------------------
+# ETAPA DE PRODUCCIÓN (Imagen final para Deploy)
+# --------------------------------------------------------
+FROM base AS prod
+
 # 5. Copiar el resto del código
+# En producción SÍ copiamos el código dentro de la imagen.
 COPY . .
 
-# 6. Entrypoint (Opcional / Comentado por seguridad)
-# Si tienes un archivo 'entrypoint.sh' real, descomenta las siguientes líneas.
-# Si no lo tienes, déjalas comentadas para evitar errores de "file not found".
-# COPY entrypoint.sh /docker-entrypoint.sh
-# RUN chmod +x /docker-entrypoint.sh
-# ENTRYPOINT ["/docker-entrypoint.sh"]
+# 6. Entrypoint REAL (Habilitado)
+# Usamos el script entrypoint.sh para migraciones y validaciones previas
+COPY entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 EXPOSE 8000
 
 # 7. Comando por defecto
-# Como deshabilitamos el venv de poetry arriba, podemos llamar a python directo
-# o usar poetry run (ambos funcionarán).
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# En producción usamos Gunicorn en lugar de runserver
+CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]

@@ -32,8 +32,9 @@ FROM base AS builder
 COPY . .
 
 # Argumentos de construcción para inyectar variables de entorno al compilar
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
+# CAMBIO FASE 3.2: Estandarización a VITE_API_BASE_URL (coincide con apiClient.ts)
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build
 

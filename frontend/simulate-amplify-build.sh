@@ -1,5 +1,5 @@
 #!/bin/bash
-# frontend/simulate-amplify-build.sh
+# /webapps/erd-ecosystem/apps/pmbok/frontend/simulate-amplify-build.sh
 
 # Falla el script si cualquier comando falla
 set -e
@@ -18,7 +18,9 @@ npm ci
 
 # 3. Build: Ejecuta el mismo comando de build de tu amplify.yml
 echo "🏗️ Construyendo la aplicación con 'npm run build'..."
-VITE_API_URL="http://dummy-url.com/api" npm run build
+# CAMBIO FASE 3.2: Usar variable estándar VITE_API_BASE_URL
+# Usamos una ruta relativa (/api) como se recomienda en apiClient.ts
+VITE_API_BASE_URL="/api" npm run build
 
 # --- FIN DE LA SIMULACIÓN ---
 echo "✅ [SIMULACIÓN AMPLIFY] ¡El build se completó exitosamente!"
