@@ -29,40 +29,50 @@ tasks:
       - poetry sync --no-root
 
   test:
-    desc: "🧪 Ejecutar pruebas unitarias (Pytest)"
-    # ✅ FIX: Aseguramos que haya una DB escuchando antes de correr los tests
+    desc: "🧪 Ejecutar pruebas unitarias (Pytest) con Puerto Dinámico"
+    # Aseguramos que la DB de CI esté levantada antes de probar
     deps: [db:ensure]
     cmds:
-      - echo "🧪 [BACKEND] Ejecutando tests..."
-      - poetry run pytest
+      - |
+        # 1. Obtener el puerto real asignado por Docker (Mapping dinámico)
+        CI_PORT=$(docker port pmbok-ci-db 5432/tcp | awk -F: '{print $2}')
+        echo "🧪 [CI] Ejecutando tests contra DB en localhost:$CI_PORT"
 
-  # ✅ NEW: Tarea inteligente y robusta para levantar DB
+        # 2. Configurar limpieza automática (Trap) para que corra pase lo que pase
+        cleanup() {
+            echo "🧹 [CI] Limpiando contenedor de pruebas..."
+            task db:cleanup
+        }
+        trap cleanup EXIT
+
+        # 3. Ejecutar Pytest inyectando el PUERTO DINÁMICO (Sobreescribe el 5432 del env global)
+        echo "🧪 [BACKEND] Iniciando Pytest..."
+        DB_PORT=$CI_PORT poetry run pytest
+
+  # ✅ NEW: Tarea inteligente y NO DESTRUCTIVA para levantar DB
   db:ensure:
-    desc: "Levanta una DB efímera asegurando que el puerto esté libre (Limpieza agresiva)"
+    desc: "Levanta una DB efímera en puerto ALEATORIO (No mata tu entorno local)"
     cmds:
       - |
-        # 1. Chequeo de Salud: ¿Ya hay una Postgres respondiendo correctamente?
+        # 1. Chequeo de Salud Rápido
         if docker exec pmbok-ci-db pg_isready -U pmbok_user -d pmbok_db >/dev/null 2>&1; then
-           echo "🐘 [CI] La DB 'pmbok-ci-db' ya está lista. Reusando."
-           exit 0
+            echo "🐘 [CI] La DB 'pmbok-ci-db' ya está lista. Reusando."
+            exit 0
         fi
 
-        # 2. Si no responde, LIMPIEZA AGRESIVA.
-        # Buscamos cualquier cosa en el puerto 5432 y la borramos para evitar conflictos.
-        echo "🧹 [CI] Liberando puerto 5432..."
-        # Mata pmbok-ci-db (CI) y pmbok-db (Compose) si existen para evitar el error "Bind for 0.0.0.0:5432 failed"
-        docker rm -f pmbok-ci-db pmbok-db >/dev/null 2>&1 || true
+        # 2. Limpieza SOLO de la instancia de CI (No tocamos pmbok-db de Compose)
+        docker rm -f pmbok-ci-db >/dev/null 2>&1 || true
         
-        # 3. Arrancar nueva instancia limpia
-        echo "🐘 [CI] Levantando contenedor temporal 'pmbok-ci-db'..."
-        docker run -d --name pmbok-ci-db -p 5432:5432 \
+        # 3. Arrancar nueva instancia con PUERTO DINÁMICO (-p 0:5432)
+        # Esto evita el conflicto "Address already in use" con tu entorno local
+        echo "🐘 [CI] Levantando 'pmbok-ci-db' en puerto dinámico..."
+        docker run -d --name pmbok-ci-db -p 0:5432 \
             -e POSTGRES_DB=pmbok_db \
             -e POSTGRES_USER=pmbok_user \
             -e POSTGRES_PASSWORD=secretpassword123 \
             postgres:16-alpine
           
         echo "⏳ [CI] Esperando a que Postgres esté listo..."
-        # Loop de espera hasta que pg_isready diga OK
         for i in {1..30}; do
             if docker exec pmbok-ci-db pg_isready -U pmbok_user -d pmbok_db >/dev/null 2>&1; then
               echo "✅ DB lista para tests."
@@ -72,6 +82,12 @@ tasks:
         done
         echo "❌ Timeout esperando DB."
         exit 1
+
+  # ✅ NEW: Tarea explícita de limpieza
+  db:cleanup:
+    desc: "Elimina el contenedor de base de datos de CI"
+    cmds:
+      - docker rm -f pmbok-ci-db >/dev/null 2>&1 || true
 
   # ✅ NEW: Estandarización de Linting
   lint:
