@@ -30,6 +30,7 @@ permissions:
 
 jobs:
   validate-pr:
+<<<<<<< HEAD
     # PERMITIMOS QUE CORRA EN DISPATCH (Para que no bloquee a los siguientes en local)
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
@@ -37,6 +38,12 @@ jobs:
       - name: Enforce feature/** source branch
         # SOLO EJECUTAMOS LA LÓGICA ESTRICTA SI ES PR REAL
         if: ${{ github.event_name == 'pull_request' }}
+=======
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce feature/** source branch
+>>>>>>> feature/detached-b50af15
         shell: bash
         run: |
           if [[ "${{ github.head_ref }}" != feature/* ]]; then
@@ -44,16 +51,23 @@ jobs:
             echo "   Rama origen: ${{ github.head_ref }}"
             exit 1
           fi
+<<<<<<< HEAD
       
       - name: Skip validation for dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: echo "✅ Validación saltada para ejecución manual/local."
+=======
+>>>>>>> feature/detached-b50af15
 
   # 1. Detectar cambios
   filter:
     needs: [validate-pr]
+<<<<<<< HEAD
     # Se ejecuta si validate-pr tuvo éxito (ahora incluye dispatch)
     if: ${{ always() && needs.validate-pr.result == 'success' }}
+=======
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') }}
+>>>>>>> feature/detached-b50af15
     runs-on: ubuntu-24.04
     outputs:
       # CAMBIO IMPORTANTE: Apuntamos al paso manual, no directamente al filtro
@@ -84,7 +98,10 @@ jobs:
   # 2. Ejecutar Tests
   test:
     needs: filter
+<<<<<<< HEAD
     # Validamos que la matriz no venga vacía
+=======
+>>>>>>> feature/detached-b50af15
     if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     runs-on: ubuntu-24.04
     strategy:
@@ -118,6 +135,10 @@ jobs:
         with:
           working-directory: ${{ matrix.service }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+<<<<<<< HEAD
+=======
+
+>>>>>>> feature/detached-b50af15
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
