@@ -1,6 +1,15 @@
 # /webapps/erd-ecosystem/apps/pmbok/Taskfile.yaml
 version: '3'
 
+includes:
+  backend:
+    taskfile: backend/Taskfile.yaml
+    dir: backend
+
+  frontend:
+    taskfile: frontend/Taskfile.yaml
+    dir: frontend
+
 tasks:
   # --- META TAREAS (App Level) ---
   default:
@@ -33,22 +42,3 @@ tasks:
       - echo "🚀 Iniciando pruebas del FRONTEND..."
       - task: frontend:test
       - echo "✅ ¡Todas las pruebas finalizaron con éxito!"
-
-  # --- DELEGACIÓN A SUB-PROYECTOS ---
-  # Estas tareas bajan al directorio específico y ejecutan el comando correspondiente
-
-  backend:install-ci:
-    dir: backend
-    cmds: [{ task: install-ci }]
-
-  frontend:install-ci:
-    dir: frontend
-    cmds: [{ task: install-ci }]
-
-  backend:test:
-    dir: backend
-    cmds: [{ task: test }]
-
-  frontend:test:
-    dir: frontend
-    cmds: [{ task: test }]
