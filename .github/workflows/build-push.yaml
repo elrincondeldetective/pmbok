@@ -31,7 +31,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NS: pmbok
   BASE_PATH: .
-  FRONTEND_VITE_API_URL: https://api.ihexhubs.com/api
+  # CAMBIO FASE 3.1: Usar variable estándar VITE_API_BASE_URL con ruta relativa
+  FRONTEND_VITE_API_BASE_URL: /api
   PARENT_GITOPS_BRANCH: dev
 
 jobs:
@@ -112,8 +113,9 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # CAMBIO FASE 3.1: Pasar build-arg correcto
           build-args: |
-            VITE_API_URL=${{ env.FRONTEND_VITE_API_URL }}
+            VITE_API_BASE_URL=${{ env.FRONTEND_VITE_API_BASE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
