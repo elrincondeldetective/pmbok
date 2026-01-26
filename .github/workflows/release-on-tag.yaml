@@ -52,3 +52,5 @@ jobs:
           body: ${{ steps.notes.outputs.body }}
           prerelease: ${{ steps.notes.outputs.prerelease }}
           draft: false
+          # SOLUCIÓN: Desactivar notas automáticas para respetar 100% tu mensaje manual del tag
+          generate_release_notes: false

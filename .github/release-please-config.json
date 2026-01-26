@@ -4,8 +4,12 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "pmbok",
-      "version-file": "package.json",
+      "package-name": "pmbok-app",
+      "version-file": "VERSION", 
+      "extra-files": [
+        "frontend/package.json",
+        "backend/pyproject.toml" 
+      ],
       "changelog-sections": [
         {"type": "feat", "section": "Features"},
         {"type": "fix", "section": "Bug Fixes"},
