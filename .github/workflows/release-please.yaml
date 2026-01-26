@@ -4,7 +4,7 @@ name: Release Please
 on:
   push:
     branches:
-      - dev
+      - dev  # 👈 CORRECCIÓN: El bot vigila dev para preparar la versión
 
 permissions:
   contents: write
@@ -12,16 +12,18 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: google-github-actions/release-please-action@v4
         with:
-          # Usamos el token por defecto de GitHub Actions
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Apuntamos a los archivos de configuración
-          config-file: .github/utils/release-please-config.json
-          manifest-file: .github/utils/.release-please-manifest.json
-          # ✅ Mantiene el versionado y PRs en la rama real de integración (dev)
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+          
+          # ✅ CLAVE 1: El PR de release se hace contra dev
           target-branch: dev
-          # ✅ Evita duplicar releases porque los crea el superrepo vía tags (release-on-tag)
+          
+          # ✅ CLAVE 2: El bot NO crea el Release/Tag en GitHub automáticamente.
+          # Solo actualiza el archivo VERSION y CHANGELOG en el código.
+          # Los tags (rc1, v1.0.0) los gestionas tú con 'git promote'.
           skip-github-release: true
