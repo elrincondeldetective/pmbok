@@ -1,7 +1,4 @@
 [submodule ".devtools"]
-	path = .devtools
-	url = https://github.com/elrincondeldetective/erd-devtools.git
-<<<<<<< HEAD
-	branch = main
-=======
->>>>>>> feature/detached-b50af15
+  path = .devtools
+  url = https://github.com/elrincondeldetective/erd-devtools.git
+  branch = main
