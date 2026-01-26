@@ -1,9 +1,10 @@
-// frontend/src/hooks/useProcessData.ts
+// /webapps/erd-ecosystem/apps/pmbok/frontend/src/hooks/useProcessData.ts
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useMatch, useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import type { AnyProcess, IPMBOKProcess, IScrumProcess } from '../types/process';
 import { ProcessContext } from '../context/ProcessContext';
+import { mergeProcessData } from '../utils/processHelpers';
 
 /**
 * Hook personalizado para obtener los datos de un proceso específico.
@@ -31,33 +32,14 @@ export const useProcessData = () => {
             const baseProcessFromContext = processes.find(p => p.id === parseInt(processId) && p.type === processType);
 
             // ===== CAMBIO CLAVE: MANTENER EL PAÍS SELECCIONADO =====
-            // Prioridad 1: El país que ya está activo en el estado del modal.
+            // Prioridad 1: El país que ya está activo en el estado del modal (si 'process' ya existe).
             // Prioridad 2: El país con el que se abrió el modal (desde location.state).
             const activeCountryCode = process?.activeCustomization?.country_code || location.state?.countryCode;
 
-            // Función para aplicar la vista correcta (base o por país)
-            const applyCustomization = (baseProcess: AnyProcess): AnyProcess => {
-                if (activeCountryCode && baseProcess.customizations) {
-                    const customization = baseProcess.customizations.find(c => c.country_code.toLowerCase() === activeCountryCode.toLowerCase());
-                    if (customization) {
-                        // Si se encuentra la personalización, la aplicamos.
-                        return {
-                            ...baseProcess,
-                            inputs: customization.inputs,
-                            tools_and_techniques: customization.tools_and_techniques,
-                            outputs: customization.outputs,
-                            activeCustomization: customization,
-                        };
-                    }
-                }
-                // Si no hay país o no se encuentra, mostramos la versión base.
-                return { ...baseProcess, activeCustomization: undefined };
-            };
-
             if (baseProcessFromContext) {
-                // Si los datos ya existen en el contexto, simplemente sincronizamos la vista.
+                // Si los datos ya existen en el contexto, simplemente sincronizamos la vista usando el helper.
                 // Esto evita el parpadeo de "Cargando...".
-                const processToShow = applyCustomization(baseProcessFromContext);
+                const processToShow = mergeProcessData(baseProcessFromContext, activeCountryCode);
                 setProcess(processToShow);
                 setLoading(false);
             } else {
@@ -68,7 +50,9 @@ export const useProcessData = () => {
                     const response = await apiClient.get<IPMBOKProcess | IScrumProcess>(`/${apiEndpoint}/${processId}/`);
                     // CORRECCIÓN: Se añade aserción de tipo para resolver el conflicto.
                     const baseProcessData = { ...response.data, type: processType } as AnyProcess;
-                    const processToShow = applyCustomization(baseProcessData);
+
+                    // Usamos el helper externo para aplicar la lógica de fusión
+                    const processToShow = mergeProcessData(baseProcessData, activeCountryCode);
                     setProcess(processToShow);
                 } catch (err: any) {
                     console.error("Failed to fetch process details:", err);
@@ -81,6 +65,7 @@ export const useProcessData = () => {
 
         processLogic();
         // Dependemos de `processes` para que este efecto se ejecute de nuevo cuando los datos globales cambien.
+        // Quitamos 'process' de las dependencias para evitar loops infinitos si el objeto cambia de referencia.
     }, [processId, apiEndpoint, processType, processes, location.state]);
 
     return { process, setProcess, loading, error, processType, apiEndpoint };

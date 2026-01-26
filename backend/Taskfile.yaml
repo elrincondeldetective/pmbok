@@ -9,30 +9,103 @@ env:
   SECRET_KEY: "insecure-test-key-for-task-runner"
   # Valores placeholder para la DB.
   # Aunque usemos SimpleTestCase, Django lee settings.py al inicio y necesita estos valores.
-  DB_NAME: "pmbok_test_db"
-  DB_USER: "testuser"
-  DB_PASSWORD: "testpassword"
+  # ✅ FIX: Alineado con docker-compose y la DB de CI para conectar a localhost
+  DB_NAME: "pmbok_db"
+  DB_USER: "pmbok_user"
+  DB_PASSWORD: "secretpassword123"
   DB_HOST: "localhost"
   DB_PORT: "5432"
 
 tasks:
   install:
-    desc: Install dependencies (Local Dev)
+    desc: "📦 Instalar dependencias (Local)"
     cmds:
       - poetry install --no-root
 
   install-ci:
-    desc: install/download package dependencies (CI mode)
+    desc: "📦 Instalar dependencias (CI - Strict)"
     cmds:
-      - poetry install --no-root
+      # ✅ FIX: Usamos 'sync' en lugar de '--sync' para evitar el warning de deprecación
+      - poetry sync --no-root
 
   test:
-    desc: run tests
-    # Ejecuta los tests usando la configuración de pytest.ini
+    desc: "🧪 Ejecutar pruebas unitarias (Pytest) con Puerto Dinámico"
+    # Aseguramos que la DB de CI esté levantada antes de probar
+    deps: [db:ensure]
     cmds:
-      - poetry run pytest
+      - |
+        # 1. Obtener el puerto real asignado por Docker (Mapping dinámico)
+        CI_PORT=$(docker port pmbok-ci-db 5432/tcp | awk -F: '{print $2}')
+        echo "🧪 [CI] Ejecutando tests contra DB en localhost:$CI_PORT"
+
+        # 2. Configurar limpieza automática (Trap) para que corra pase lo que pase
+        cleanup() {
+            echo "🧹 [CI] Limpiando contenedor de pruebas..."
+            task db:cleanup
+        }
+        trap cleanup EXIT
+
+        # 3. Ejecutar Pytest inyectando el PUERTO DINÁMICO (Sobreescribe el 5432 del env global)
+        echo "🧪 [BACKEND] Iniciando Pytest..."
+        DB_PORT=$CI_PORT poetry run pytest
+
+  # ✅ NEW: Tarea inteligente y NO DESTRUCTIVA para levantar DB
+  db:ensure:
+    desc: "Levanta una DB efímera en puerto ALEATORIO (No mata tu entorno local)"
+    cmds:
+      - |
+        # 1. Chequeo de Salud Rápido
+        if docker exec pmbok-ci-db pg_isready -U pmbok_user -d pmbok_db >/dev/null 2>&1; then
+            echo "🐘 [CI] La DB 'pmbok-ci-db' ya está lista. Reusando."
+            exit 0
+        fi
+
+        # 2. Limpieza SOLO de la instancia de CI (No tocamos pmbok-db de Compose)
+        docker rm -f pmbok-ci-db >/dev/null 2>&1 || true
+        
+        # 3. Arrancar nueva instancia con PUERTO DINÁMICO (-p 0:5432)
+        # Esto evita el conflicto "Address already in use" con tu entorno local
+        echo "🐘 [CI] Levantando 'pmbok-ci-db' en puerto dinámico..."
+        docker run -d --name pmbok-ci-db -p 0:5432 \
+            -e POSTGRES_DB=pmbok_db \
+            -e POSTGRES_USER=pmbok_user \
+            -e POSTGRES_PASSWORD=secretpassword123 \
+            postgres:16-alpine
+          
+        echo "⏳ [CI] Esperando a que Postgres esté listo..."
+        for i in {1..30}; do
+            if docker exec pmbok-ci-db pg_isready -U pmbok_user -d pmbok_db >/dev/null 2>&1; then
+              echo "✅ DB lista para tests."
+              exit 0
+            fi
+            sleep 1
+        done
+        echo "❌ Timeout esperando DB."
+        exit 1
+
+  # ✅ NEW: Tarea explícita de limpieza
+  db:cleanup:
+    desc: "Elimina el contenedor de base de datos de CI"
+    cmds:
+      - docker rm -f pmbok-ci-db >/dev/null 2>&1 || true
+
+  # ✅ NEW: Estandarización de Linting
+  lint:
+    desc: "🧹 Check de código (Flake8/Black)"
+    cmds:
+      - echo "🧹 [BACKEND] Linting..."
+      # Descomentar cuando configures linters:
+      # - poetry run flake8 .
+      # - poetry run black --check .
+
+  # ✅ NEW: Estandarización de Formateo
+  fmt:
+    desc: "🎨 Formatear código (Auto-fix)"
+    cmds:
+      - echo "🎨 [BACKEND] Formatting..."
+      # - poetry run black .
 
   run:
-    desc: Run dev server (Django)
+    desc: "🚀 Ejecutar servidor de desarrollo (Directo)"
     cmds:
       - poetry run python manage.py runserver 0.0.0.0:8000

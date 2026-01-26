@@ -3,24 +3,38 @@ version: "3"
 
 tasks:
   install:
-    desc: Install dependencies
+    desc: "📦 Instalar dependencias (Local)"
     cmds:
       - npm install
 
   install-ci:
-    desc: install dependencies (CI mode)
+    desc: "📦 Instalar dependencias (CI - Clean)"
     # npm ci borra node_modules y instala exactamente lo que dice el package-lock.json
     cmds:
       - npm ci
 
-  test:
-    desc: run tests (Linting + Build check)
+  # ✅ NEW: Tarea de Linting separada
+  lint:
+    desc: "🧹 Validar estilo (ESLint)"
     cmds:
-      # Como no hay tests unitarios aún, validamos calidad de código y compilación
+      - echo "🧹 [FRONTEND] Linting..."
       - npm run lint
+
+  # ✅ NEW: Tarea de Build separada
+  build:
+    desc: "🧱 Validar compilación (Build)"
+    cmds:
+      - echo "🧱 [FRONTEND] Building..."
       - npm run build
 
+  test:
+    desc: "🧪 Ejecutar validaciones (Lint + Build)"
+    cmds:
+      # Como no hay tests unitarios aún, validamos calidad de código y compilación
+      - task: lint
+      - task: build
+
   run:
-    desc: Run dev server
+    desc: "🚀 Ejecutar servidor de desarrollo (Vite)"
     cmds:
       - npm run dev

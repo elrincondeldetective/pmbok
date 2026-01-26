@@ -11,11 +11,55 @@ run() {
   log "✅ $desc"
 }
 
+# --- NUEVO: Función para esperar a la DB (evita crash al inicio) ---
+wait_for_db() {
+  # Si no hay DB_HOST, asumimos que no necesitamos esperar (ej. build, tests sin DB)
+  if [ -z "$DB_HOST" ]; then return 0; fi
+
+  log "⏳ Esperando a la base de datos ($DB_HOST:${DB_PORT:-5432})..."
+  
+  # Usamos un pequeño script de Python embebido para probar la conexión TCP
+  # Esto es más robusto que depender de netcat (nc) que a veces no está instalado
+  python << END
+import socket
+import time
+import os
+import sys
+
+host = os.environ.get('DB_HOST')
+try:
+    port = int(os.environ.get('DB_PORT', 5432))
+except ValueError:
+    port = 5432
+
+start = time.time()
+while True:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            break
+    except OSError:
+        # Timeout de 30 segundos
+        if time.time() - start > 30:
+            sys.exit(1)
+        time.sleep(1)
+END
+
+  if [ $? -eq 0 ]; then
+    log "✅ Base de datos disponible."
+  else
+    log "❌ Timeout esperando a la base de datos ($DB_HOST)."
+    exit 1
+  fi
+}
+
 # --- Avisos de variables de entorno básicas (no bloquea el arranque) ---
 for v in DB_NAME DB_USER DB_PASSWORD DB_HOST; do
   eval "val=\${$v:-}"
   [ -z "$val" ] && log "⚠ $v no está definida (si Django la requiere, fallará)."
 done
+
+# --- NUEVO: Ejecutar la espera antes de intentar migraciones ---
+wait_for_db
 
 # Toggles controlables desde Elastic Beanstalk (Configuration → Software)
 : "${RUN_MIGRATIONS:=1}"     # 1/0

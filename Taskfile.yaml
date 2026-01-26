@@ -2,44 +2,53 @@
 version: '3'
 
 tasks:
-  # --- TAREAS DE INSTALACIÓN (Faltaban estas) ---
+  # --- META TAREAS (App Level) ---
+  default:
+    desc: "Muestra las tareas disponibles"
+    cmds:
+      - task --list
+
+  ci:
+    desc: "🔍 Ejecutar CI completo de la App (Backend + Frontend)"
+    cmds:
+      - echo "🏁 [PMBOK] Iniciando CI Completo..."
+      - task: install-ci
+      - task: test
+      - echo "✅ [PMBOK] CI Finalizado con éxito."
+
   install-ci:
-    desc: Install dependencies for CI
+    desc: "📦 Instalar dependencias de todos los servicios (Modo CI)"
     cmds:
-      - echo "📦 Instalando dependencias BACKEND..."
-      - task: install:backend
-      - echo "📦 Instalando dependencias FRONTEND..."
-      - task: install:frontend
-
-  install:backend:
-    dir: backend
-    cmds:
-      - task install # Asume que backend/Taskfile.yaml tiene 'install'
-
-  install:frontend:
-    dir: frontend
-    cmds:
-      - task install # Asume que frontend/Taskfile.yaml tiene 'install'
-
-  # --- TAREAS DE TEST (Ya las tenías bien) ---
-  test:backend:
-    desc: Run backend tests only
-    dir: backend
-    cmds:
-      - task test
-
-  test:frontend:
-    desc: Run frontend tests only
-    dir: frontend
-    cmds:
-      - task test
+      - echo "📦 Instalando dependencias BACKEND (CI)..."
+      - task: backend:install-ci
+      - echo "📦 Instalando dependencias FRONTEND (CI)..."
+      - task: frontend:install-ci
 
   test:
-    desc: Run ALL tests
+    desc: "🧪 Ejecutar pruebas de todos los servicios"
     cmds:
       - echo "🚀 Iniciando pruebas del BACKEND..."
-      - task: test:backend
+      - task: backend:test
       - echo "-----------------------------------"
       - echo "🚀 Iniciando pruebas del FRONTEND..."
-      - task: test:frontend
+      - task: frontend:test
       - echo "✅ ¡Todas las pruebas finalizaron con éxito!"
+
+  # --- DELEGACIÓN A SUB-PROYECTOS ---
+  # Estas tareas bajan al directorio específico y ejecutan el comando correspondiente
+
+  backend:install-ci:
+    dir: backend
+    cmds: [{ task: install-ci }]
+
+  frontend:install-ci:
+    dir: frontend
+    cmds: [{ task: install-ci }]
+
+  backend:test:
+    dir: backend
+    cmds: [{ task: test }]
+
+  frontend:test:
+    dir: frontend
+    cmds: [{ task: test }]

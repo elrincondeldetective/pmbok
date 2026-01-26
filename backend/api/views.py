@@ -1,3 +1,4 @@
+# /webapps/erd-ecosystem/apps/pmbok/backend/api/views.py
 import subprocess
 from django.conf import settings
 import os
@@ -163,69 +164,75 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
-# ===== VISTA GIT HISTORY CORREGIDA =====
+# ===== VISTA GIT HISTORY CORREGIDA (BLINDADA) =====
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_git_history(request):
-    try:
-        # 1. Buscar la carpeta .git recursivamente hacia arriba
-        current_path = os.path.abspath(__file__)
-        repo_dir = None
+    """
+    Obtiene el historial de git. Si no hay carpeta .git (Docker prod),
+    intenta leer variables de entorno inyectadas durante el build.
+    """
+    repo_dir = None
 
-        # Buscamos hasta 4 niveles hacia arriba
+    # 1. Intentar buscar la carpeta .git (Lógica original)
+    try:
+        current_path = os.path.abspath(__file__)
         check_path = os.path.dirname(current_path)
         for _ in range(4):
             if os.path.exists(os.path.join(check_path, '.git')):
                 repo_dir = check_path
                 break
             check_path = os.path.dirname(check_path)
+    except Exception:
+        pass  # Fallo silencioso, pasamos al plan B
 
-        if not repo_dir:
-            print("❌ ERROR GIT: No se encontró la carpeta .git")
-            return Response({"error": "No se encontró el repositorio .git en los directorios padres."}, status=500)
+    # 2. Si NO se encontró repo_dir, usar Plan B (Variables de Entorno)
+    if not repo_dir:
+        # Variable inyectada desde Dockerfile/K8s
+        commit_sha = os.environ.get('GIT_COMMIT_SHA', 'N/A')
 
+        if commit_sha != 'N/A':
+            print(
+                f"⚠️ GIT: Carpeta .git no encontrada. Usando SHA de entorno: {commit_sha}")
+            # Devolvemos un commit "sintético" para que el frontend no rompa
+            return Response({"commits": [{
+                "id": commit_sha[:7],  # Short SHA
+                "parents": [],
+                "author": "Build System",
+                "message": f"Deployment Artifact ({commit_sha}) - History unavailable in container"
+            }]})
+
+        # Si todo falla
+        print("❌ ERROR GIT: No hay carpeta .git ni variable GIT_COMMIT_SHA")
+        return Response({
+            "error": "Información de versión no disponible",
+            "details": "El contenedor no tiene acceso al historial git."
+        }, status=503)  # 503 Service Unavailable es más semántico que 500
+
+    # 3. Si SÍ hay repo, ejecutar comando git (Lógica original mejorada)
+    try:
         print(f"✅ GIT: Repositorio encontrado en: {repo_dir}")
-
-        # 2. Usar un delimitador único para evitar conflictos con mensajes de commit
         delimiter = "||||"
-
-        # Comando: Hash | Parents | Author | Subject
         cmd = [
-            "git",
-            "log",
-            "--all",
+            "git", "log", "--all",
             f"--pretty=format:%h{delimiter}%p{delimiter}%an{delimiter}%s",
-            "-n", "100"  # Traer 100 commits
+            "-n", "100"
         ]
 
-        # Ejecutar git
         result = subprocess.run(
-            cmd,
-            cwd=repo_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            cmd, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
 
         if result.returncode != 0:
-            print(f"❌ ERROR EJECUCIÓN GIT: {result.stderr}")
-            # Si falla porque 'git' no está instalado (común en Docker)
-            if "No such file" in str(result.stderr) or result.returncode == 127:
-                return Response({"error": "Git no está instalado en el servidor o contenedor."}, status=500)
-            return Response({"error": "Error ejecutando comando git", "details": result.stderr}, status=500)
+            raise Exception(result.stderr)
 
-        # 3. Procesar salida
         commits = []
         lines = result.stdout.strip().split('\n')
-
-        print(f"ℹ️ GIT: Se obtuvieron {len(lines)} líneas del log.")
-
         for line in lines:
             if not line.strip():
                 continue
-
             parts = line.split(delimiter)
             if len(parts) >= 4:
                 commits.append({
@@ -238,5 +245,11 @@ def get_git_history(request):
         return Response({"commits": commits})
 
     except Exception as e:
-        print(f"❌ EXCEPCIÓN NO CONTROLADA: {str(e)}")
-        return Response({"error": str(e)}, status=500)
+        print(f"❌ ERROR EJECUCIÓN GIT: {str(e)}")
+        # Fallback de último recurso
+        return Response({"commits": [{
+            "id": "unknown",
+            "parents": [],
+            "author": "System",
+            "message": "Error retrieving git logs"
+        }]})

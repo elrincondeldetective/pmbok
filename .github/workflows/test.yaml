@@ -30,10 +30,20 @@ permissions:
 
 jobs:
   validate-pr:
+<<<<<<< HEAD
+    # PERMITIMOS QUE CORRA EN DISPATCH (Para que no bloquee a los siguientes en local)
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce feature/** source branch
+        # SOLO EJECUTAMOS LA LÓGICA ESTRICTA SI ES PR REAL
+        if: ${{ github.event_name == 'pull_request' }}
+=======
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Enforce feature/** source branch
+>>>>>>> feature/detached-b50af15
         shell: bash
         run: |
           if [[ "${{ github.head_ref }}" != feature/* ]]; then
@@ -41,29 +51,63 @@ jobs:
             echo "   Rama origen: ${{ github.head_ref }}"
             exit 1
           fi
+<<<<<<< HEAD
+      
+      - name: Skip validation for dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: echo "✅ Validación saltada para ejecución manual/local."
+=======
+>>>>>>> feature/detached-b50af15
 
   # 1. Detectar cambios
   filter:
     needs: [validate-pr]
+<<<<<<< HEAD
+    # Se ejecuta si validate-pr tuvo éxito (ahora incluye dispatch)
+    if: ${{ always() && needs.validate-pr.result == 'success' }}
+=======
     if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') }}
+>>>>>>> feature/detached-b50af15
     runs-on: ubuntu-24.04
     outputs:
-      services: ${{ steps.filter.outputs.changes }}
+      # CAMBIO IMPORTANTE: Apuntamos al paso manual, no directamente al filtro
+      services: ${{ steps.set-matrix.outputs.services }}
     steps:
       - uses: actions/checkout@v4
+      
+      # Solo corre el filtro real si NO es dispatch
       - uses: dorny/paths-filter@v3
         id: filter
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         with:
           filters: .github/utils/file-filters.yaml
+
+      # PASO MAGICO: INYECTAR MATRIZ FIJA PARA LOCAL/ACT O USAR FILTRO REAL
+      - id: set-matrix
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "🔧 Modo Manual/Local: Forzando matriz completa."
+            # Inyectamos JSON válido para act/local
+            echo 'services=["apps/pmbok/backend", "apps/pmbok/frontend"]' >> $GITHUB_OUTPUT
+          else
+            # Modo normal: usa lo que detectó el filtro
+            echo "services=${{ steps.filter.outputs.changes }}" >> $GITHUB_OUTPUT
+          fi
 
   # 2. Ejecutar Tests
   test:
     needs: filter
+<<<<<<< HEAD
+    # Validamos que la matriz no venga vacía
+=======
+>>>>>>> feature/detached-b50af15
     if: ${{ needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '' }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
+        # act ya no fallará porque ahora recibe un JSON válido string desde set-matrix
         service: ${{ fromJson(needs.filter.outputs.services) }}
 
     services:
@@ -91,7 +135,6 @@ jobs:
         with:
           working-directory: ${{ matrix.service }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
