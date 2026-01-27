@@ -38,7 +38,7 @@ jobs:
       - name: Enforce feature/** source branch
         shell: bash
         run: |
-          if [[ "${{ github.head_ref }}" != feature/* ]]; then
+          if [[ "${{ github.head_ref }}" != feature/* && "${{ github.head_ref }}" != release-please--* ]]; then
             echo "❌ Este PR hacia dev debe venir desde una rama feature/**"
             echo "   Rama origen: ${{ github.head_ref }}"
             exit 1
@@ -46,7 +46,7 @@ jobs:
 
   filter:
     needs: [validate-pr]
-    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') }}
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     outputs:
       services: ${{ steps.filter.outputs.changes }}
