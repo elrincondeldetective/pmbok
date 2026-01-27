@@ -1,7 +1,2 @@
 
 # PMBOK-6
-
-# PMBOK-6
-
-# PMBOK-6
-# PMBOK-6

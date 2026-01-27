@@ -28,6 +28,11 @@ permissions:
   contents: read
   statuses: write
 
+# FASE 6 (NUEVO): Evitar carreras en CI por la misma ref (especialmente con pushes rápidos)
+concurrency:
+  group: pmbok-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-pr:
     if: ${{ github.event_name == 'pull_request' }}
@@ -52,6 +57,8 @@ jobs:
       services: ${{ steps.set-matrix.outputs.services }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       # Solo corre el filtro real si NO es dispatch
       - uses: dorny/paths-filter@v3
@@ -102,6 +109,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Usamos la acción compuesta que acabamos de crear
       - name: Setup Dependencies

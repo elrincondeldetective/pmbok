@@ -10,10 +10,21 @@ permissions:
   contents: write
   pull-requests: write
 
+# FASE 6 (NUEVO): Evitar ejecuciones simultáneas que generen PRs duplicados
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # FASE 6 (NUEVO): Checkout full history para versionado/changelog consistente
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: google-github-actions/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

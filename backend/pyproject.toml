@@ -5,7 +5,7 @@ package-mode = false
 
 [project]
 name = "pmbok-backend"
-version = "0.8.0"
+version = "0.1.0"
 description = "Backend para PMBOK"
 authors = [
     {name = "Reydem"}
