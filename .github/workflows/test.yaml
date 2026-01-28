@@ -41,11 +41,11 @@ jobs:
       - name: Enforce feature/** source branch
         shell: bash
         run: |
-          if [[ "${{ github.head_ref }}" != feature/* ]]; then
-            echo "❌ Este PR hacia dev debe venir desde una rama feature/**"
+            if [[ "${{ github.head_ref }}" != feature/* && "${{ github.head_ref }}" != release-please--* ]]; then
+            echo "❌ Este PR hacia dev debe venir desde feature/** o release-please--*"
             echo "   Rama origen: ${{ github.head_ref }}"
             exit 1
-          fi
+            fi
 
   # 1. Detectar cambios
   filter:
