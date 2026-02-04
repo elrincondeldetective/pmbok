@@ -1,4 +1,0 @@
-[submodule ".devtools"]
-	path = .devtools
-	url = https://github.com/elrincondeldetective/erd-devtools.git
-	branch = main
