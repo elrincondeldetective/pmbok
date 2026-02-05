@@ -58,6 +58,44 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/pmbok/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./apps/pmbok/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./apps/pmbok/frontend
+        run: npm run build
+
+      - name: Create package zip
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          name="pmbok-${tag}.zip"
+
+          mkdir -p dist-package
+          cp -R apps/pmbok/backend dist-package/backend
+          cp -R apps/pmbok/frontend/dist dist-package/frontend-dist
+
+          if [ ! -d "dist-package/frontend-dist" ]; then
+            echo "No se encontro dist del frontend. Revisa el build." >&2
+            exit 1
+          fi
+
+          zip -r "${name}" dist-package
+          rm -rf dist-package
+
+          echo "artifact_path=${name}" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=${name}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -67,3 +105,4 @@ jobs:
           draft: false
           # SOLUCIÓN: Desactivar notas automáticas para respetar 100% tu mensaje manual del tag
           generate_release_notes: false
+          files: ${{ steps.package.outputs.artifact_path }}
