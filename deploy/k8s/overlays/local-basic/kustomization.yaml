@@ -1,0 +1,44 @@
+# /webapps/erd-ecosystem/devops/k8s/overlays/local-basic/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/pmbok
+  - ../../components/postgres-db
+  - admin-ingress.yaml
+
+namePrefix: local-
+
+images:
+  - name: ghcr.io/elrincondeldetective/pmbok/backend
+    newName: pmbok-backend
+    newTag: dev
+  - name: ghcr.io/elrincondeldetective/pmbok/frontend
+    newName: pmbok-frontend
+    newTag: dev
+
+patches:
+  - path: patch-env-secrets.yaml
+    target:
+      kind: Deployment
+      name: pmbok-backend-deployment
+
+  - path: patch-imagepullpolicy-backend.yaml
+    target:
+      kind: Deployment
+      name: pmbok-backend-deployment
+
+  - path: patch-imagepullpolicy-frontend.yaml
+    target:
+      kind: Deployment
+      name: pmbok-frontend-deployment
+
+  - path: patch-pvc.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: postgres-claim
+
+  - path: patch-pmbok-ingress.yaml
+    target:
+      kind: Ingress
+      name: pmbok-ingress

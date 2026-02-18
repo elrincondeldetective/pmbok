@@ -1,0 +1,16 @@
+# /webapps/erd-ecosystem/devops/k8s/components/postgres-db/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  labels:
+    app: postgres
+spec:
+  type: NodePort
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      nodePort: 30432 # Fijo para acceso local fácil
+  selector:
+    app: postgres

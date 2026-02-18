@@ -1,0 +1,9 @@
+# /webapps/erd-ecosystem/devops/k8s/overlays/local/patch-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-claim
+  # No necesitamos namespace aquí, Kustomize lo gestiona
+spec:
+  # Sobreescribimos gp2 por standard (por defecto en Minikube)
+  storageClassName: standard

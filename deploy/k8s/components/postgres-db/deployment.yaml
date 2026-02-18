@@ -1,0 +1,44 @@
+# /webapps/erd-ecosystem/devops/k8s/db/deployment-postgres.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-db
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          # Alineamos versión con AWS RDS (v14) para evitar sorpresas
+          image: postgres:14-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          
+          # 1. Cargamos usuario y contraseña desde el secreto
+          envFrom:
+            - secretRef:
+                name: postgres-secrets
+          
+          # 2. 👇 CORRECCIÓN CRÍTICA PARA AWS EBS
+          # Usamos un subdirectorio para que Postgres ignore la carpeta 'lost+found'
+          # que aparece automáticamente en los discos de AWS.
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgredb
+      volumes:
+        - name: postgredb
+          persistentVolumeClaim:
+            claimName: postgres-claim

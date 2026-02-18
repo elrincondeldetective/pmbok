@@ -1,0 +1,17 @@
+# /webapps/erd-ecosystem/devops/k8s/components/postgres-db/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-claim
+  labels:
+    app: postgres
+spec:
+  # 👇 CAMBIO CRÍTICO: Usamos 'gp2' para que AWS cree el disco automáticamente.
+  # NO usar 'manual' en la nube.
+  storageClassName: gp2
+  
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi # He puesto 5Gi para asegurar espacio (2Gi se llena muy rápido)

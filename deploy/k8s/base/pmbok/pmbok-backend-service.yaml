@@ -1,0 +1,19 @@
+# /webapps/erd-ecosystem/devops/k8s/base/pmbok/pmbok-backend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pmbok-backend-service
+  labels:
+    app: pmbok-backend
+spec:
+  # 👇 CAMBIO CLAVE: Usamos ClusterIP (Red interna)
+  # Ya no usamos NodePort porque el Ingress manejará la entrada.
+  type: ClusterIP
+  selector:
+    app: pmbok-backend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+      # ❌ Eliminamos nodePort: 30780 (Ya no se necesita)

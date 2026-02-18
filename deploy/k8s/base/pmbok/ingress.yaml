@@ -1,0 +1,42 @@
+# /webapps/erd-ecosystem/devops/k8s/base/pmbok/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pmbok-ingress
+  annotations:
+    # Le decimos que use el Nginx que instalamos en bootstrap
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    # 1. Reglas para el Frontend (Web)
+    - host: pmbok.ihexhubs.com  # Este valor lo cambiaremos automáticamente por entorno
+      http:
+        paths:
+          # ✅ Proxy del API por misma-origin (evita CORS y evita hardcode de dominios)
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: pmbok-backend-service
+                port:
+                  number: 8000
+
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pmbok-frontend-service
+                port:
+                  number: 80
+
+    # 2. Reglas para el Backend (API)
+    - host: api.pmbok.ihexhubs.com # Este también lo cambiaremos
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pmbok-backend-service
+                port:
+                  number: 8000

@@ -1,0 +1,25 @@
+# /webapps/erd-ecosystem/devops/k8s/services/pmbok/pmbok-frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pmbok-frontend-deployment
+  labels:
+    app: pmbok-frontend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: pmbok-frontend
+  template:
+    metadata:
+      labels:
+        app: pmbok-frontend
+    spec:
+      containers:
+        - name: pmbok-frontend
+          image: ghcr.io/elrincondeldetective/pmbok/frontend:sha-8415d5f
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http

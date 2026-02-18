@@ -1,0 +1,16 @@
+# /webapps/erd-ecosystem/devops/k8s/components/postgres-db/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-volume
+  labels:
+    type: local
+    app: postgres
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce # 👈 CAMBIO CRÍTICO: Postgres necesita acceso exclusivo (RWO)
+  hostPath:
+    path: "/mnt/data/"
