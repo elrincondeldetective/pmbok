@@ -1,0 +1,200 @@
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/build-push.yaml
+name: Build and Push (PMBOK)
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/build-push.yaml"
+      - ".github/actions/**"
+      - "Taskfile.yaml"
+  push:
+    branches: [dev]
+    # SOLUCIÓN 1: Activar disparador para Tags (Releases)
+    tags: ["v*"]
+    # NOTA: Se ha eliminado 'paths' aquí para que los tags siempre disparen el workflow
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  statuses: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NS: pmbok
+  BASE_PATH: .
+  # CAMBIO FASE 3.1: Usar variable estándar VITE_API_BASE_URL con ruta relativa
+  FRONTEND_VITE_API_BASE_URL: /api
+  PARENT_GITOPS_BRANCH: dev
+
+jobs:
+  validate-pr:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce feature/** source branch
+        shell: bash
+        run: |
+          if [[ "${{ github.head_ref }}" != feature/* && "${{ github.head_ref }}" != release-please--* ]]; then
+            echo "❌ Este PR hacia dev debe venir desde una rama feature/**"
+            echo "   Rama origen: ${{ github.head_ref }}"
+            exit 1
+          fi
+
+  filter:
+    needs: [validate-pr]
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-24.04
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # SOLUCIÓN 2: Filtros INLINE (reemplaza archivo borrado en utils)
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Taskfile.yaml'
+            frontend:
+              - 'frontend/**'
+              - 'Taskfile.yaml'
+
+  build-push:
+    needs: filter
+    runs-on: ubuntu-24.04
+    # SOLUCIÓN 3: Ejecutar si hay cambios O si es un TAG (Release forzado)
+    if: ${{ (needs.filter.outputs.services != '[]' && needs.filter.outputs.services != '') || startsWith(github.ref, 'refs/tags/') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Si es Tag -> Construir TODO. Si es Dev -> Construir solo lo que cambió.
+        service: ${{ startsWith(github.ref, 'refs/tags/') && fromJson('["backend", "frontend"]') || fromJson(needs.filter.outputs.services) }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Dependencies
+        uses: ./.github/actions/setup-dependencies
+        with:
+          working-directory: ${{ matrix.service }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name == 'push' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # SOLUCIÓN 4: Metadatos Inteligentes
+      # Genera: 'dev' en rama dev, 'v0.1.0' + 'latest' en tags.
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NS }}/${{ matrix.service }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=sha,format=short
+
+      # ---------- FRONTEND ----------
+      - name: Build (and push on dev) FRONTEND
+        if: ${{ matrix.service == 'frontend' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          target: prod
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # CAMBIO FASE 3.1: Pasar build-arg correcto
+          build-args: |
+            VITE_API_BASE_URL=${{ env.FRONTEND_VITE_API_BASE_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- BACKEND ----------
+      - name: Build (and push on dev) BACKEND
+        if: ${{ matrix.service == 'backend' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ✅ SOLO en push a rama DEV (no Tags, no PR): Trigger GitOps
+      - name: Trigger GitOps in Parent Repo
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ERD_ECOSYSTEM_CI }}
+          script: |
+            const shortSha = context.sha.substring(0, 7);
+            const servicePathInParent = `apps/pmbok/${{ matrix.service }}`;
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'elrincondeldetective',
+              repo: 'erd-ecosystem',
+              workflow_id: 'update-gitops-manifests.yaml',
+              ref: 'main',
+              inputs: {
+                sha: shortSha,
+                services: JSON.stringify([servicePathInParent]),
+                target_branch: process.env.PARENT_GITOPS_BRANCH
+              }
+            });
+
+            console.log(`🚀 Triggered GitOps update for sha: ${shortSha} on service: ${servicePathInParent} (branch: ${process.env.PARENT_GITOPS_BRANCH})`);
+
+  report-required-status:
+    name: Report required status (Build and Push)
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [validate-pr, filter, build-push]
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish legacy required status "Build and Push (PMBOK)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          R_VALIDATE: ${{ needs.validate-pr.result }}
+          R_FILTER: ${{ needs.filter.result }}
+          R_BUILD: ${{ needs.build-push.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state="success"
+          for r in "$R_VALIDATE" "$R_FILTER" "$R_BUILD"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              state="failure"
+            fi
+          done
+
+          echo "Publishing status: Build and Push (PMBOK) => $state (sha=$SHA)"
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/$SHA" \
+            -d "{\"state\":\"$state\",\"context\":\"Build and Push (PMBOK)\",\"description\":\"Aggregate required status\"}"

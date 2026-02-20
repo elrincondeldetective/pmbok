@@ -1,0 +1,190 @@
+# /webapps/erd-ecosystem/apps/pmbok/backend/api/management/commands/seed_pmbok.py
+from django.core.management.base import BaseCommand
+from api.models import ProcessStatus, ProcessStage, PMBOKProcess
+
+# --- NUEVA FUNCIÓN ---
+# Helper para convertir string a formato JSON [{name: "...", url: ""}]
+
+
+def to_json_list(text_block):
+    if not text_block or not text_block.strip():
+        return []
+    return [{"name": item.strip(), "url": ""} for item in text_block.split('\n') if item.strip()]
+
+
+class Command(BaseCommand):
+    help = 'Seeds the database with PMBOK processes, statuses, stages, and ITTOs safely (Idempotent)'
+
+    def handle(self, *args, **options):
+        # 1. Eliminamos el delete masivo peligroso para no romper referencias
+        # PMBOKProcess.objects.all().delete() <--- ELIMINADO
+
+        self.stdout.write('Creating/getting shared process statuses...')
+        # V V V LÍNEAS CORREGIDAS - SIN EMOJIS V V V
+        status_base, _ = ProcessStatus.objects.get_or_create(name="Base Estratégica", defaults={
+                                                             'tailwind_bg_color': 'bg-indigo-800', 'tailwind_text_color': 'text-white'})
+        status_sprint_cycle, _ = ProcessStatus.objects.get_or_create(name="Ciclo del Sprint", defaults={
+                                                                     'tailwind_bg_color': 'bg-blue-700', 'tailwind_text_color': 'text-white'})
+        status_daily, _ = ProcessStatus.objects.get_or_create(name="Ritmo Diario", defaults={
+                                                              'tailwind_bg_color': 'bg-green-600', 'tailwind_text_color': 'text-white'})
+        status_burocracia, _ = ProcessStatus.objects.get_or_create(name="Burocracia Innecesaria", defaults={
+                                                                   'tailwind_bg_color': 'bg-amber-500', 'tailwind_text_color': 'text-white'})
+        status_inaplicable, _ = ProcessStatus.objects.get_or_create(name="Inaplicable", defaults={
+                                                                    'tailwind_bg_color': 'bg-gray-400', 'tailwind_text_color': 'text-gray-800'})
+        # ^ ^ ^ LÍNEAS CORREGIDAS - SIN EMOJIS ^ ^ ^
+
+        self.stdout.write('Creating process stages...')
+        stage_map = {
+            "Integración (Inicio)": ProcessStage.objects.get_or_create(name="Integración (Inicio)", defaults={'tailwind_bg_color': 'bg-gray-200', 'tailwind_text_color': 'text-gray-700'})[0],
+            "Integración (Planeación)": ProcessStage.objects.get_or_create(name="Integración (Planeación)", defaults={'tailwind_bg_color': 'bg-gray-200', 'tailwind_text_color': 'text-gray-700'})[0],
+            "Integración (Ejecución)": ProcessStage.objects.get_or_create(name="Integración (Ejecución)", defaults={'tailwind_bg_color': 'bg-gray-200', 'tailwind_text_color': 'text-gray-700'})[0],
+            "Integración (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Integración (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-gray-200', 'tailwind_text_color': 'text-gray-700'})[0],
+            "Integración (Cierre)": ProcessStage.objects.get_or_create(name="Integración (Cierre)", defaults={'tailwind_bg_color': 'bg-gray-200', 'tailwind_text_color': 'text-gray-700'})[0],
+            "Interesados (Inicio)": ProcessStage.objects.get_or_create(name="Interesados (Inicio)", defaults={'tailwind_bg_color': 'bg-purple-100', 'tailwind_text_color': 'text-purple-800'})[0],
+            "Interesados (Planeación)": ProcessStage.objects.get_or_create(name="Interesados (Planeación)", defaults={'tailwind_bg_color': 'bg-purple-100', 'tailwind_text_color': 'text-purple-800'})[0],
+            "Interesados (Ejecución)": ProcessStage.objects.get_or_create(name="Interesados (Ejecución)", defaults={'tailwind_bg_color': 'bg-purple-100', 'tailwind_text_color': 'text-purple-800'})[0],
+            "Interesados (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Interesados (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-purple-100', 'tailwind_text_color': 'text-purple-800'})[0],
+            "Alcance (Planeación)": ProcessStage.objects.get_or_create(name="Alcance (Planeación)", defaults={'tailwind_bg_color': 'bg-blue-100', 'tailwind_text_color': 'text-blue-800'})[0],
+            "Alcance (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Alcance (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-blue-100', 'tailwind_text_color': 'text-blue-800'})[0],
+            "Cronograma (Planeación)": ProcessStage.objects.get_or_create(name="Cronograma (Planeación)", defaults={'tailwind_bg_color': 'bg-cyan-100', 'tailwind_text_color': 'text-cyan-800'})[0],
+            "Cronograma (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Cronograma (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-cyan-100', 'tailwind_text_color': 'text-cyan-800'})[0],
+            "Costos (Planeación)": ProcessStage.objects.get_or_create(name="Costos (Planeación)", defaults={'tailwind_bg_color': 'bg-green-100', 'tailwind_text_color': 'text-green-800'})[0],
+            "Costos (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Costos (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-green-100', 'tailwind_text_color': 'text-green-800'})[0],
+            "Calidad (Planeación)": ProcessStage.objects.get_or_create(name="Calidad (Planeación)", defaults={'tailwind_bg_color': 'bg-red-100', 'tailwind_text_color': 'text-red-800'})[0],
+            "Calidad (Ejecución)": ProcessStage.objects.get_or_create(name="Calidad (Ejecución)", defaults={'tailwind_bg_color': 'bg-red-100', 'tailwind_text_color': 'text-red-800'})[0],
+            "Calidad (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Calidad (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-red-100', 'tailwind_text_color': 'text-red-800'})[0],
+            "Recursos (Planeación)": ProcessStage.objects.get_or_create(name="Recursos (Planeación)", defaults={'tailwind_bg_color': 'bg-lime-100', 'tailwind_text_color': 'text-lime-800'})[0],
+            "Recursos (Ejecución)": ProcessStage.objects.get_or_create(name="Recursos (Ejecución)", defaults={'tailwind_bg_color': 'bg-lime-100', 'tailwind_text_color': 'text-lime-800'})[0],
+            "Recursos (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Recursos (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-lime-100', 'tailwind_text_color': 'text-lime-800'})[0],
+            "Comunicaciones (Planeación)": ProcessStage.objects.get_or_create(name="Comunicaciones (Planeación)", defaults={'tailwind_bg_color': 'bg-rose-100', 'tailwind_text_color': 'text-rose-800'})[0],
+            "Comunicaciones (Ejecución)": ProcessStage.objects.get_or_create(name="Comunicaciones (Ejecución)", defaults={'tailwind_bg_color': 'bg-rose-100', 'tailwind_text_color': 'text-rose-800'})[0],
+            "Comunicaciones (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Comunicaciones (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-rose-100', 'tailwind_text_color': 'text-rose-800'})[0],
+            "Riesgos (Planeación)": ProcessStage.objects.get_or_create(name="Riesgos (Planeación)", defaults={'tailwind_bg_color': 'bg-amber-100', 'tailwind_text_color': 'text-amber-800'})[0],
+            "Riesgos (Ejecución)": ProcessStage.objects.get_or_create(name="Riesgos (Ejecución)", defaults={'tailwind_bg_color': 'bg-amber-100', 'tailwind_text_color': 'text-amber-800'})[0],
+            "Riesgos (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Riesgos (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-amber-100', 'tailwind_text_color': 'text-amber-800'})[0],
+            "Adquisiciones (Planeación)": ProcessStage.objects.get_or_create(name="Adquisiciones (Planeación)", defaults={'tailwind_bg_color': 'bg-orange-100', 'tailwind_text_color': 'text-orange-800'})[0],
+            "Adquisiciones (Ejecución)": ProcessStage.objects.get_or_create(name="Adquisiciones (Ejecución)", defaults={'tailwind_bg_color': 'bg-orange-100', 'tailwind_text_color': 'text-orange-800'})[0],
+            "Adquisiciones (Monitoreo y Control)": ProcessStage.objects.get_or_create(name="Adquisiciones (Monitoreo y Control)", defaults={'tailwind_bg_color': 'bg-orange-100', 'tailwind_text_color': 'text-orange-800'})[0],
+        }
+
+        full_processes_data = [
+            (1, "Desarrollar el Acta de Constitución del Proyecto", "Documentos de negocio\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+                "Juicio de expertos\nRecopilación de datos\nHabilidades interpersonales y de equipo\nReuniones", "Acta de constitución del proyecto\nRegistro de supuestos", status_base, stage_map["Integración (Inicio)"]),
+            (2, "Identificar a los Interesados", "Acta de constitución del proyecto\nDocumentos de negocio\nPlan para la dirección del proyecto\nDocumentos del proyecto\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+                "Juicio de expertos\nRecopilación de datos\nRepresentación de datos\nReuniones", "Registro de interesados\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_base, stage_map["Interesados (Inicio)"]),
+            (3, "Desarrollar el Plan para la Dirección del Proyecto", "Acta de constitución del proyecto\nSalidas de otros procesos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nReuniones", "Plan para la direcciIón del proyecto", status_burocracia, stage_map["Integración (Planeación)"]),
+            (4, "Planificar el Involucramiento de los Interesados", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nToma de decisiones\nRepresentación de datos\nReuniones", "Plan de involucramiento de los interesados", status_burocracia, stage_map["Interesados (Planeación)"]),
+            (5, "Planificar la Gestión del Alcance", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nReuniones", "Plan para la gestión del alcance\nPlan de gestión de los requisitos", status_base, stage_map["Alcance (Planeación)"]),
+            (6, "Recopilar Requisitos", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nDocumentos de negocio\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nToma de decisiones\nRepresentación de datos\nHabilidades interpersonales y de equipo\nDiagramas de contexto\nPrototipos", "Documentación de requisitos\nMatriz de trazabilidad de requisitos", status_base, stage_map["Alcance (Planeación)"]),
+            (7, "Definir el Alcance", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nToma de decisiones\nHabilidades interpersonales y de equipo\nAnálisis del producto", "Enunciado del alcance del proyecto\nActualizaciones a los documentos del proyecto", status_base, stage_map["Alcance (Planeación)"]),
+            (8, "Crear la EDT/WBS", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nDescomposición", "Línea base del alcance\nActualizaciones a los documentos del proyecto", status_base, stage_map["Alcance (Planeación)"]),
+            (9, "Planificar la Gestión del Cronograma", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nReuniones", "Plan de gestión del cronograma", status_base, stage_map["Cronograma (Planeación)"]),
+            (10, "Definir las Actividades", "Plan para la dirección del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nDescomposición\nPlanificación gradual\nReuniones",
+             "Lista de actividades\nAtributos de la actividad\nLista de hitos\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto", status_burocracia, stage_map["Cronograma (Planeación)"]),
+            (11, "Secuenciar las Actividades", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Método de diagramación por precedencia\nDeterminación e integración de las dependencias\nAdelantos y retrasos\nSistema de información para la dirección de proyectos", "Diagrama de red del cronograma del proyecto\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Cronograma (Planeación)"]),
+            (12, "Planificar la Gestión de los Riesgos", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nHerramientas y Técnicas",
+             "Juicio de expertos\nAnálisis de datos\nReuniones", "Plan de gestión de los riesgos", status_base, stage_map["Riesgos (Planeación)"]),
+            (13, "Identificar los Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nAcuerdos\nDocumentación de las adquisiciones\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nHabilidades interpersonales y de equipo\nListas rápidas\nReuniones", "Registro de riesgos\nInforme de riesgos\nActualizaciones a los documentos del proyecto", status_base, stage_map["Riesgos (Planeación)"]),
+            (14, "Realizar el Análisis Cualitativo de Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nHabilidades interpersonales y de equipo\nCategorización de riesgos\nRepresentación de datos\nReuniones", "Actualizaciones a los documentos del proyecto", status_burocracia, stage_map["Riesgos (Planeación)"]),
+            (15, "Realizar el Análisis Cuantitativo de Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nRepresentaciones de la incertidumbre\nAnálisis de datos", "Actualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Riesgos (Planeación)"]),
+            (16, "Planificar la Respuesta a los Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nEstrategias para amenaza\nEstrategias para oportunidades\nEstrategias de respuesta a contingencias\nEstrategias para el riesgo general del proyecto\nAnálisis de datos\nToma de decisiones", "Solicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Riesgos (Planeación)"]),
+            (17, "Planificar la Gestión de Recursos", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRepresentación de datos\nTeoría organizacional\nReuniones", "Plan de gestión de los recursos\nActa de constitución del equipo\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Recursos (Planeación)"]),
+            (18, "Estimar los Recursos de las Actividades", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nEstimación ascendente\nEstimación análoga\nEstimación paramétrica\nAnálisis de datos\nSistema de información para la dirección de proyectos\nReuniones",
+             "Requisitos de recursos\nBase de las estimaciones\nEstructura de desglose de recursos\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Recursos (Planeación)"]),
+            (19, "Planificar la Gestión de los Costos", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nReuniones", "Plan de gestión de los costos", status_base, stage_map["Costos (Planeación)"]),
+            (20, "Estimar los Costos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nEstimación análoga\nEstimación paramétrica\nEstimación ascendente\nEstimaciones basadas en tres valores\nAnálisis de datos\nSistema de información para la dirección de proyectos\nToma de decisiones", "Estimaciones de costos\nBase de las estimaciones\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Costos (Planeación)"]),
+            (21, "Estimar la Duración de las Actividades", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nEstimación análoga\nEstimación paramétrica\nEstimaciones basadas en tres valores\nEstimación ascendente\nAnálisis de datos\nToma de decisiones\nReuniones", "Estimaciones de la duración\nBase de las estimaciones\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Cronograma (Planeación)"]),
+            (22, "Desarrollar el Cronograma", "Plan para la dirección del proyecto\nDocumentos del proyecto\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Análisis de la red del cronograma\nMétodo de la ruta crítica\nOptimización de recursos\nAnálisis de datos\nAdelantos y retrasos\nCompresión del cronograma\nSistema de información para la dirección de proyectos\nPlanificación ágil de liberaciones",
+             "Línea base del cronograma\nCronograma del proyecto\nDatos del cronograma\nCalendarios del proyecto\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Cronograma (Planeación)"]),
+            (23, "Determinar el Presupuesto", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDocumentos de negocio\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nCostos agregados\nAnálisis de datos\nRevisar la información histórica\nConciliación del límite de financiamiento\nFinanciamiento", "Línea base de costos\nRequisitos de financiamiento del proyecto\nActualizaciones a los documentos del proyecto", status_base, stage_map["Costos (Planeación)"]),
+            (24, "Planificar la Gestión de la Calidad", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nRecopilación de datos\nToma de decisiones\nRepresentación de datos\nPlanificación de pruebas e inspección\nReuniones", "Plan de gestión de la calidad\nMétricas de calidad\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Calidad (Planeación)"]),
+            (25, "Planificar la Gestión de las Comunicaciones", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de requisitos de comunicación\nTecnología de la comunicación\nModelos de comunicación\nMétodos de comunicación\nHabilidades interpersonales y de equipo\nRepresentación de datos\nReuniones", "Plan de gestión de las comunicaciones\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Comunicaciones (Planeación)"]),
+            (26, "Planificar la Gestión de las Adquisiciones", "Acta de constitución del proyecto\nDocumentos de negocio\nPlan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nRecopilación de datos\nCriterios de selección de proveedores\nReuniones",
+             "Plan de gestión de las adquisiciones\nEstrategia de las adquisiciones\nDocumentos de las licitaciones\nEnunciados del trabajo relativo a adquisiciones\nCriterios de selección de proveedores\nDecisiones de hacer o comprar\nEstimaciones independientes de costos\nSolicitudes de cambio\nActualizaciones a los documentos del proyecto\nActualizaciones a los activos de los procesos de la organización", status_inaplicable, stage_map["Adquisiciones (Planeación)"]),
+            (27, "Dirigir y Gestionar el Trabajo del Proyecto", "Plan para la dirección del proyecto\nDocumentos del proyecto\nSolicitudes de cambio aprobadas\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nSistema de información para la dirección de proyectos\nReuniones",
+             "Entregables\nDatos de desempeño del trabajo\nRegistro de incidentes\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los activos de los procesos de la organización", status_daily, stage_map["Integración (Ejecución)"]),
+            (28, "Gestionar el Conocimiento del Proyecto", "Plan para la dirección del proyecto\nDocumentos del proyecto\nEntregables\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nGestión del conocimiento\nGestión de la información\nHabilidades interpersonales y de equipo",
+             "Registro de lecciones aprendidas\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los activos de los procesos de la organización", status_sprint_cycle, stage_map["Integración (Ejecución)"]),
+            (29, "Gestionar el Involucramiento de los Interesados", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nHabilidades de comunicación\nHabilidades interpersonales y de equipo\nReglas básicas\nReuniones", "Solicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_sprint_cycle, stage_map["Interesados (Ejecución)"]),
+            (30, "Adquirir Recursos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Toma de decisiones\nHabilidades interpersonales y de equipo\nAsignación Previa\nEquipos virtuales",
+             "Asignaciones de recursos físicos\nAsignaciones del equipo del proyecto\nCalendarios de recursos\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los factores ambientales de la empresa\nActualizaciones a los activos de los procesos de la organización", status_inaplicable, stage_map["Recursos (Ejecución)"]),
+            (31, "Desarrollar el Equipo", "Plan para la dirección del proyecto\nDocumentos del proyecto\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Coubicación\nEquipos virtuales\nTecnología de la comunicación\nHabilidades interpersonales y de equipo\nReconocimiento y recompensas\nCapacitación\nEvaluaciones individuales y de equipo\nReuniones",
+             "Evaluaciones de desempeño del equipo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los factores ambientales de la empresa\nActualizaciones a los activos de los procesos de la organización", status_burocracia, stage_map["Recursos (Ejecución)"]),
+            (32, "Dirigir al Equipo", "Plan para la dirección del proyecto\nDocumentos del proyecto\nInformes de desempeño del trabajo\nEvaluaciones de desempeño del equipo\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Habilidades interpersonales y de equipo\nSistema de información para la dirección de proyectos", "Solicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los factores ambientales de la empresa", status_daily, stage_map["Recursos (Ejecución)"]),
+            (34, "Efectuar las Adquisiciones", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDocumentación de las adquisiciones\nPropuestas de los vendedores\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nPublicidad\nConferencia de oferentes\nAnálisis de datos\nHabilidades interpersonales y de equipo",
+             "Vendedores seleccionados\nAcuerdos\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los activos de los procesos de la organización", status_inaplicable, stage_map["Adquisiciones (Ejecución)"]),
+            (36, "Implementar la Respuesta a los Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nActivos de los procesos de la organización",
+             "Juicio de expertos\nHabilidades interpersonales y de equipo\nSistema de información para la dirección de proyectos", "Solicitudes de cambio\nActualizaciones a los documentos del proyecto", status_burocracia, stage_map["Riesgos (Ejecución)"]),
+            (37, "Monitorear y Controlar el Trabajo del Proyecto", "Plan para la dirección del proyecto\nDocumentos del proyecto\nInformación de desempeño del trabajo\nAcuerdos\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nToma de decisiones\nReuniones", "Informes de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_sprint_cycle, stage_map["Integración (Monitoreo y Control)"]),
+            (38, "Realizar el Control Integrado de Cambios", "Plan para la dirección del proyecto\nDocumentos del proyecto\nInformes de desempeño del trabajo\nSolicitudes de cambio\nFactores ambientales de la empresa\nActivos de los procesos de la organización",
+             "Juicio de expertos\nHerramientas de control de cambios\nAnálisis de datos\nToma de decisiones\nReuniones", "Solicitudes de cambio aprobadas\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_sprint_cycle, stage_map["Integración (Monitoreo y Control)"]),
+            (40, "Controlar el Cronograma", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDatos de desempeño del trabajo\nActivos de los procesos de la organización", "Análisis de datos\nMétodo de la ruta crítica\nSistema de información para la dirección de proyectos\nOptimización de recursos\nAdelantos y retrasos\nCompresión del cronograma",
+             "Información de desempeño del trabajo\nPronósticos del cronograma\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Cronograma (Monitoreo y Control)"]),
+            (41, "Controlar los Costos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nRequisitos de financiamiento del proyecto\nDatos de desempeño del trabajo\nActivos de los procesos de la organización", "Juicio de expertos\nAnálisis de datos\nÍndice de desempeño del trabajo por completar\nSistema de información para la dirección de proyectos",
+             "Información de desempeño del trabajo\nPronósticos de costos\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Costos (Monitoreo y Control)"]),
+            (42, "Monitorear las Comunicaciones", "Plan para la dirección del proyecto\nDocumentos del proyecto\nInformes de desempeño del trabajo\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nSistema de información para la dirección de proyectos\nRepresentación de datos\nHabilidades interpersonales y de equipo\nReuniones",
+             "Información de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Comunicaciones (Monitoreo y Control)"]),
+            (43, "Monitorear los Riesgos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDatos de desempeño del trabajo\nInformes de desempeño del trabajo", "Análisis de datos\nAuditorías\nReuniones",
+             "Información de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto\nActualizaciones a los activos de los procesos de la organización", status_sprint_cycle, stage_map["Riesgos (Monitoreo y Control)"]),
+            (44, "Controlar los Recursos", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDatos de desempeño del trabajo\nAcuerdos\nActivos de los procesos de la organización", "Análisis de datos\nResolución de problemas\nHabilidades interpersonales y de equipo\nSistema de información para la dirección de proyectos",
+             "Información de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Recursos (Monitoreo y Control)"]),
+            (45, "Controlar la Calidad", "Plan para la dirección del proyecto\nDocumentos del proyecto\nSolicitudes de cambio aprobadas\nEntregables\nDatos de desempeño del trabajo\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Recopilación de datos\nInspección\nPruebas/evaluaciones de productos\nRepresentación de datos\nReuniones",
+             "Mediciones de control de calidad\nEntregables verificados\nInformación de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_sprint_cycle, stage_map["Calidad (Monitoreo y Control)"]),
+            (46, "Validar el Alcance", "Plan para la dirección del proyecto\nDocumentos del proyecto\nEntregables verificados\nDatos de desempeño del trabajo", "Inspección\nToma de decisiones",
+             "Entregables aceptados\nInformación de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones a los documentos del proyecto", status_sprint_cycle, stage_map["Alcance (Monitoreo y Control)"]),
+            (47, "Controlar el Alcance", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDatos de desempeño del trabajo\nActivos de los procesos de la organización", "Análisis de datos",
+             "Información de desempeño del trabajo\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Alcance (Monitoreo y Control)"]),
+            (48, "Controlar las Adquisiciones", "Plan para la dirección del proyecto\nDocumentos del proyecto\nDocumentación de las adquisiciones\nSolicitudes de cambio aprobadas\nDatos de desempeño del trabajo\nFactores ambientales de la empresa\nActivos de los procesos de la organización", "Juicio de expertos\nAdministración de reclamaciones\nAnálisis de datos\nInspección\nAuditorías",
+             "Adquisiciones cerradas\nInformación de desempeño del trabajo\nActualizaciones de la documentación de las adquisiciones\nSolicitudes de cambio\nActualizaciones al plan para la dirección del proyecto\nActualizaciones a los documentos del proyecto", status_inaplicable, stage_map["Adquisiciones (Monitoreo y Control)"]),
+            (49, "Cerrar el Proyecto o Fase", "Acta de constitución del proyecto\nPlan para la dirección del proyecto\nDocumentos del proyecto\nEntregables aceptados\nDocumentos de negocio\nAcuerdos\nDocumentación de las adquisiciones\nActivos de los procesos de la organización",
+             "Juicio de expertos\nAnálisis de datos\nReuniones", "Actualizaciones a los documentos del proyecto\nTransferencia del producto, servicio o resultado final\nInforme final\nActualizaciones a los activos de los procesos de la organización", status_inaplicable, stage_map["Integración (Cierre)"]),
+        ]
+
+        self.stdout.write('Upserting PMBOK processes (Non-destructive)...')
+        count_created = 0
+        count_updated = 0
+
+        for num, name, inputs, tools, outputs, status_obj, stage_obj in full_processes_data:
+            # Usamos update_or_create para que el script sea idempotente
+            obj, created = PMBOKProcess.objects.update_or_create(
+                process_number=num,  # Campo lookup para identificar el registro
+                defaults={
+                    'name': name,
+                    'inputs': to_json_list(inputs),
+                    'tools_and_techniques': to_json_list(tools),
+                    'outputs': to_json_list(outputs),
+                    'status': status_obj,
+                    'stage': stage_obj,
+                    # IMPORTANTE: NO incluimos 'kanban_status' en defaults para no sobrescribir
+                    # el estado (To Do, In Progress) que el usuario ya haya cambiado.
+                }
+            )
+            if created:
+                count_created += 1
+            else:
+                count_updated += 1
+
+        self.stdout.write(self.style.SUCCESS(
+            f'Seeding complete! Created: {count_created}, Updated: {count_updated}.'))

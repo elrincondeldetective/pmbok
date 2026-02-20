@@ -1,0 +1,44 @@
+# /webapps/erd-ecosystem/apps/pmbok/Taskfile.yaml
+version: '3'
+
+includes:
+  backend:
+    taskfile: backend/Taskfile.yaml
+    dir: backend
+
+  frontend:
+    taskfile: frontend/Taskfile.yaml
+    dir: frontend
+
+tasks:
+  # --- META TAREAS (App Level) ---
+  default:
+    desc: "Muestra las tareas disponibles"
+    cmds:
+      - task --list
+
+  ci:
+    desc: "🔍 Ejecutar CI completo de la App (Backend + Frontend)"
+    cmds:
+      - echo "🏁 [PMBOK] Iniciando CI Completo..."
+      - task: install-ci
+      - task: test
+      - echo "✅ [PMBOK] CI Finalizado con éxito."
+
+  install-ci:
+    desc: "📦 Instalar dependencias de todos los servicios (Modo CI)"
+    cmds:
+      - echo "📦 Instalando dependencias BACKEND (CI)..."
+      - task: backend:install-ci
+      - echo "📦 Instalando dependencias FRONTEND (CI)..."
+      - task: frontend:install-ci
+
+  test:
+    desc: "🧪 Ejecutar pruebas de todos los servicios"
+    cmds:
+      - echo "🚀 Iniciando pruebas del BACKEND..."
+      - task: backend:test
+      - echo "-----------------------------------"
+      - echo "🚀 Iniciando pruebas del FRONTEND..."
+      - task: frontend:test
+      - echo "✅ ¡Todas las pruebas finalizaron con éxito!"

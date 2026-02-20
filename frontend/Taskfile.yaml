@@ -1,0 +1,55 @@
+# /webapps/erd-ecosystem/apps/pmbok/frontend/Taskfile.yaml
+version: "3"
+
+tasks:
+  deps:
+    desc: "🧩 Verificar dependencias mínimas para validaciones"
+    cmds:
+      - |
+        if [ ! -x node_modules/.bin/eslint ] || [ ! -x node_modules/.bin/vite ]; then
+          echo "📦 Dependencias faltantes para lint/build. Ejecutando npm ci..."
+          npm ci
+        else
+          echo "✅ Dependencias frontend listas."
+        fi
+
+  install:
+    desc: "📦 Instalar dependencias (Local)"
+    cmds:
+      - npm install
+
+  install-ci:
+    desc: "📦 Instalar dependencias (CI - Clean)"
+    # npm ci borra node_modules y instala exactamente lo que dice el package-lock.json
+    cmds:
+      - npm ci
+
+  # ✅ NEW: Tarea de Linting separada
+  lint:
+    desc: "🧹 Validar estilo (ESLint)"
+    deps:
+      - deps
+    cmds:
+      - echo "🧹 [FRONTEND] Linting..."
+      - npm run lint
+
+  # ✅ NEW: Tarea de Build separada
+  build:
+    desc: "🧱 Validar compilación (Build)"
+    deps:
+      - deps
+    cmds:
+      - echo "🧱 [FRONTEND] Building..."
+      - npm run build
+
+  test:
+    desc: "🧪 Ejecutar validaciones (Lint + Build)"
+    cmds:
+      # Como no hay tests unitarios aún, validamos calidad de código y compilación
+      - task: lint
+      - task: build
+
+  run:
+    desc: "🚀 Ejecutar servidor de desarrollo (Vite)"
+    cmds:
+      - npm run dev

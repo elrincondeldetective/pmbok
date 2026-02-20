@@ -1,0 +1,40 @@
+# /webapps/erd-ecosystem/apps/pmbok/.github/workflows/release-please.yaml
+name: Release Please
+
+on:
+  push:
+    branches:
+      - dev  # 👈 CORRECCIÓN: El bot vigila dev para preparar la versión
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# FASE 6 (NUEVO): Evitar ejecuciones simultáneas que generen PRs duplicados
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # FASE 6 (NUEVO): Checkout full history para versionado/changelog consistente
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: google-github-actions/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+          
+          # ✅ CLAVE 1: El PR de release se hace contra dev
+          target-branch: dev
+          
+          # ✅ CLAVE 2: El bot NO crea el Release/Tag en GitHub automáticamente.
+          # Solo actualiza el archivo VERSION y CHANGELOG en el código.
+          # Los tags (rc1, v1.0.0) los gestionas tú con 'git promote'.
+          skip-github-release: true
