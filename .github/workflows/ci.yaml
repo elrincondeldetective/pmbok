@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pmbok
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Devbox
+        uses: jetpack-io/devbox-install-action@v0.11.0
+        with:
+          enable-cache: true
+
+      - name: Run App Tests
+        run: devbox run -- task test
+
+      - name: Build Docker Backend
+        run: docker build -t pmbok-backend:ci ./backend
+
+      - name: Build Docker Frontend
+        run: docker build -t pmbok-frontend:ci ./frontend
